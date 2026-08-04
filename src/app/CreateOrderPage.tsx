@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { getCustomers } from "../services/customers.service";
 import { getProducts } from "../services/products.service";
 import { createOrderWithItems } from "../services/orders.service";
+import { ORDER_STATUS } from "../services/order-statuses";
 import { notifyInventoryShortage, notifyOrderPendingApproval } from "../services/notification.service";
 
 const B = {
@@ -107,7 +108,7 @@ function SecondaryButton({
 export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => void }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,13 +246,19 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
         quantity: item.quantity,
         unit_price: item.unit_price,
       }));
+      const createdBy = profile?.id ?? user?.id;
+      if (!createdBy) {
+        throw new Error("Authenticated user profile is unavailable");
+      }
+
       const orderId = await createOrderWithItems({
         order_number: orderNumber,
         customer_id: selectedCustomer,
         order_date: new Date().toISOString().split("T")[0],
         expected_delivery: expectedDelivery,
-        status: "Pending Approval",
+        status: ORDER_STATUS.Pending,
         total_amount: totalAmount,
+        created_by: createdBy,
         items: itemsToInsert,
       });
 

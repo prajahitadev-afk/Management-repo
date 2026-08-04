@@ -66,6 +66,52 @@ function toEmployee(record: Record<string, unknown>): Employee {
   };
 }
 
+function buildTemporaryPassword(seed: string): string {
+  const normalizedSeed = seed.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "TempUser";
+  return `${normalizedSeed}${Date.now().toString().slice(-4)}!Aa1`;
+}
+
+async function cleanupCreatedAuthUser(authUserId: string | null): Promise<void> {
+  if (!authUserId) return;
+
+  const adminClient = (supabase.auth as typeof supabase.auth & { admin?: { deleteUser?: (userId: string) => Promise<{ error: { message: string } | null }> } }).admin;
+  const deleteUser = adminClient?.deleteUser;
+  if (!deleteUser) {
+    console.warn("Auth user cleanup skipped because admin deleteUser is unavailable.", { authUserId });
+    return;
+  }
+
+  const { error } = await deleteUser(authUserId);
+  if (error) {
+    console.error("Failed to remove newly created auth user during rollback.", error);
+  }
+}
+
+function buildEmployeeProfilePayload(input: {
+  authUserId: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  department: string;
+  reportsTo: string | null;
+  joiningDate: string | null;
+}) {
+  return {
+    id: input.authUserId,
+    employee_id: input.employeeId,
+    name: input.name,
+    email: input.email,
+    phone: input.phone,
+    role: input.role,
+    department: input.department,
+    reports_to: input.reportsTo,
+    joining_date: input.joiningDate,
+    status: "Active",
+  };
+}
+
 function buildEmployeeQuery(filters: EmployeeFilters = {}) {
   const { search, department, role, status } = filters;
   let query = supabase.from("profiles").select("*");
@@ -211,21 +257,46 @@ export async function createEmployee(actorId: string, input: {
   joiningDate: string | null;
 }): Promise<Employee> {
   await authorizeEmployeeAction(actorId, null, "create", input.role, input.reportsTo, input.department);
-  const payload = {
-    employee_id: `EMP-${Date.now()}`,
-    name: input.name,
-    email: input.email,
-    phone: input.phone,
+
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const employeeId = `EMP-${Date.now()}`;
+  const tempPassword = buildTemporaryPassword(normalizedEmail);
+
+  console.log("Creating Auth User", { email: normalizedEmail });
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: normalizedEmail,
+    password: tempPassword,
+  });
+  console.log("Auth Result", authData);
+
+  if (authError || !authData?.user?.id) {
+    throw new Error(authError?.message ?? "Failed to create auth user for employee");
+  }
+
+  const authUserId = authData.user.id;
+  console.log("Auth User ID", authUserId);
+
+  const payload = buildEmployeeProfilePayload({
+    authUserId,
+    employeeId,
+    name: input.name.trim(),
+    email: normalizedEmail,
+    phone: input.phone.trim(),
     role: input.role,
     department: input.department,
-    reports_to: input.reportsTo,
-    joining_date: input.joiningDate,
-    status: "Active",
-  };
+    reportsTo: input.reportsTo,
+    joiningDate: input.joiningDate,
+  });
 
+  console.log("Creating Profile", JSON.stringify(payload, null, 2));
   const { data, error } = await supabase.from("profiles").insert([payload]).select("*").single();
+  console.log("Profile Result", data);
 
-  if (error) throw error;
+  if (error) {
+    console.error("Profile creation failed", error);
+    await cleanupCreatedAuthUser(authUserId);
+    throw error;
+  }
 
   return toEmployee(data as Record<string, unknown>);
 }

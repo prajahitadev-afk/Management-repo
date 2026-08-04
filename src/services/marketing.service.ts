@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { normalizeOrderStatus, ORDER_STATUS } from "./order-statuses";
 
 // ──── TYPES ────────────────────────────────────────────────────────────────
 
@@ -113,10 +114,10 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
     const orders = (allOrders || []) as DashboardOrderRow[];
     const totalOrders = orders.length;
-    const pendingOrders = orders.filter((o) => ["Pending", "Submitted", "Pending Approval"].includes(o.status ?? "")).length;
-    const completedOrders = orders.filter((o) => ["Delivered", "Completed"].includes(o.status ?? "")).length;
-    const cancelledOrders = orders.filter((o) => o.status === "Cancelled").length;
-    const dispatchedOrders = (deliveries || []).filter((d) => (d as DeliveryRow).status === "Dispatched").length;
+    const pendingOrders = orders.filter((o) => normalizeOrderStatus(o.status) === ORDER_STATUS.Pending).length;
+    const completedOrders = orders.filter((o) => normalizeOrderStatus(o.status) === ORDER_STATUS.Delivered).length;
+    const cancelledOrders = orders.filter((o) => normalizeOrderStatus(o.status) === ORDER_STATUS.Cancelled).length;
+    const dispatchedOrders = (deliveries || []).filter((d) => normalizeOrderStatus(d.status) === ORDER_STATUS.Dispatched).length;
 
     const monthlySales = orders
       .filter((o) => {
@@ -199,7 +200,7 @@ export async function getMarketingOrders(): Promise<MarketingOrder[]> {
         value: Number(order.total_amount || 0),
         date: formatDate(order.order_date),
         delivery: formatDate(order.expected_delivery),
-        status: order.status || "Pending",
+        status: normalizeOrderStatus(order.status),
       };
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, Send, Archive, Plus } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { ORDER_STATUS } from "../services/order-statuses";
 
 const B = {
   text: "#1C1C1E",
@@ -122,7 +123,7 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
     try {
       setLoading(true);
       const [ordersRes, vehiclesRes, driversRes] = await Promise.all([
-        supabase.from("orders").select("id, order_number, customer_id, total_amount").eq("status", "Approved"),
+        supabase.from("orders").select("id, order_number, customer_id, total_amount").eq("status", ORDER_STATUS.Approved),
         supabase.from("vehicles").select("id, vehicle_number"),
         supabase.from("drivers").select("id, name, phone, license_number, status"),
       ]);
@@ -189,14 +190,15 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
       return;
     }
 
+    const driverName = newDriverName.trim();
+    const driverPhone = newDriverPhone.trim();
+    const driverLicense = newDriverLicense.trim();
     const payload = {
-      name: newDriverName.trim(),
-      phone: newDriverPhone.trim() || null,
-      license_number: newDriverLicense.trim() || null,
+      name: driverName,
+      phone: driverPhone || null,
+      license_number: driverLicense || null,
       status: "Active",
     };
-
-    console.log("Driver Insert Payload", JSON.stringify(payload, null, 2));
 
     setCreatingDriver(true);
     try {
@@ -244,6 +246,11 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
       });
       if (deliveryError) throw deliveryError;
       if (typeof deliveryId !== "string") throw new Error("Failed to create delivery");
+
+      const { error: orderUpdateError } = await supabase.from("orders").update({ status: ORDER_STATUS.Created }).eq("id", selectedOrder);
+      if (orderUpdateError) {
+        console.error("Failed to update order status after dispatch creation", orderUpdateError);
+      }
 
       alert("Dispatch created successfully!");
       onSubmit();

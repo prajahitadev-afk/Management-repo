@@ -30,6 +30,7 @@ import logoSrc from "../assets/images/Prajahita.jpeg";
 import { getMonthlyRevenueData, getCommunityImpactData, getWeeklyAttendanceData, getAttendanceBreakdownData, type MonthData, type CommunityData, type AttendanceDay, type AttendanceBreakdown } from "../services/dashboard.service";
 import { exportMarketingWorkbook } from "../services/marketing.service";
 import { approveOrder, rejectOrder } from "../services/orders.service";
+import { ORDER_STATUS } from "../services/order-statuses";
 import { exportShipmentsToCSV, getDeliveryDetails, getDeliveryEditableOptions, updateDeliveryDetails, type TransportShipment, type DeliveryOption } from "../services/transport.service";
 import { exportAttendanceToCSV } from "../services/attendance.service";
 import { generateReport, exportReportToCSV, exportReportToExcel, exportReportToPDF, type GeneratedReport, type ReportExportFormat, type ReportType } from "../services/reports.service";
@@ -2287,26 +2288,26 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => void handleApproveOrder(o)}
-                          disabled={actionLoadingOrderId === o.id || o.status !== "Pending Approval"}
+                          disabled={actionLoadingOrderId === o.id || o.status !== ORDER_STATUS.Pending}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
                           style={{
-                            background: o.status === "Pending Approval" ? (actionLoadingOrderId === o.id ? "rgba(78,128,80,0.18)" : "rgba(78,128,80,0.15)") : "rgba(156,163,175,0.18)",
-                            color: o.status === "Pending Approval" ? CG : B.textMuted,
-                            border: `1px solid ${o.status === "Pending Approval" ? `${CG}33` : "rgba(156,163,175,0.22)"}`,
-                            cursor: o.status === "Pending Approval" ? "pointer" : "not-allowed",
+                            background: o.status === ORDER_STATUS.Pending ? (actionLoadingOrderId === o.id ? "rgba(78,128,80,0.18)" : "rgba(78,128,80,0.15)") : "rgba(156,163,175,0.18)",
+                            color: o.status === ORDER_STATUS.Pending ? CG : B.textMuted,
+                            border: `1px solid ${o.status === ORDER_STATUS.Pending ? `${CG}33` : "rgba(156,163,175,0.22)"}`,
+                            cursor: o.status === ORDER_STATUS.Pending ? "pointer" : "not-allowed",
                           }}
                         >
                           Approve
                         </button>
                         <button
                           onClick={() => void handleRejectOrder(o)}
-                          disabled={actionLoadingOrderId === o.id || o.status !== "Pending Approval"}
+                          disabled={actionLoadingOrderId === o.id || o.status !== ORDER_STATUS.Pending}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
                           style={{
-                            background: o.status === "Pending Approval" ? (actionLoadingOrderId === o.id ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.10)") : "rgba(156,163,175,0.10)",
-                            color: o.status === "Pending Approval" ? CR : B.textMuted,
-                            border: `1px solid ${o.status === "Pending Approval" ? `${CR}33` : "rgba(156,163,175,0.22)"}`,
-                            cursor: o.status === "Pending Approval" ? "pointer" : "not-allowed",
+                            background: o.status === ORDER_STATUS.Pending ? (actionLoadingOrderId === o.id ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.10)") : "rgba(156,163,175,0.10)",
+                            color: o.status === ORDER_STATUS.Pending ? CR : B.textMuted,
+                            border: `1px solid ${o.status === ORDER_STATUS.Pending ? `${CR}33` : "rgba(156,163,175,0.22)"}`,
+                            cursor: o.status === ORDER_STATUS.Pending ? "pointer" : "not-allowed",
                           }}
                         >
                           Reject
@@ -2503,10 +2504,13 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 text-sm rounded-xl outline-none"
               style={{ background: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.50)", color: B.text }}>
               <option value="All">All Status</option>
+              <option value="Created">Created</option>
               <option value="Loaded">Loaded</option>
               <option value="Dispatched">Dispatched</option>
               <option value="In Transit">In Transit</option>
               <option value="Delivered">Delivered</option>
+              <option value="Failed">Failed</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
             <SecondaryButton icon={Filter}>Filter</SecondaryButton>
           </div>
@@ -2548,7 +2552,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
                         <button onClick={() => void updateStatus(s.deliveryId)}
                           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
                           style={{ background: B.greenLight, color: CG, border: `1px solid ${CG}30` }}>
-                          <ArrowRight size={11} /> {s.status === "In Transit" ? "Deliver" : s.status === "Dispatched" ? "Transit" : "Dispatch"}
+                          <ArrowRight size={11} /> {s.status === "Created" ? "Load" : s.status === "Loaded" ? "Dispatch" : s.status === "Dispatched" ? "Transit" : s.status === "In Transit" ? "Deliver" : "Advance"}
                         </button>
                       )}
                     </div>

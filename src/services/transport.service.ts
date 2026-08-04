@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { sendDeliveryOTP, sendNotification, getSupervisors, type NotificationEventType } from "./notification.service";
+import { ORDER_STATUS, type OrderStatus } from "./order-statuses";
 
 export type DeliveryStatus = "Created" | "Loaded" | "Dispatched" | "In Transit" | "Delivered" | "Failed" | "Cancelled";
 type MutableStatus = Exclude<DeliveryStatus, "Delivered" | "Failed" | "Cancelled">;
@@ -93,14 +94,14 @@ async function getOrderIdForDelivery(deliveryId: string): Promise<string | null>
   return data?.order_id ?? null;
 }
 
-const DELIVERY_TO_ORDER_STATUS: Record<DeliveryStatus, string | null> = {
-  Created: null,
-  Loaded: "Dispatched",
-  Dispatched: "In Transit",
-  "In Transit": "In Transit",
-  Delivered: "Delivered",
-  Failed: "Failed",
-  Cancelled: "Cancelled",
+const DELIVERY_TO_ORDER_STATUS: Record<DeliveryStatus, OrderStatus | null> = {
+  Created: ORDER_STATUS.Created,
+  Loaded: ORDER_STATUS.Loaded,
+  Dispatched: ORDER_STATUS.Dispatched,
+  "In Transit": ORDER_STATUS["In Transit"],
+  Delivered: ORDER_STATUS.Delivered,
+  Failed: null,
+  Cancelled: ORDER_STATUS.Cancelled,
 };
 
 async function syncOrderStatusWithDelivery(deliveryId: string, deliveryStatus: DeliveryStatus): Promise<void> {
