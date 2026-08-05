@@ -267,12 +267,12 @@ export async function createEmployee(actorId: string, input: {
   const tempPassword = buildTemporaryPassword(normalizedEmail);
 
   console.log("Creating Auth User", { email: normalizedEmail });
-  console.log("Employee Auth Redirect", EMPLOYEE_RESET_URL);
+  console.log("Password Recovery Redirect", "https://ems.prajahita.com/reset-password");
   const { data: authData, error: authError } = await (supabase.auth as any).signUp({
     email: normalizedEmail,
     password: tempPassword,
   }, {
-    redirectTo: EMPLOYEE_RESET_URL,
+    redirectTo: "https://ems.prajahita.com/reset-password",
   });
   console.log("Auth Result", authData);
 

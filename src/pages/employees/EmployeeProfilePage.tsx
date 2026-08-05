@@ -60,8 +60,8 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
     try {
       setSaving(true);
       setMessage(null);
-      console.log("Employee Password Reset Redirect", EMPLOYEE_RESET_URL);
-      const { error } = await supabase.auth.resetPasswordForEmail(authProfile.email, { redirectTo: EMPLOYEE_RESET_URL });
+      console.log("Password Recovery Redirect", "https://ems.prajahita.com/reset-password");
+      const { error } = await supabase.auth.resetPasswordForEmail(authProfile.email, { redirectTo: "https://ems.prajahita.com/reset-password" });
       if (error) throw error;
       setMessage("Password reset link sent to your email.");
     } catch (err) {
