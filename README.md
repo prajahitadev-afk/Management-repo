@@ -10,3 +10,5 @@
 
   Run `npm run dev` to start the development server.
   
+  # Phase 1: Simple Deployment
+  Tested the capabilities if the code
