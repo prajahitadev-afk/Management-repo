@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Building2, Mail, Phone, MapPin, CalendarDays, BadgeCheck, Pencil, Save, KeyRound, ShieldCheck } from "lucide-react";
 import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
-import { supabase } from "../../lib/supabase";
+import { supabase, EMPLOYEE_PORTAL_URL, EMPLOYEE_RESET_URL } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 
 interface EmployeeProfilePageProps {
@@ -60,7 +60,8 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
     try {
       setSaving(true);
       setMessage(null);
-      const { error } = await supabase.auth.resetPasswordForEmail(authProfile.email, { redirectTo: window.location.origin + "/" });
+      console.log("Employee Password Reset Redirect", EMPLOYEE_RESET_URL);
+      const { error } = await supabase.auth.resetPasswordForEmail(authProfile.email, { redirectTo: EMPLOYEE_RESET_URL });
       if (error) throw error;
       setMessage("Password reset link sent to your email.");
     } catch (err) {

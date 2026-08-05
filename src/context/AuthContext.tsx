@@ -85,6 +85,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function loadSession() {
       setLoading(true);
 
+      if (typeof window !== "undefined") {
+        const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.get("type") === "recovery" && searchParams.get("access_token")) {
+          const { error: sessionError } = await (supabase.auth as any).getSessionFromUrl();
+          if (sessionError) {
+            console.error("Failed to parse recovery session from URL:", sessionError);
+          } else {
+            if (window.location.pathname !== "/reset-password") {
+              window.history.replaceState({}, "", "/reset-password");
+            }
+          }
+        }
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -103,7 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY" && typeof window !== "undefined") {
+        window.history.replaceState({}, "", "/reset-password");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }
+
       if (session?.user) {
         await syncProfile(session.user);
       } else {

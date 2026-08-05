@@ -37,7 +37,7 @@ export function getAttendanceSummary(rows: AttendanceRow[]): AttendanceSummary {
 }
 
 async function getProfiles(scope?: AttendanceScope) {
-  let query = supabase.from("profiles").select("id, name, department, role");
+  let query = supabase.from("profiles").select("id, name, department, role").not("role", "is", null);
 
   if (scope && !isOrgWide(scope.role) && !scope.role?.startsWith("MD-") && scope.department) {
     query = query.eq("department", scope.department);

@@ -9,6 +9,7 @@ import { EmployeeDirectoryPage } from "../pages/employees/EmployeeDirectoryPage"
 import { EmployeeProfilePage } from "../pages/employees/EmployeeProfilePage";
 import { AttendancePage as EmployeeAttendancePage } from "../pages/employees/AttendancePage";
 import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage";
+import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import {
   AdminPage,
   AttendancePage,
@@ -90,12 +91,18 @@ export default function App() {
         admin: "admin",
         reports: "reports",
         notifications: "notifications",
+        "reset-password": "login",
       };
 
       const nextPage = pageRoutes[parts[0] ?? ""] ?? "dashboard";
       setEmployeeRoute("directory");
       setSelectedEmployeeId(null);
       setPage(nextPage);
+      if (parts[0] === "reset-password") {
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", "/reset-password");
+        }
+      }
     };
 
     syncEmployeeRoute();
@@ -108,7 +115,12 @@ export default function App() {
   }, []);
 
   if (loading) return <div>Loading...</div>;
-  if (!profile) return <LoginPage />;
+  if (!profile) {
+    if (typeof window !== "undefined" && window.location.pathname === "/reset-password") {
+      return <ResetPasswordPage />;
+    }
+    return <LoginPage />;
+  }
 
   const isMobile = windowWidth < 768;
   const notifCount = notifications.filter((notification) => !notification.read).length;
@@ -183,6 +195,9 @@ export default function App() {
         setSelectedEmployeeId(employeeId);
         window.location.hash = `#/employees/${employeeId}`;
       }} />;
+    }
+    if (page === "login" && window.location.pathname === "/reset-password") {
+      return <ResetPasswordPage />;
     }
 
     switch (page) {

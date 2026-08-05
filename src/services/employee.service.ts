@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase, EMPLOYEE_PORTAL_URL, EMPLOYEE_RESET_URL } from "../lib/supabase";
 import type {
   AttendanceStatus,
   AttendanceSummary,
@@ -112,9 +112,13 @@ function buildEmployeeProfilePayload(input: {
   };
 }
 
+function employeeProfilesQuery(select = "*") {
+  return supabase.from("profiles").select(select).not("role", "is", null) as any;
+}
+
 function buildEmployeeQuery(filters: EmployeeFilters = {}) {
   const { search, department, role, status } = filters;
-  let query = supabase.from("profiles").select("*");
+  let query = employeeProfilesQuery("*");
 
   if (search && search.trim()) {
     const term = search.trim();
@@ -140,7 +144,7 @@ function buildEmployeeQuery(filters: EmployeeFilters = {}) {
 }
 
 export async function getEmployees(filters: EmployeeFilters = {}): Promise<Employee[]> {
-  let query = supabase.from("profiles").select("*");
+  let query = employeeProfilesQuery("*");
 
   const { search, department, role, status } = filters;
   const term = search?.trim();
@@ -168,10 +172,10 @@ export async function getEmployees(filters: EmployeeFilters = {}): Promise<Emplo
     const fallback = await buildEmployeeQuery(filters);
     const { data: fallbackData, error: fallbackError } = await fallback;
     if (fallbackError) throw fallbackError;
-    return ((fallbackData ?? []) as Array<Record<string, unknown>>).map(toEmployee);
+    return ((fallbackData ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
   }
 
-  return ((data ?? []) as Array<Record<string, unknown>>).map(toEmployee);
+  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
 }
 
 export async function getEmployeesForUser(userId: string, filters: EmployeeFilters = {}): Promise<Employee[]> {
@@ -188,11 +192,11 @@ export async function searchEmployees(searchTerm: string, filters: EmployeeFilte
 }
 
 export async function getEmployeeById(employeeId: string): Promise<EmployeeProfile> {
-  let { data, error } = await supabase.from("profiles").select("*").eq("id", employeeId).maybeSingle();
+  let { data, error } = await employeeProfilesQuery("*").eq("id", employeeId).maybeSingle();
 
   if (error) throw error;
   if (!data) {
-    const fallback = await supabase.from("profiles").select("*").eq("employee_id", employeeId).maybeSingle();
+    const fallback = await employeeProfilesQuery("*").eq("employee_id", employeeId).maybeSingle();
     data = fallback.data;
     error = fallback.error;
   }
@@ -202,7 +206,7 @@ export async function getEmployeeById(employeeId: string): Promise<EmployeeProfi
     throw new Error("Employee not found");
   }
 
-  const employee = toEmployee(data as Record<string, unknown>);
+  const employee = toEmployee(data as unknown as Record<string, unknown>);
   const { data: attendanceRows, error: attendanceError } = await supabase
     .from("attendance")
     .select("status")
@@ -263,9 +267,12 @@ export async function createEmployee(actorId: string, input: {
   const tempPassword = buildTemporaryPassword(normalizedEmail);
 
   console.log("Creating Auth User", { email: normalizedEmail });
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  console.log("Employee Auth Redirect", EMPLOYEE_RESET_URL);
+  const { data: authData, error: authError } = await (supabase.auth as any).signUp({
     email: normalizedEmail,
     password: tempPassword,
+  }, {
+    redirectTo: EMPLOYEE_RESET_URL,
   });
   console.log("Auth Result", authData);
 
@@ -540,9 +547,7 @@ export async function saveAttendanceEntries(entries: Array<{ employeeId: string;
 }
 
 export async function getSubordinateEmployeeIds(userId: string): Promise<string[]> {
-  const { data: currentProfile, error: currentProfileError } = await supabase
-    .from("profiles")
-    .select("id, role, reports_to")
+  const { data: currentProfile, error: currentProfileError } = await employeeProfilesQuery("id, role, reports_to")
     .eq("id", userId)
     .maybeSingle();
 
@@ -550,7 +555,7 @@ export async function getSubordinateEmployeeIds(userId: string): Promise<string[
     return [userId];
   }
 
-  const { data: allProfiles, error } = await supabase.from("profiles").select("id, role, reports_to");
+  const { data: allProfiles, error } = await employeeProfilesQuery("id, role, reports_to");
   if (error) throw error;
 
   const profiles = ((allProfiles ?? []) as Array<Record<string, unknown>>).filter((record) => readString(record.id));
@@ -607,10 +612,10 @@ export async function getVisibleEmployeeIdsForUser(userId: string): Promise<stri
 
   const currentRole = normalizeRoleName(readString(currentProfile.role) ?? "Worker");
   const currentDepartment = readString(currentProfile.department) ?? "";
-  const { data: allProfiles, error } = await supabase.from("profiles").select("id, role, department, reports_to");
+  const { data: allProfiles, error } = await employeeProfilesQuery("id, role, department, reports_to");
   if (error) throw error;
 
-  const profiles = ((allProfiles ?? []) as Array<Record<string, unknown>>).filter((record) => readString(record.id));
+    const profiles = ((allProfiles ?? []) as unknown as Array<Record<string, unknown>>).filter((record) => readString(record.id));
 
   if (currentRole === "Worker") {
     return [userId];
@@ -662,13 +667,13 @@ export async function getAttendanceViewEmployees(userId: string): Promise<Employ
     return [];
   }
 
-  const { data, error } = await supabase.from("profiles").select("*").in("id", visibleIds);
+  const { data, error } = await employeeProfilesQuery("*").in("id", visibleIds);
   if (error) throw error;
-  return ((data ?? []) as Array<Record<string, unknown>>).map(toEmployee);
+  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
 }
 
 export async function getOrganizationChart(): Promise<OrganizationNode[]> {
-  const { data, error } = await supabase.from("profiles").select("*");
+  const { data, error } = await employeeProfilesQuery("*");
 
   if (error) throw error;
 

@@ -3,14 +3,14 @@ import { getOrders } from "../services/orders.service";
 
 export interface Order {
   id: string;
-  order_number: string;
-  customer_id: string;
-  order_date: string;
-  expected_delivery: string;
+  order_number?: string | null;
+  customer_id?: string | null;
+  order_date?: string | null;
+  expected_delivery?: string | null;
   status: string;
-  total_amount: number;
-  created_by: string;
-  created_at: string;
+  total_amount?: number | string | null;
+  created_by?: string | null;
+  created_at?: string | null;
 
   customers?: {
     first_name?: string;

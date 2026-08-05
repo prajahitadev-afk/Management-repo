@@ -77,7 +77,7 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
 
     const employeeIds = Array.from(new Set((attendanceRows || []).map((row) => row.employee_id).filter(Boolean))) as string[];
     const { data: profiles, error: profilesError } = employeeIds.length > 0
-      ? await supabase.from("profiles").select("id, department").in("id", employeeIds)
+      ? await supabase.from("profiles").select("id, department").in("id", employeeIds).not("role", "is", null)
       : { data: [], error: null };
 
     if (profilesError) throw profilesError;

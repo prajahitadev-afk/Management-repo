@@ -688,7 +688,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile, on
             <ChevronDown size={13} style={{ color: B.textFaint }} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-white/50 p-3 shadow-lg" style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur }}>
+            <div className="absolute right-0 top-full z-[9999] mt-2 w-72 rounded-2xl border border-white/50 p-3 shadow-lg" style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur }}>
               <div className="rounded-xl border border-white/40 p-3" style={{ background: "rgba(255,255,255,0.25)" }}>
                 <div className="text-sm font-semibold" style={{ color: B.text }}>{user.name}</div>
                 <div className="text-xs mt-1" style={{ color: B.textMuted }}>Employee ID: {user.employeeId ?? user.id}</div>

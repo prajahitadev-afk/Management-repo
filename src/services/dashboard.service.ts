@@ -80,7 +80,7 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
   const scopedDept = getDepartmentScope(user);
   const filterByDept = shouldFilterByDepartment(user);
 
-  const profileQuery = supabase.from("profiles").select("id, department, role");
+  const profileQuery = supabase.from("profiles").select("id, department, role").not("role", "is", null);
   const attendanceQuery = supabase.from("attendance").select("employee_id, status, attendance_date");
   const billsQuery = supabase.from("bills").select("amount, gst, status, created_at, department, submitted_by");
 
