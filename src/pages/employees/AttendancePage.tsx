@@ -205,7 +205,7 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
             </div>
           </>
         ) : (
-          <div className="rounded-2xl border border-white/50 bg-white/40 p-10 text-center text-sm text-slate-600">No attendance history available.</div>
+          <div className="rounded-2xl border border-white/50 bg-white/40 p-10 text-center text-sm text-slate-600">No attendance records found</div>
         )}
       </div>
     );
@@ -316,7 +316,7 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
           </div>
         </>
       ) : (
-        <div className="rounded-2xl border border-white/50 bg-white/40 p-10 text-center text-sm text-slate-600">No attendance records available.</div>
+        <div className="rounded-2xl border border-white/50 bg-white/40 p-10 text-center text-sm text-slate-600">No attendance records found</div>
       )}
     </div>
   );

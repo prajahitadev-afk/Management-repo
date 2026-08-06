@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Plus, Search, UserCheck, UserX, Trash2, Eye, Pencil } from "lucide-react";
+import { EMPLOYEE_DEPARTMENTS, normalizeDepartmentName } from "../../constants/departments";
 import { useEmployees } from "../../hooks/useEmployees";
 import {
   activateEmployee,
   createEmployee,
   deleteEmployee,
-  getEmployees,
+  getEmployeesForUser,
   suspendEmployee,
   updateEmployee,
 } from "../../services/employee.service";
@@ -25,14 +26,7 @@ const EMPLOYEE_ROLES = [
   "Vice Chairman",
 ];
 
-const EMPLOYEE_DEPARTMENTS = [
-  "General",
-  "Manufacturing",
-  "Marketing",
-  "Transport",
-  "Finance",
-  "Research & Development",
-];
+const EMPLOYEE_DEPARTMENT_OPTIONS = [...EMPLOYEE_DEPARTMENTS];
 
 interface CurrentUser {
   id: string;
@@ -91,7 +85,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedRole, setSelectedRole] = useState("Worker");
-  const [selectedDepartment, setSelectedDepartment] = useState("General");
+  const [selectedDepartment, setSelectedDepartment] = useState<(typeof EMPLOYEE_DEPARTMENT_OPTIONS)[number]>(EMPLOYEE_DEPARTMENT_OPTIONS[0]);
   const [supervisorId, setSupervisorId] = useState("");
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [joiningDate, setJoiningDate] = useState("");
@@ -107,7 +101,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
 
   useEffect(() => {
     let active = true;
-    void getEmployees().then((employeesList) => {
+    void getEmployeesForUser(currentUser.id).then((employeesList) => {
       if (active) {
         setAllEmployees(employeesList);
       }
@@ -117,7 +111,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentUser.id]);
 
   const filteredEmployees = useMemo(() => {
     return employees;
@@ -129,7 +123,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   }, [filteredEmployees, page]);
 
   const departmentOptions = useMemo(
-    () => Array.from(new Set([...employees.map((employee) => employee.department), ...EMPLOYEE_DEPARTMENTS])).sort(),
+    () => Array.from(new Set([...employees.map((employee) => normalizeDepartmentName(employee.department)), ...EMPLOYEE_DEPARTMENT_OPTIONS])).sort(),
     [employees],
   );
   const roleOptions = useMemo(
@@ -163,7 +157,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
         email,
         phone,
         role: selectedRole,
-        department: selectedDepartment,
+        department: normalizeDepartmentName(selectedDepartment),
         reportsTo: supervisorId || null,
         joiningDate: joiningDate || null,
       });
@@ -172,7 +166,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       setEmail("");
       setPhone("");
       setSelectedRole("Worker");
-      setSelectedDepartment("General");
+      setSelectedDepartment(EMPLOYEE_DEPARTMENT_OPTIONS[0]);
       setSupervisorId("");
       setJoiningDate("");
       setMessage("Employee added successfully.");
@@ -180,7 +174,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       console.error("Create employee failed", err);
       setMessage(err instanceof Error ? err.message : "Failed to create employee");
     } finally {
-      setFormOpen(false);
       setSubmitting(false);
       await refresh();
     }
@@ -205,7 +198,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     setEmail(employee.email);
     setPhone(employee.phone);
     setSelectedRole(employee.role);
-    setSelectedDepartment(employee.department);
+    setSelectedDepartment(normalizeDepartmentName(employee.department));
     setSupervisorId(employee.reportsTo ?? "");
     setJoiningDate(employee.joiningDate ?? "");
     setEditOpen(true);
@@ -227,7 +220,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
         email,
         phone,
         role: selectedRole,
-        department: selectedDepartment,
+        department: normalizeDepartmentName(selectedDepartment),
         reportsTo: supervisorId || null,
         joiningDate: joiningDate || null,
       });
@@ -469,8 +462,8 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Department</span>
-                <select required value={selectedDepartment} onChange={(event) => setSelectedDepartment(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
-                  {EMPLOYEE_DEPARTMENTS.map((option) => (
+                <select required value={selectedDepartment} onChange={(event) => setSelectedDepartment(event.target.value as (typeof EMPLOYEE_DEPARTMENT_OPTIONS)[number])} className="w-full rounded-xl border border-slate-200 px-3 py-2">
+                  {EMPLOYEE_DEPARTMENT_OPTIONS.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
@@ -536,7 +529,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Department</span>
-                <select required value={selectedDepartment} onChange={(event) => setSelectedDepartment(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
+                <select required value={selectedDepartment} onChange={(event) => setSelectedDepartment(event.target.value as (typeof EMPLOYEE_DEPARTMENT_OPTIONS)[number])} className="w-full rounded-xl border border-slate-200 px-3 py-2">
                   {departmentOptions.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}

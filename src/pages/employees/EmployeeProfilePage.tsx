@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Building2, Mail, Phone, MapPin, CalendarDays, BadgeCheck, Pencil, Save, KeyRound, ShieldCheck } from "lucide-react";
-import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
-import { supabase } from "../../lib/supabase";
+import { AlertCircle, BadgeCheck, Building2, CalendarDays, Mail, Pencil, Phone, Save, ShieldCheck } from "lucide-react";
+import { EMPLOYEE_DEPARTMENTS, normalizeDepartmentName } from "../../constants/departments";
 import { useAuth } from "../../hooks/useAuth";
+import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
+import { updateEmployee } from "../../services/employee.service";
 
 interface EmployeeProfilePageProps {
   employeeId: string;
@@ -12,14 +13,15 @@ interface EmployeeProfilePageProps {
 }
 
 export function EmployeeProfilePage({ employeeId, editable = false, currentUserId, currentUserRole }: EmployeeProfilePageProps) {
-  const { profile: authProfile } = useAuth();
+  const { refreshProfile } = useAuth();
   const { profile, loading, error, refresh } = useEmployeeProfile(employeeId);
-  const [form, setForm] = useState({ email: "", phone: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", department: "", status: "Active", reportsTo: "" });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const canEditEmail = editable && (currentUserRole === "Vice Chairman" || currentUserRole === "Vice President" || currentUserRole === "General Manager" || currentUserRole === "Chief Manager" || currentUserRole === "Manager" || currentUserRole === "Supervisor");
+  const canEditProfile = editable && Boolean(currentUserId) && employeeId === currentUserId;
+  const canEditReportsTo = editable && Boolean(currentUserId) && employeeId !== currentUserId && Boolean(currentUserRole) && ["Vice Chairman", "Vice President", "Managing Director", "General Manager", "Chief Manager", "Manager"].includes(currentUserRole ?? "");
 
   const summaryCards = useMemo(() => {
     if (!profile) return [];
@@ -32,20 +34,41 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
   }, [profile]);
 
   const handleSave = async () => {
-    if (!profile || !employeeId || !currentUserId || employeeId !== currentUserId) return;
+    if (!profile || !employeeId || !currentUserId) return;
     try {
       setSaving(true);
       setMessage(null);
-      const updates: Record<string, string> = {};
-      if (form.phone.trim()) updates.phone = form.phone.trim();
-      if (canEditEmail && form.email.trim()) updates.email = form.email.trim();
+
+      const updates: Record<string, string | null> = {};
+      const nextName = form.name.trim();
+      const nextPhone = form.phone.trim();
+      const nextEmail = form.email.trim();
+      const nextDepartment = normalizeDepartmentName(form.department || profile.department);
+      const nextStatus = form.status.trim();
+      const nextReportsTo = form.reportsTo.trim();
+
+      if (nextName && nextName !== profile.name) updates.name = nextName;
+      if (nextPhone && nextPhone !== profile.phone) updates.phone = nextPhone;
+      if (nextEmail && nextEmail !== profile.email) updates.email = nextEmail;
+      if (nextDepartment && nextDepartment !== normalizeDepartmentName(profile.department)) updates.department = nextDepartment;
+      if (nextStatus && nextStatus !== profile.status) updates.status = nextStatus;
+      if (canEditReportsTo && nextReportsTo !== (profile.reportsTo ?? "")) updates.reportsTo = nextReportsTo || null;
+
       if (Object.keys(updates).length === 0) {
         setMessage("No changes to save.");
         return;
       }
-      const { error } = await supabase.from("profiles").update(updates).eq("id", employeeId);
-      if (error) throw error;
-      await refresh();
+
+      await updateEmployee(currentUserId, employeeId, {
+        name: typeof updates.name === "string" ? updates.name : undefined,
+        phone: typeof updates.phone === "string" ? updates.phone : undefined,
+        email: typeof updates.email === "string" ? updates.email : undefined,
+        department: typeof updates.department === "string" ? updates.department : undefined,
+        status: typeof updates.status === "string" ? updates.status : undefined,
+        reportsTo: typeof updates.reportsTo === "string" || updates.reportsTo === null ? updates.reportsTo : undefined,
+      } as any);
+
+      await Promise.all([refresh(), refreshProfile()]);
       setIsEditing(false);
       setMessage("Profile updated successfully.");
     } catch (err) {
@@ -55,27 +78,15 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!authProfile?.email) return;
-    try {
-      setSaving(true);
-      setMessage(null);
-      const redirectTo = `${window.location.origin}/reset-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(authProfile.email, { redirectTo });
-      if (error) throw error;
-      setMessage("Password reset link sent to your email.");
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Unable to start password reset.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   useEffect(() => {
     if (profile) {
       setForm({
+        name: profile.name ?? "",
         email: profile.email ?? "",
         phone: profile.phone ?? "",
+        department: profile.department ?? "",
+        status: profile.status ?? "Active",
+        reportsTo: profile.reportsTo ?? "",
       });
     }
   }, [profile]);
@@ -111,7 +122,7 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {editable && employeeId === currentUserId && (
+            {editable && canEditProfile && (
               <button onClick={() => setIsEditing((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-white/60 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-700">
                 <Pencil size={14} /> {isEditing ? "Cancel" : "Edit Profile"}
               </button>
@@ -131,53 +142,93 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
 
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-white/50 bg-white/40 p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-800">Personal Information</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-800">Profile Details</h2>
+            {isEditing && canEditProfile && (
+              <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">
+                <Save size={14} /> {saving ? "Saving..." : "Save"}
+              </button>
+            )}
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-white/60 bg-white/70 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Date of Birth</div>
-              <div className="mt-1 text-sm text-slate-700">{profile.dob ?? "—"}</div>
-            </div>
-            <div className="rounded-xl border border-white/60 bg-white/70 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gender</div>
-              <div className="mt-1 text-sm text-slate-700">{profile.gender ?? "—"}</div>
-            </div>
-            <div className="rounded-xl border border-white/60 bg-white/70 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</div>
-              {isEditing && editable && employeeId === currentUserId ? (
-                <input value={form.phone} onChange={(event) => setForm((value) => ({ ...value, phone: event.target.value }))} className="mt-2 w-full rounded-lg border border-white/60 bg-white px-3 py-2 text-sm text-slate-700 outline-none" />
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</div>
+              {isEditing && canEditProfile ? (
+                <input value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" />
               ) : (
-                <div className="mt-1 flex items-center gap-2 text-sm text-slate-700">
-                  <Phone size={14} /> {profile.phone}
-                </div>
+                <div className="mt-2 font-medium text-slate-800">{profile.name}</div>
               )}
-            </div>
-            <div className="rounded-xl border border-white/60 bg-white/70 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</div>
-              {isEditing && editable && employeeId === currentUserId && canEditEmail ? (
-                <input value={form.email} onChange={(event) => setForm((value) => ({ ...value, email: event.target.value }))} className="mt-2 w-full rounded-lg border border-white/60 bg-white px-3 py-2 text-sm text-slate-700 outline-none" />
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee ID</div>
+              <div className="mt-2 font-medium text-slate-800">{profile.employeeId}</div>
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</div>
+              <div className="mt-2 font-medium text-slate-800">{profile.roleName ?? profile.role}</div>
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Department</div>
+              {isEditing && canEditProfile ? (
+                <select value={form.department} onChange={(event) => setForm((value) => ({ ...value, department: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none">
+                  {EMPLOYEE_DEPARTMENTS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
               ) : (
-                <div className="mt-1 flex items-center gap-2 text-sm text-slate-700">
+                <div className="mt-2 font-medium text-slate-800">{profile.departmentName ?? profile.department}</div>
+              )}
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</div>
+              {isEditing && canEditProfile ? (
+                <input value={form.email} onChange={(event) => setForm((value) => ({ ...value, email: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" />
+              ) : (
+                <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
                   <Mail size={14} /> {profile.email}
                 </div>
               )}
-            </div>
-            <div className="md:col-span-2 rounded-xl border border-white/60 bg-white/70 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Address</div>
-              <div className="mt-1 flex items-start gap-2 text-sm text-slate-700">
-                <MapPin size={14} className="mt-0.5" /> {profile.address ?? "—"}
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</div>
+              {isEditing && canEditProfile ? (
+                <input value={form.phone} onChange={(event) => setForm((value) => ({ ...value, phone: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" />
+              ) : (
+                <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
+                  <Phone size={14} /> {profile.phone}
+                </div>
+              )}
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Joining Date</div>
+              <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
+                <CalendarDays size={14} /> {profile.joiningDate ?? "—"}
               </div>
-            </div>
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
+              {isEditing && canEditProfile ? (
+                <select value={form.status} onChange={(event) => setForm((value) => ({ ...value, status: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none">
+                  <option value="Active">Active</option>
+                  <option value="Suspended">Suspended</option>
+                </select>
+              ) : (
+                <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
+                  <BadgeCheck size={14} /> {profile.status}
+                </div>
+              )}
+            </label>
+            <label className="md:col-span-2 rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reports To</div>
+              {isEditing && canEditReportsTo ? (
+                <input value={form.reportsTo} onChange={(event) => setForm((value) => ({ ...value, reportsTo: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" placeholder="Manager ID" />
+              ) : (
+                <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
+                  <Building2 size={14} /> {profile.managerName ?? "—"}
+                </div>
+              )}
+            </label>
           </div>
-          {editable && employeeId === currentUserId && isEditing && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">
-                <Save size={14} /> {saving ? "Saving..." : "Save Changes"}
-              </button>
-              <button onClick={handleChangePassword} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-white/60 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-700">
-                <KeyRound size={14} /> Change Password
-              </button>
-            </div>
-          )}
         </div>
 
         <div className="rounded-2xl border border-white/50 bg-white/40 p-6 shadow-sm">
@@ -200,16 +251,18 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
               <span>{profile.managerName ?? "—"}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/70 px-4 py-3">
-              <span className="font-medium">Joining Date</span>
-              <span>{profile.joiningDate ?? "—"}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/70 px-4 py-3">
-              <span className="font-medium">Created At</span>
+              <span className="font-medium">Created Date</span>
               <span>{profile.createdAt ?? "—"}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/70 px-4 py-3">
-              <span className="font-medium">Employment Status</span>
+              <span className="font-medium">Status</span>
               <span>{profile.status}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/70 px-4 py-3">
+              <span className="font-medium">Permission</span>
+              <span className="flex items-center gap-2 text-emerald-700">
+                <ShieldCheck size={14} /> {canEditReportsTo ? "Can update reports_to" : "Read only reports_to"}
+              </span>
             </div>
           </div>
         </div>

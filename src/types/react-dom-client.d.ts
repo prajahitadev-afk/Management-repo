@@ -3,3 +3,7 @@ declare module "react-dom/client" {
     render(children: React.ReactNode): void;
   };
 }
+
+declare module "react-dom" {
+  export function createPortal(children: React.ReactNode, container: Element | DocumentFragment): React.ReactNode;
+}

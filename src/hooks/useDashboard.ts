@@ -15,6 +15,19 @@ export function useDashboard(user?: DashboardUser) {
     weeklyAttendance: [],
     communityImpact: [],
     revenueTrend: [],
+    managerCount: 0,
+    supervisorCount: 0,
+    teamResponsibilities: [],
+    leaveBalance: 0,
+    leaveTaken: 0,
+    todayAttendanceStatus: "Not Marked",
+    attendanceHistory: [],
+    supervisorWorkersCount: 0,
+    supervisorPresentCount: 0,
+    supervisorAbsentCount: 0,
+    supervisorHalfDayCount: 0,
+    supervisorLateCount: 0,
+    supervisorAttendanceRows: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

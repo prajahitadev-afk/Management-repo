@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { normalizeDepartmentName } from "../constants/departments";
 
 export interface DashboardStats {
   totalEmployees: number;
@@ -13,6 +14,19 @@ export interface DashboardStats {
   weeklyAttendance: Array<{ day: string; present: number; absent: number }>;
   communityImpact: Array<{ month: string; beneficiaries: number; volunteers: number }>;
   revenueTrend: Array<{ month: string; orders: number; delivered: number; revenue: number }>;
+  managerCount: number;
+  supervisorCount: number;
+  teamResponsibilities: Array<{ id: string; name: string; role: string; department: string; status: string }>;
+  leaveBalance: number;
+  leaveTaken: number;
+  todayAttendanceStatus: string;
+  attendanceHistory: Array<{ id: string; date: string; status: string; time: string }>;
+  supervisorWorkersCount: number;
+  supervisorPresentCount: number;
+  supervisorAbsentCount: number;
+  supervisorHalfDayCount: number;
+  supervisorLateCount: number;
+  supervisorAttendanceRows: Array<{ id: string; employeeId: string; employeeName: string; status: string; checkIn: string }>;
 }
 
 export interface DashboardUser {
@@ -56,7 +70,8 @@ function isExec(role?: string) {
 }
 
 function shouldFilterByDepartment(user?: DashboardUser) {
-  return !!user?.role && !isExec(user.role);
+  if (!user?.role || isExec(user.role)) return false;
+  return !["Supervisor", "Worker"].includes(user.role);
 }
 
 function getDepartmentScope(user?: DashboardUser) {
@@ -76,15 +91,89 @@ function buildWeekDays() {
   return result;
 }
 
+async function getLeaveSummary(userId?: string) {
+  if (!userId) return { leaveBalance: 0, leaveTaken: 0 };
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("leave_balance, leave_taken, annual_leave_balance, casual_leave_balance, leave_days_taken, leave_days_remaining")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const profile = data as Record<string, unknown> | null;
+    const balanceValue = [
+      profile?.leave_balance,
+      profile?.annual_leave_balance,
+      profile?.casual_leave_balance,
+      profile?.leave_days_remaining,
+    ].find((value) => typeof value === "number" && Number.isFinite(value));
+    const takenValue = [
+      profile?.leave_taken,
+      profile?.leave_days_taken,
+    ].find((value) => typeof value === "number" && Number.isFinite(value));
+
+    return {
+      leaveBalance: balanceValue !== undefined ? Number(balanceValue) : 0,
+      leaveTaken: takenValue !== undefined ? Number(takenValue) : 0,
+    };
+  } catch {
+    const { data: attendanceRows, error: attendanceError } = await supabase
+      .from("attendance")
+      .select("status")
+      .eq("employee_id", userId);
+
+    if (attendanceError) return { leaveBalance: 0, leaveTaken: 0 };
+
+    const leaveTaken = (attendanceRows || []).filter((row: any) => row.status === "Leave").length;
+    return { leaveBalance: Math.max(0, 12 - leaveTaken), leaveTaken };
+  }
+}
+
+async function getSubordinateProfiles(userId?: string) {
+  if (!userId) return [];
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name, role, department, status, reports_to")
+    .eq("reports_to", userId)
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as Array<Record<string, unknown>>;
+}
+
+async function getEmployeeAttendance(userId?: string) {
+  if (!userId) return [];
+
+  const { data, error } = await supabase
+    .from("attendance")
+    .select("attendance_date, status, check_in")
+    .eq("employee_id", userId)
+    .order("attendance_date", { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as Array<Record<string, unknown>>;
+}
+
 export async function getDashboardStats(user?: DashboardUser): Promise<DashboardStats> {
   const scopedDept = getDepartmentScope(user);
   const filterByDept = shouldFilterByDepartment(user);
 
   const profileQuery = supabase.from("profiles").select("id, department, role").not("role", "is", null).neq("role", "Customer");
-  const attendanceQuery = supabase.from("attendance").select("employee_id, status, attendance_date");
+  const attendanceQuery = supabase.from("attendance").select("employee_id, status, attendance_date, check_in");
   const billsQuery = supabase.from("bills").select("amount, gst, status, created_at, department, submitted_by");
 
-  const [profilesRes, attendanceRes, billsRes] = await Promise.all([profileQuery, attendanceQuery, billsQuery]);
+  const [profilesRes, attendanceRes, billsRes, subordinateProfilesRes, leaveSummaryRes, employeeAttendanceRes] = await Promise.all([
+    profileQuery,
+    attendanceQuery,
+    billsQuery,
+    getSubordinateProfiles(user?.id),
+    getLeaveSummary(user?.id),
+    getEmployeeAttendance(user?.id),
+  ]);
 
   if (profilesRes.error) throw profilesRes.error;
   if (attendanceRes.error) throw attendanceRes.error;
@@ -95,7 +184,7 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
   const bills = (billsRes.data || []) as Array<any>;
 
   const scopedProfiles = filterByDept
-    ? profiles.filter((profile: any) => profile.department === scopedDept)
+    ? profiles.filter((profile: any) => normalizeDepartmentName(profile.department) === normalizeDepartmentName(scopedDept))
     : profiles;
 
   const scopedEmployeeIds = new Set(scopedProfiles.map((profile: any) => profile.id));
@@ -105,7 +194,7 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
     : attendanceRows;
 
   const scopedBills = filterByDept
-    ? bills.filter((bill) => bill.department === scopedDept || bill.submitted_by === user?.id)
+    ? bills.filter((bill) => normalizeDepartmentName(bill.department) === normalizeDepartmentName(scopedDept) || bill.submitted_by === user?.id)
     : bills;
 
   const todayDate = new Date().toISOString().split("T")[0];
@@ -124,6 +213,55 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
     present: scopedAttendance.filter((row: any) => row.attendance_date === day.date && row.status === "Present").length,
     absent: scopedAttendance.filter((row: any) => row.attendance_date === day.date && row.status === "Absent").length,
   }));
+
+  const subordinateProfiles = subordinateProfilesRes as Array<any>;
+  const managerCount = subordinateProfiles.filter((profile: any) => profile.role === "Manager").length;
+  const supervisorCount = subordinateProfiles.filter((profile: any) => profile.role === "Supervisor").length;
+  const teamResponsibilities = subordinateProfiles.map((profile: any) => ({
+    id: profile.id,
+    name: profile.name || "Unnamed",
+    role: profile.role || "Employee",
+    department: profile.department || "—",
+    status: profile.status || "Active",
+  }));
+
+  const leaveSummary = leaveSummaryRes;
+  const employeeAttendance = employeeAttendanceRes as Array<any>;
+  const todayAttendance = employeeAttendance.find((row: any) => row.attendance_date === todayDate);
+  const attendanceHistory = employeeAttendance.slice(0, 5).map((row: any) => ({
+    id: `${row.attendance_date}-${row.status}`,
+    date: row.attendance_date ? new Date(`${row.attendance_date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—",
+    status: row.status || "Not Marked",
+    time: row.check_in ? new Date(row.check_in).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "—",
+  }));
+
+  const supervisorTodayAttendance = subordinateProfiles
+    .map((profile: any) => {
+      const attendanceRecord = scopedAttendance.find((row: any) => row.employee_id === profile.id && row.attendance_date === todayDate);
+      if (!attendanceRecord) return null;
+
+      return {
+        id: `${profile.id}-${todayDate}`,
+        employeeId: profile.employee_id || profile.id,
+        employeeName: profile.name || "Unnamed",
+        status: attendanceRecord.status || "Absent",
+        checkIn: attendanceRecord.check_in ?? "—",
+      };
+    })
+    .filter(Boolean) as Array<{ id: string; employeeId: string; employeeName: string; status: string; checkIn: string }>;
+
+  const supervisorPresentCount = supervisorTodayAttendance.filter((row) => row.status === "Present").length;
+  const supervisorAbsentCount = supervisorTodayAttendance.filter((row) => row.status === "Absent").length;
+  const supervisorHalfDayCount = supervisorTodayAttendance.filter((row) => row.status === "Half Day").length;
+  const supervisorLateCount = supervisorTodayAttendance.filter((row) => {
+    const value = row.checkIn;
+    if (!value || value === "—") return false;
+    const match = value.match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return false;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    return hour > 9 || (hour === 9 && minute > 0);
+  }).length;
 
   const revenueTrend = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"].map((month, index) => {
     const monthBills = scopedBills.filter((bill: any) => {
@@ -166,6 +304,19 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
     weeklyAttendance,
     communityImpact,
     revenueTrend,
+    managerCount,
+    supervisorCount,
+    teamResponsibilities,
+    leaveBalance: leaveSummary.leaveBalance,
+    leaveTaken: leaveSummary.leaveTaken,
+    todayAttendanceStatus: todayAttendance?.status || "Not Marked",
+    attendanceHistory,
+    supervisorWorkersCount: user?.role === "Supervisor" ? subordinateProfiles.length : 0,
+    supervisorPresentCount: user?.role === "Supervisor" ? supervisorPresentCount : 0,
+    supervisorAbsentCount: user?.role === "Supervisor" ? supervisorAbsentCount : 0,
+    supervisorHalfDayCount: user?.role === "Supervisor" ? supervisorHalfDayCount : 0,
+    supervisorLateCount: user?.role === "Supervisor" ? supervisorLateCount : 0,
+    supervisorAttendanceRows: user?.role === "Supervisor" ? supervisorTodayAttendance : [],
   };
 }
 

@@ -30,6 +30,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,6 +82,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setProfile(buildProfileCompatibility(profileData, sessionUser));
+  }
+
+  async function refreshProfile() {
+    const activeUserId = user?.id || profile?.id;
+    if (!activeUserId) {
+      return;
+    }
+
+    const { data: profileData, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", activeUserId)
+      .single();
+
+    if (error) {
+      console.error("Failed to refresh profile:", error);
+      return;
+    }
+
+    setProfile(buildProfileCompatibility(profileData, user ?? { id: activeUserId, email: profileData.email }));
   }
 
   useEffect(() => {
@@ -190,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         login,
         logout,
+        refreshProfile,
       }}
     >
       {children}
