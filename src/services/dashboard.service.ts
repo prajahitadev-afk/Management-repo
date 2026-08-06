@@ -80,7 +80,7 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
   const scopedDept = getDepartmentScope(user);
   const filterByDept = shouldFilterByDepartment(user);
 
-  const profileQuery = supabase.from("profiles").select("id, department, role").not("role", "is", null);
+  const profileQuery = supabase.from("profiles").select("id, department, role").not("role", "is", null).neq("role", "Customer");
   const attendanceQuery = supabase.from("attendance").select("employee_id, status, attendance_date");
   const billsQuery = supabase.from("bills").select("amount, gst, status, created_at, department, submitted_by");
 
@@ -268,17 +268,18 @@ export async function getWeeklyAttendanceData(): Promise<AttendanceDay[]> {
   try {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
     const today = new Date();
-    const weekStart = new Date(today.getTime() - today.getDay() * 24 * 60 * 60 * 1000);
+    const profileRes = await supabase.from("profiles").select("id").not("role", "is", null).neq("role", "Customer");
+    if (profileRes.error) throw profileRes.error;
+    const employeeIds = (profileRes.data || []).map((profile: any) => profile.id);
     const result: AttendanceDay[] = [];
 
     for (let i = 0; i < 5; i++) {
-      const dayDate = new Date(weekStart.getTime() + (i + 1) * 24 * 60 * 60 * 1000);
+      const dayDate = new Date(today.getTime() + (i - (today.getDay() - 1)) * 24 * 60 * 60 * 1000);
       const dateStr = dayDate.toISOString().split("T")[0];
 
-      const { data, error } = await supabase
-        .from("attendance")
-        .select("status, attendance_date")
-        .eq("attendance_date", dateStr);
+      const query = supabase.from("attendance").select("status, attendance_date").eq("attendance_date", dateStr);
+      const filteredQuery = employeeIds.length > 0 ? query.in("employee_id", employeeIds) : query.eq("employee_id", "__none__");
+      const { data, error } = await filteredQuery;
 
       if (error) throw error;
 
@@ -301,11 +302,13 @@ export async function getWeeklyAttendanceData(): Promise<AttendanceDay[]> {
 export async function getAttendanceBreakdownData(green: string, red: string, gold: string, blue: string): Promise<AttendanceBreakdown[]> {
   try {
     const today = new Date().toISOString().split("T")[0];
+    const profileRes = await supabase.from("profiles").select("id").not("role", "is", null).neq("role", "Customer");
+    if (profileRes.error) throw profileRes.error;
+    const employeeIds = (profileRes.data || []).map((profile: any) => profile.id);
 
-    const { data, error } = await supabase
-      .from("attendance")
-      .select("status, attendance_date")
-      .eq("attendance_date", today);
+    const query = supabase.from("attendance").select("status, attendance_date").eq("attendance_date", today);
+    const filteredQuery = employeeIds.length > 0 ? query.in("employee_id", employeeIds) : query.eq("employee_id", "__none__");
+    const { data, error } = await filteredQuery;
 
     if (error) throw error;
 

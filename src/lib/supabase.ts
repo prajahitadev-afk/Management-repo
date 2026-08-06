@@ -7,11 +7,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before running the app.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const authOptions = typeof window !== "undefined"
+  ? { persistSession: false, storage: window.sessionStorage }
+  : { persistSession: false };
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: authOptions,
+})
 
 // ─── Employee Portal URLs ───────────────────────────────────────────────────
-export const EMPLOYEE_PORTAL_URL = "https://ems.prajahita.com"
-export const EMPLOYEE_RESET_URL = "https://ems.prajahita.com/reset-password"
+export function getEmployeeResetUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/reset-password`;
+  }
+  return "/reset-password";
+}
+export const EMPLOYEE_RESET_URL = getEmployeeResetUrl();
 export const EMPLOYEE_VERIFY_URL = "https://ems.prajahita.com/verify"
 
 // ─── Customer Portal URLs ───────────────────────────────────────────────────

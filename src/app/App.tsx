@@ -31,6 +31,20 @@ function getEmployeeRoutePath() {
   return hash || path;
 }
 
+function getRecoverySearchParams() {
+  if (typeof window === "undefined") return new URLSearchParams();
+
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ""));
+  for (const [key, value] of hashParams.entries()) {
+    if (!params.has(key)) {
+      params.set(key, value);
+    }
+  }
+
+  return params;
+}
+
 export default function App() {
   const { profile, loading } = useAuth();
   const { notifications } = useNotifications(profile?.id);
@@ -64,6 +78,14 @@ export default function App() {
         return;
       }
 
+      if (parts[0] === "reset-password") {
+        if (typeof window !== "undefined") {
+          const search = window.location.search || "";
+          window.history.replaceState({}, "", "/reset-password" + search);
+        }
+        return;
+      }
+
       if (parts[0] === "employees") {
         if (parts[1] === "attendance") {
           setEmployeeRoute("attendance");
@@ -91,16 +113,16 @@ export default function App() {
         admin: "admin",
         reports: "reports",
         notifications: "notifications",
-        "reset-password": "login",
+        login: "login",
       };
 
       const nextPage = pageRoutes[parts[0] ?? ""] ?? "dashboard";
       setEmployeeRoute("directory");
       setSelectedEmployeeId(null);
       setPage(nextPage);
-      if (parts[0] === "reset-password") {
+      if (parts[0] === "login") {
         if (typeof window !== "undefined") {
-          window.history.replaceState({}, "", "/reset-password");
+          window.history.replaceState({}, "", "/login");
         }
       }
     };
@@ -114,11 +136,31 @@ export default function App() {
     };
   }, []);
 
-  if (loading) return <div>Loading...</div>;
-  if (!profile) {
-    if (typeof window !== "undefined" && window.location.pathname === "/reset-password") {
-      return <ResetPasswordPage />;
+  const isResetPasswordPath = typeof window !== "undefined" && window.location.pathname === "/reset-password";
+  const isRecoveryUrl = typeof window !== "undefined" && (() => {
+    const params = getRecoverySearchParams();
+    const detected = params.get("type") === "recovery" || !!params.get("access_token") || !!params.get("refresh_token");
+    if (detected) {
+      const search = window.location.search || "";
+      const hash = window.location.hash || "";
+      if (window.location.pathname !== "/reset-password") {
+        window.history.replaceState({}, "", "/reset-password" + search + hash);
+      }
     }
+    return detected;
+  })();
+
+  if (isResetPasswordPath || isRecoveryUrl) {
+    return <ResetPasswordPage />;
+  }
+
+  if (loading) return <div>Loading...</div>;
+
+  if (page === "login") {
+    return <LoginPage />;
+  }
+
+  if (!profile) {
     return <LoginPage />;
   }
 
@@ -227,7 +269,6 @@ export default function App() {
           notifCount={notifCount}
           onNotifClick={() => handleNav("notifications")}
           onViewProfile={() => handleNav("profile")}
-          onOpenSettings={() => window.alert("Settings will be available soon.")}
         />
         <main className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           <style>{`main::-webkit-scrollbar{display:none}`}</style>

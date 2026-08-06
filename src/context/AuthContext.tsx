@@ -10,16 +10,18 @@ import { supabase } from "../lib/supabase";
 function clearAuthStorage() {
   if (typeof window === "undefined") return;
 
-  const keysToRemove: string[] = [];
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    if (!key) continue;
-    if (key.startsWith("sb-") || key.includes("supabase") || key.includes("auth")) {
-      keysToRemove.push(key);
+  const storages = [window.localStorage, window.sessionStorage];
+  storages.forEach((storage) => {
+    const keysToRemove: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (!key) continue;
+      if (key.startsWith("sb-") || key.includes("supabase") || key.includes("auth")) {
+        keysToRemove.push(key);
+      }
     }
-  }
-
-  keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+    keysToRemove.forEach((key) => storage.removeItem(key));
+  });
 }
 
 interface AuthContextType {
@@ -87,13 +89,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (typeof window !== "undefined") {
         const searchParams = new URLSearchParams(window.location.search);
-        if (searchParams.get("type") === "recovery" && searchParams.get("access_token")) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ""));
+        const params = new URLSearchParams(searchParams);
+        for (const [key, value] of hashParams.entries()) {
+          if (!params.has(key)) {
+            params.set(key, value);
+          }
+        }
+
+        const hasRecoveryType = params.get("type") === "recovery";
+        const hasAccessToken = !!params.get("access_token");
+        const hasRefreshToken = !!params.get("refresh_token");
+        if (hasRecoveryType || hasAccessToken || hasRefreshToken) {
           const { error: sessionError } = await (supabase.auth as any).getSessionFromUrl();
           if (sessionError) {
             console.error("Failed to parse recovery session from URL:", sessionError);
           } else {
+            const search = window.location.search || "";
+            const hash = window.location.hash || "";
             if (window.location.pathname !== "/reset-password") {
-              window.history.replaceState({}, "", "/reset-password");
+              window.history.replaceState({}, "", "/reset-password" + search + hash);
             }
           }
         }
@@ -118,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "PASSWORD_RECOVERY" && typeof window !== "undefined") {
+      if (event === "PASSWORD_RECOVERY" && typeof window !== "undefined" && window.location.pathname !== "/reset-password") {
         window.history.replaceState({}, "", "/reset-password");
         window.dispatchEvent(new PopStateEvent("popstate"));
       }

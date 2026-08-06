@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Plus, Search, UserCheck, UserX, Trash2, Eye, Pencil } from "lucide-react";
 import { useEmployees } from "../../hooks/useEmployees";
 import {
   activateEmployee,
   createEmployee,
   deleteEmployee,
+  getEmployees,
   suspendEmployee,
   updateEmployee,
 } from "../../services/employee.service";
@@ -91,7 +92,8 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   const [phone, setPhone] = useState("");
   const [selectedRole, setSelectedRole] = useState("Worker");
   const [selectedDepartment, setSelectedDepartment] = useState("General");
-  const [reportsTo, setReportsTo] = useState("");
+  const [supervisorId, setSupervisorId] = useState("");
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [joiningDate, setJoiningDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -102,6 +104,20 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     role: role === "All" ? undefined : role,
     status: status === "All" ? undefined : status,
   }, currentUser.id);
+
+  useEffect(() => {
+    let active = true;
+    void getEmployees().then((employeesList) => {
+      if (active) {
+        setAllEmployees(employeesList);
+      }
+    }).catch((err) => {
+      console.error("Failed to load supervisor options", err);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredEmployees = useMemo(() => {
     return employees;
@@ -121,6 +137,17 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     [employees],
   );
 
+  const supervisorOptions = useMemo(() => {
+    const selectedLevel = ROLE_LEVEL[selectedRole] ?? 1;
+    const higher = allEmployees.filter((employee) => (ROLE_LEVEL[employee.role] ?? 1) > selectedLevel);
+    if (selectedLevel === 1) {
+      return higher;
+    }
+    const nextLevel = higher.reduce((min, employee) => Math.min(min, ROLE_LEVEL[employee.role] ?? 99), 99);
+    const minimalHigher = higher.filter((employee) => (ROLE_LEVEL[employee.role] ?? 1) === nextLevel);
+    return minimalHigher.length > 0 ? minimalHigher : higher;
+  }, [allEmployees, selectedRole]);
+
   async function handleCreateEmployee(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name || !email || !phone || !selectedRole || !selectedDepartment) {
@@ -137,7 +164,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
         phone,
         role: selectedRole,
         department: selectedDepartment,
-        reportsTo: reportsTo || null,
+        reportsTo: supervisorId || null,
         joiningDate: joiningDate || null,
       });
       setFormOpen(false);
@@ -146,14 +173,16 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       setPhone("");
       setSelectedRole("Worker");
       setSelectedDepartment("General");
-      setReportsTo("");
+      setSupervisorId("");
       setJoiningDate("");
-      await refresh();
       setMessage("Employee added successfully.");
     } catch (err) {
+      console.error("Create employee failed", err);
       setMessage(err instanceof Error ? err.message : "Failed to create employee");
     } finally {
+      setFormOpen(false);
       setSubmitting(false);
+      await refresh();
     }
   }
 
@@ -177,7 +206,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     setPhone(employee.phone);
     setSelectedRole(employee.role);
     setSelectedDepartment(employee.department);
-    setReportsTo(employee.reportsTo ?? "");
+    setSupervisorId(employee.reportsTo ?? "");
     setJoiningDate(employee.joiningDate ?? "");
     setEditOpen(true);
   }
@@ -199,7 +228,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
         phone,
         role: selectedRole,
         department: selectedDepartment,
-        reportsTo: reportsTo || null,
+        reportsTo: supervisorId || null,
         joiningDate: joiningDate || null,
       });
       setEditOpen(false);
@@ -207,6 +236,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       await refresh();
       setMessage("Employee updated successfully.");
     } catch (err) {
+      console.error("Update employee failed", err);
       setMessage(err instanceof Error ? err.message : "Failed to update employee");
     } finally {
       setSubmitting(false);
@@ -447,7 +477,14 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reports To</span>
-                <input value={reportsTo} onChange={(event) => setReportsTo(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+                <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
+                  <option value="">None</option>
+                  {supervisorOptions.map((supervisor) => (
+                    <option key={supervisor.id} value={supervisor.id}>
+                      {supervisor.name} — {supervisor.role}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Joining Date</span>
@@ -507,7 +544,14 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reports To</span>
-                <input value={reportsTo} onChange={(event) => setReportsTo(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Manager ID or name" />
+                <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
+                  <option value="">None</option>
+                  {supervisorOptions.map((supervisor) => (
+                    <option key={supervisor.id} value={supervisor.id}>
+                      {supervisor.name} — {supervisor.role}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Joining Date</span>

@@ -4,7 +4,7 @@ import {
   BarChart2, Bell, Search, ChevronLeft, ChevronRight, LogOut,
   Menu, X, CheckCircle, Clock, XCircle, AlertTriangle, Eye,
   Download, Upload, Plus, Filter, MoreHorizontal, Calendar,
-  Package, MapPin, User, Settings, ChevronDown, ArrowRight,
+  Package, MapPin, User, ChevronDown, ArrowRight,
   Lock, RefreshCw, Heart, Activity, DollarSign, MessageSquare,
   FileCheck, FileX, Send, Printer, CheckSquare, Archive, Zap,
   Handshake, Globe2, Sparkles, Trash2, Key, UserCheck, UserX,
@@ -354,7 +354,8 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [forgot, setForgot] = useState(false);
-  const [step, setStep] = useState<"login"|"otp"|"reset">("login");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   async function doLogin() {
     try {
@@ -450,42 +451,45 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
               </>
             ) : (
               <>
-                <button onClick={() => { setForgot(false); setStep("login"); }} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
+                <button onClick={() => setForgot(false)} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
                   <ChevronLeft size={16} /> Back
                 </button>
-                {step === "login" && (
-                  <>
-                    <h2 className="text-xl font-bold mb-2" style={{ color: B.text }}>Reset Password</h2>
-                    <p className="text-sm mb-4" style={{ color: B.textMuted }}>Enter your registered email to receive an OTP.</p>
-                    <input type="email" placeholder="your@prajahita.org" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none mb-4"
-                      style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
-                    <PrimaryButton onClick={() => { setLoading(true); setTimeout(() => { setLoading(false); setStep("otp"); }, 800); }} size="lg" icon={Send}>
-                      {loading ? "Sending…" : "Send OTP"}
-                    </PrimaryButton>
-                  </>
-                )}
-                {step === "otp" && (
-                  <>
-                    <h2 className="text-xl font-bold mb-2" style={{ color: B.text }}>Enter OTP</h2>
-                    <div className="flex gap-2 mb-5">
-                      {[0,1,2,3,4,5].map(i => (
-                        <input key={i} maxLength={1} className="w-10 h-12 text-center rounded-xl text-lg font-bold outline-none"
-                          style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
-                      ))}
-                    </div>
-                    <PrimaryButton onClick={() => setStep("reset")} size="lg" icon={CheckCircle}>Verify OTP</PrimaryButton>
-                  </>
-                )}
-                {step === "reset" && (
-                  <>
-                    <h2 className="text-xl font-bold mb-2" style={{ color: B.text }}>New Password</h2>
-                    <input type="password" placeholder="New password" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none mb-3"
-                      style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
-                    <input type="password" placeholder="Confirm password" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none mb-5"
-                      style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
-                    <PrimaryButton onClick={() => { setForgot(false); setStep("login"); }} size="lg" icon={CheckCircle}>Update Password</PrimaryButton>
-                  </>
-                )}
+                <h2 className="text-xl font-bold mb-2" style={{ color: B.text }}>Reset Password</h2>
+                <p className="text-sm mb-4" style={{ color: B.textMuted }}>
+                  Enter your email and we will send you a password reset link.
+                </p>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  placeholder="your@prajahita.org"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none mb-4"
+                  style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}
+                />
+                {resetError && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{resetError}</div>}
+                {resetSuccess && <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{resetSuccess}</div>}
+                <PrimaryButton onClick={async () => {
+                  setResetError(null);
+                  setResetSuccess(null);
+                  try {
+                    setLoading(true);
+                    if (!email.trim()) {
+                      throw new Error("Please enter your email address.");
+                    }
+                    const redirectTo = `${window.location.origin}/reset-password`;
+                    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                      redirectTo,
+                    });
+                    if (error) throw error;
+                    setResetSuccess("Password reset link sent to your email.");
+                  } catch (err) {
+                    setResetError(err instanceof Error ? err.message : "Unable to send password reset link.");
+                  } finally {
+                    setLoading(false);
+                  }
+                }} size="lg" icon={Send}>
+                  {loading ? "Sending…" : "Send reset link"}
+                </PrimaryButton>
               </>
             )}
           </div>
@@ -633,8 +637,8 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
-function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile, onOpenSettings }: {
-  user: AppUser; onMenuClick: () => void; notifCount: number; onNotifClick: () => void; onViewProfile: () => void; onOpenSettings: () => void;
+function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: {
+  user: AppUser; onMenuClick: () => void; notifCount: number; onNotifClick: () => void; onViewProfile: () => void;
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
@@ -652,9 +656,9 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile, on
   }, [menuOpen]);
 
   return (
-    <header className="flex items-center gap-3 px-5 flex-shrink-0"
+    <header className="flex items-center gap-3 px-5 flex-shrink-0 overflow-visible"
       style={{ background: "rgba(255,255,255,0.30)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.40)", height: 64, boxShadow: "0 2px 16px rgba(0,0,0,0.05)" }}>
+        borderBottom: "1px solid rgba(255,255,255,0.40)", height: 64, boxShadow: "0 2px 16px rgba(0,0,0,0.05)", overflow: "visible" }}>
       <button onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
         <Menu size={20} />
       </button>
@@ -675,7 +679,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile, on
               style={{ background: B.red, fontSize: 9 }}>{notifCount}</span>
           )}
         </button>
-        <div className="relative" data-profile-menu>
+        <div className="relative overflow-visible" data-profile-menu>
           <button onClick={() => setMenuOpen((value) => !value)} className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl"
             style={{ background: "rgba(255,255,255,0.30)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.45)" }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: B.nav }}>
@@ -688,24 +692,18 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile, on
             <ChevronDown size={13} style={{ color: B.textFaint }} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full z-[9999] mt-2 w-72 rounded-2xl border border-white/50 p-3 shadow-lg" style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur }}>
-              <div className="rounded-xl border border-white/40 p-3" style={{ background: "rgba(255,255,255,0.25)" }}>
-                <div className="text-sm font-semibold" style={{ color: B.text }}>{user.name}</div>
-                <div className="text-xs mt-1" style={{ color: B.textMuted }}>Employee ID: {user.employeeId ?? user.id}</div>
-                <div className="text-xs mt-1" style={{ color: B.textMuted }}>Role: {user.role}</div>
-                <div className="text-xs mt-1" style={{ color: B.textMuted }}>Department: {user.department ?? user.dept}</div>
+            <div className="absolute right-0 top-full z-[99999] mt-2 w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl">
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="text-sm font-semibold text-slate-900">{user.name}</div>
+                <div className="text-xs mt-1 text-slate-500">Employee ID: {user.employeeId ?? user.id}</div>
+                <div className="text-xs mt-1 text-slate-500">Role: {user.role}</div>
+                <div className="text-xs mt-1 text-slate-500">Department: {user.department ?? user.dept}</div>
               </div>
               <div className="mt-2 space-y-1">
-                <button onClick={() => { setMenuOpen(false); onViewProfile(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm" style={{ color: B.text }}>
-                  <User size={14} /> View Profile
+                <button onClick={() => { setMenuOpen(false); onViewProfile(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-slate-900 hover:bg-slate-50">
+                  <User size={14} /> Profile
                 </button>
-                <button onClick={() => { setMenuOpen(false); onOpenSettings(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm" style={{ color: B.text }}>
-                  <Settings size={14} /> Settings
-                </button>
-                <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm opacity-70 cursor-not-allowed" style={{ color: B.text }} disabled>
-                  <Moon size={14} /> Dark Mode: Coming Soon
-                </button>
-                <button onClick={() => { setMenuOpen(false); void logout(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm" style={{ color: B.red }}>
+                <button onClick={() => { setMenuOpen(false); void logout(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50">
                   <LogOut size={14} /> Logout
                 </button>
               </div>
@@ -2616,10 +2614,10 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
                 <div><span className="font-semibold" style={{ color: B.text }}>Status:</span> <StatusBadge status={deliveryDetails.status} /></div>
                 <div className="flex items-center gap-2 pt-2">
                   {deliveryDetails.status === "Created" && !isEditingDelivery && (
-                    <PrimaryButton icon={Settings} onClick={() => setIsEditingDelivery(true)}>Edit</PrimaryButton>
+                    <PrimaryButton icon={ArrowRight} onClick={() => setIsEditingDelivery(true)}>Edit</PrimaryButton>
                   )}
                   {deliveryDetails.status === "Loaded" && !isEditingDelivery && (
-                    <PrimaryButton icon={Settings} onClick={() => setIsEditingDelivery(true)}>Edit</PrimaryButton>
+                    <PrimaryButton icon={ArrowRight} onClick={() => setIsEditingDelivery(true)}>Edit</PrimaryButton>
                   )}
                   {isEditingDelivery && (
                     <>
@@ -3209,7 +3207,7 @@ export default function App() {
         mobile={isMobile} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)}
       />
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden" style={{ background: B.bg }}>
-        <TopBar user={profile} onMenuClick={() => setMobileOpen(true)} notifCount={notifCount} onNotifClick={() => handleNav("notifications")} onViewProfile={() => handleNav("profile")} onOpenSettings={() => window.alert("Settings will be available soon.")} />
+        <TopBar user={profile} onMenuClick={() => setMobileOpen(true)} notifCount={notifCount} onNotifClick={() => handleNav("notifications")} onViewProfile={() => handleNav("profile")} />
         <main className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           <style>{`main::-webkit-scrollbar{display:none}`}</style>
           {renderPage()}
