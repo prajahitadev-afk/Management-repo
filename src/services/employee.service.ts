@@ -1,4 +1,4 @@
-import { supabase, EMPLOYEE_PORTAL_URL, EMPLOYEE_RESET_URL } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import type {
   AttendanceStatus,
   AttendanceSummary,
@@ -113,7 +113,12 @@ function buildEmployeeProfilePayload(input: {
 }
 
 function employeeProfilesQuery(select = "*") {
-  return supabase.from("profiles").select(select).not("role", "is", null) as any;
+  return supabase.from("profiles").select(select).not("role", "is", null).neq("role", "Customer") as any;
+}
+
+function userVisibleProfilesQuery(select = "*", userId?: string) {
+  const query = employeeProfilesQuery(select);
+  return userId ? query.or(`id.eq.${userId},reports_to.eq.${userId}`) : query;
 }
 
 function buildEmployeeQuery(filters: EmployeeFilters = {}) {
@@ -179,12 +184,38 @@ export async function getEmployees(filters: EmployeeFilters = {}): Promise<Emplo
 }
 
 export async function getEmployeesForUser(userId: string, filters: EmployeeFilters = {}): Promise<Employee[]> {
-  const visibleIds = await getVisibleEmployeeIdsForUser(userId);
-  if (visibleIds.length === 0) return [];
+  let query = userVisibleProfilesQuery("*", userId);
 
-  const employees = await getEmployees(filters);
-  const visible = new Set(visibleIds);
-  return employees.filter((employee) => visible.has(employee.id));
+  const { search, department, role, status } = filters;
+  const term = search?.trim();
+  if (term) {
+    const pattern = `%${term}%`;
+    query = query.or(
+      `employee_id.ilike.${pattern},name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern},department.ilike.${pattern},role.ilike.${pattern}`,
+    );
+  }
+
+  if (department) {
+    query = query.eq("department", department);
+  }
+
+  if (role) {
+    query = query.eq("role", role);
+  }
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
+  if (error) {
+    const fallback = await buildEmployeeQuery(filters);
+    const { data: fallbackData, error: fallbackError } = await fallback;
+    if (fallbackError) throw fallbackError;
+    return ((fallbackData ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
+  }
+
+  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
 }
 
 export async function searchEmployees(searchTerm: string, filters: EmployeeFilters = {}): Promise<Employee[]> {
@@ -266,15 +297,13 @@ export async function createEmployee(actorId: string, input: {
   const employeeId = `EMP-${Date.now()}`;
   const tempPassword = buildTemporaryPassword(normalizedEmail);
 
-  console.log("Creating Auth User", { email: normalizedEmail });
-  console.log("Password Recovery Redirect", "https://ems.prajahita.com/reset-password");
+  const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : "/reset-password";
   const { data: authData, error: authError } = await (supabase.auth as any).signUp({
     email: normalizedEmail,
     password: tempPassword,
   }, {
-    redirectTo: "https://ems.prajahita.com/reset-password",
+    redirectTo,
   });
-  console.log("Auth Result", authData);
 
   if (authError || !authData?.user?.id) {
     throw new Error(authError?.message ?? "Failed to create auth user for employee");
@@ -428,7 +457,7 @@ async function assertCanManageRole(
 
   const visibleIds = await getVisibleEmployeeIdsForUser(actorId);
   if (targetId && !visibleIds.includes(targetId)) {
-    const { data: profiles, error } = await supabase.from("profiles").select("id, reports_to");
+    const { data: profiles, error } = await employeeProfilesQuery("id, reports_to");
     if (error) throw error;
     const directOrLower = new Set<string>();
     const collect = (parentId: string) => {
@@ -482,16 +511,26 @@ export async function getAttendanceSummary(options: {
     return true;
   });
 
+  const employeeIds = Array.from(new Set(filteredRows.map((row) => readString(row.employee_id)).filter(Boolean))) as string[];
+  const { data: employeeProfiles, error: profileError } = employeeIds.length > 0
+    ? await supabase.from("profiles").select("id, name").in("id", employeeIds).not("role", "is", null)
+    : { data: [], error: null };
+  if (profileError) throw profileError;
+
+  const profileMap = new Map<string, string>();
+  (employeeProfiles || []).forEach((profile: any) => {
+    const id = readString(profile.id);
+    const name = readString(profile.name);
+    if (id && name) profileMap.set(id, name);
+  });
+
   for (const row of filteredRows) {
     const employeeId = readString(row.employee_id) ?? "";
+    if (!employeeId) continue;
     const status = readString(row.status) ?? "Absent";
     const parsedDate = readString(row.attendance_date) ?? date;
-    if (!employeeId) continue;
-
-    const { data: employeeRow, error: employeeError } = await supabase.from("profiles").select("name").eq("id", employeeId).maybeSingle();
-    if (employeeError) throw employeeError;
-
-    const name = readString(employeeRow?.name) ?? "Employee";
+    const name = profileMap.get(employeeId) ?? "Employee";
+    if (!profileMap.has(employeeId)) continue;
     records.push({ employeeId, employeeName: name, status, date: parsedDate });
   }
 
@@ -662,12 +701,7 @@ export async function getVisibleEmployeeIdsForUser(userId: string): Promise<stri
 }
 
 export async function getAttendanceViewEmployees(userId: string): Promise<Employee[]> {
-  const visibleIds = await getVisibleEmployeeIdsForUser(userId);
-  if (visibleIds.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await employeeProfilesQuery("*").in("id", visibleIds);
+  const { data, error } = await userVisibleProfilesQuery("*", userId);
   if (error) throw error;
   return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
 }

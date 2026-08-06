@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 export function ResetPasswordPage() {
-  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -12,7 +12,15 @@ export function ResetPasswordPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ""));
+    for (const [key, value] of hashParams.entries()) {
+      if (!params.has(key)) {
+        params.set(key, value);
+      }
+    }
+
     const type = params.get("type");
     const accessToken = params.get("access_token") ?? undefined;
     setRecoveryParams({ hasRecovery: type === "recovery" && !!accessToken, accessToken });
@@ -22,25 +30,41 @@ export function ResetPasswordPage() {
     setError(null);
     setMessage(null);
 
-    if (password.length < 8) {
+    if (newPassword.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
-    if (password !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
     try {
       setLoading(true);
-      const { error: updateError } = await supabase.auth.updateUser({ password });
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) {
         throw updateError;
       }
-      setMessage("Password reset successful. Redirecting to login...");
-      window.setTimeout(() => {
-        window.location.href = "/";
-      }, 1000);
+      setMessage("Password reset successful. Signing out temporary recovery session...");
+      await supabase.auth.signOut();
+      if (typeof window !== "undefined") {
+        const keysToRemove: string[] = [];
+        [window.sessionStorage, window.localStorage].forEach((storage) => {
+          for (let i = 0; i < storage.length; i += 1) {
+            const key = storage.key(i);
+            if (!key) continue;
+            if (key.startsWith("sb-") || key.includes("supabase") || key.includes("auth")) {
+              keysToRemove.push(key);
+            }
+          }
+        });
+        keysToRemove.forEach((key) => {
+          window.sessionStorage.removeItem(key);
+          window.localStorage.removeItem(key);
+        });
+        window.history.replaceState({}, "", "/login");
+        window.location.replace("/login");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to reset password.");
     } finally {
@@ -59,8 +83,8 @@ export function ResetPasswordPage() {
           <label className="block text-sm font-medium text-slate-700">New Password</label>
           <input
             type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
             className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
             placeholder="Enter new password"
           />
