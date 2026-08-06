@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { getVisibleEmployeeIdsForUser } from "./employee.service";
 
 export interface AttendanceRow {
   id: string;
@@ -21,6 +22,7 @@ export interface AttendanceSummary {
 export interface AttendanceScope {
   role?: string;
   department?: string;
+  userId?: string;
 }
 
 function isOrgWide(role?: string) {
@@ -37,6 +39,23 @@ export function getAttendanceSummary(rows: AttendanceRow[]): AttendanceSummary {
 }
 
 async function getProfiles(scope?: AttendanceScope) {
+  if (scope?.userId) {
+    const visibleEmployeeIds = await getVisibleEmployeeIdsForUser(scope.userId);
+    if (visibleEmployeeIds.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, name, department, role")
+      .in("id", visibleEmployeeIds)
+      .not("role", "is", null)
+      .neq("role", "Customer");
+
+    if (error) throw error;
+    return data || [];
+  }
+
   let query = supabase.from("profiles").select("id, name, department, role").not("role", "is", null).neq("role", "Customer");
 
   if (scope && !isOrgWide(scope.role) && !scope.role?.startsWith("MD-") && scope.department) {
@@ -82,7 +101,7 @@ export async function getAttendanceByDate(date: string, scope?: AttendanceScope)
       role: employee.role ?? "Worker",
       status,
       check_in_time: record?.check_in ?? "-",
-      shift: "General",
+      shift: "Administration",
     };
   });
 }
@@ -116,7 +135,7 @@ export function exportAttendanceToCSV(rows: AttendanceRow[]): void {
     "Role": row.role,
     "Status": row.status || "Not Marked",
     "Check In": row.check_in_time || "—",
-    "Shift": row.shift || "General",
+    "Shift": row.shift || "Administration",
   }));
 
   const csvContent = [

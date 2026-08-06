@@ -228,11 +228,11 @@ export default function App() {
       return <EmployeeProfilePage employeeId={profile.id} editable currentUserId={profile.id} currentUserRole={profile.role} />;
     }
     if (page === "employees") {
-      if (employeeRoute === "profile") return <EmployeeProfilePage employeeId={selectedEmployeeId ?? ""} />;
+      if (employeeRoute === "profile") return <EmployeeProfilePage employeeId={selectedEmployeeId ?? ""} editable currentUserId={profile.id} currentUserRole={profile.role} />;
       if (employeeRoute === "attendance") {
         return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.dept }} />;
       }
-      if (employeeRoute === "organization") return <OrganizationChartPage />;
+      if (employeeRoute === "organization") return <OrganizationChartPage currentUser={profile} />;
       return <EmployeeDirectoryPage currentUser={profile} onSelectEmployee={(employeeId) => {
         setSelectedEmployeeId(employeeId);
         window.location.hash = `#/employees/${employeeId}`;
@@ -261,6 +261,7 @@ export default function App() {
         user={profile} page={page} onNav={handleNav}
         collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         mobile={isMobile} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)}
+        onViewProfile={() => handleNav("profile")}
       />
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden" style={{ background: B.bg }}>
         <TopBar

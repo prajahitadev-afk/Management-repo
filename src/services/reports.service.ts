@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { normalizeDepartmentName } from "../constants/departments";
 
 export type ReportType = "Attendance" | "Bills" | "Marketing" | "Transport" | "Community Impact";
 export type ReportExportFormat = "csv" | "excel" | "pdf";
@@ -85,7 +86,7 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
     const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile.department]));
     const filteredAttendance = (attendanceRows || []).filter((row) => {
       if (!departmentFilter) return true;
-      return profileMap.get(row.employee_id) === departmentFilter;
+      return normalizeDepartmentName(profileMap.get(row.employee_id) as string | undefined) === normalizeDepartmentName(departmentFilter);
     });
 
     const present = filteredAttendance.filter((row) => row.status === "Present").length;
@@ -145,7 +146,7 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
 
     if (historyError) throw historyError;
 
-    const filteredBills = (billsRows || []).filter((row) => !departmentFilter || row.department === departmentFilter);
+    const filteredBills = (billsRows || []).filter((row) => !departmentFilter || normalizeDepartmentName(row.department) === normalizeDepartmentName(departmentFilter));
     const submitted = filteredBills.filter((row) => row.status === "Pending Approval").length;
     const approved = filteredBills.filter((row) => row.status === "Approved" || row.status === "Reviewed").length;
     const rejected = filteredBills.filter((row) => row.status === "Rejected" || row.status === "Returned for Correction").length;

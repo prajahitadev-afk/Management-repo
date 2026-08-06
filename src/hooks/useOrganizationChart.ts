@@ -2,7 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import { getOrganizationChart } from "../services/employee.service";
 import type { OrganizationNode } from "../types/employee.types";
 
-export function useOrganizationChart() {
+interface UseOrganizationChartOptions {
+  userId?: string;
+}
+
+export function useOrganizationChart({ userId }: UseOrganizationChartOptions = {}) {
   const [nodes, setNodes] = useState<OrganizationNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -11,14 +15,14 @@ export function useOrganizationChart() {
     try {
       setLoading(true);
       setError(null);
-      const nextNodes = await getOrganizationChart();
+      const nextNodes = await getOrganizationChart(userId);
       setNodes(nextNodes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load organization chart");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void refresh();

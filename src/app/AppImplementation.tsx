@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { createPortal } from "react-dom";
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Truck, Shield,
   BarChart2, Bell, Search, ChevronLeft, ChevronRight, LogOut,
@@ -69,6 +70,19 @@ interface DashboardStats {
   weeklyAttendance: Array<{ day: string; present: number; absent: number }>;
   communityImpact: Array<{ month: string; beneficiaries: number; volunteers: number }>;
   revenueTrend: Array<{ month: string; orders: number; delivered: number; revenue: number }>;
+  managerCount: number;
+  supervisorCount: number;
+  teamResponsibilities: Array<{ id: string; name: string; role: string; department: string; status: string }>;
+  leaveBalance: number;
+  leaveTaken: number;
+  todayAttendanceStatus: string;
+  attendanceHistory: Array<{ id: string; date: string; status: string; time: string }>;
+  supervisorWorkersCount: number;
+  supervisorPresentCount: number;
+  supervisorAbsentCount: number;
+  supervisorHalfDayCount: number;
+  supervisorLateCount: number;
+  supervisorAttendanceRows: Array<{ id: string; employeeId: string; employeeName: string; status: string; checkIn: string }>;
 }
 
 interface Customer {
@@ -519,12 +533,13 @@ function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
   return lvl >= (item.minLevel ?? 1);
 }
 
-function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, onMobileClose }: {
+function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, onMobileClose, onViewProfile }: {
   user: AppUser; page: Page; onNav: (p: Page) => void; collapsed: boolean; onToggle: () => void;
-  mobile: boolean; mobileOpen: boolean; onMobileClose: () => void;
+  mobile: boolean; mobileOpen: boolean; onMobileClose: () => void; onViewProfile?: () => void;
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
+  const visibleNavItems = NAV_ITEMS.filter((item) => navAccess(item, user));
 
   const content = (
     <div className="flex flex-col h-full relative overflow-hidden">
@@ -565,7 +580,10 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 
       {/* User chip */}
       <div className="relative z-10 px-3 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${B.navBorder}` }}>
-        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl"
+        <button
+          type="button"
+          onClick={() => { onViewProfile?.(); if (mobile) onMobileClose(); }}
+          className="flex w-full items-center gap-2.5 px-2.5 py-2 rounded-xl text-left"
           style={{ background: "rgba(255,255,255,0.10)", backdropFilter: "blur(8px)" }}>
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
             style={{ background: "rgba(255,255,255,0.22)", border: "1px solid rgba(255,255,255,0.30)" }}>
@@ -577,30 +595,28 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
               <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.45)" }}>{roleLabel}</div>
             </div>
           )}
-        </div>
+        </button>
       </div>
 
       {/* Nav */}
       <nav className="relative z-10 flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(item => {
-          const accessible = navAccess(item, user);
+        {visibleNavItems.map(item => {
           const active = page === item.id;
           return (
             <button key={item.id}
-              onClick={() => { if (accessible) { onNav(item.id as Page); if (mobile) onMobileClose(); } }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 ${!accessible ? "opacity-30 cursor-not-allowed" : ""}`}
+              onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150"
               style={{
                 background: active ? B.navAct : "transparent",
                 boxShadow: active ? "0 2px 12px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.18)" : "none",
                 backdropFilter: active ? "blur(8px)" : "none",
               }}
-              onMouseEnter={e => { if (!active && accessible) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
               onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
               <item.icon size={17} style={{ color: active ? "white" : B.navTxt, flexShrink: 0 }} />
               {(!collapsed || mobile) && (
                 <>
                   <span className="text-sm flex-1 font-medium" style={{ color: active ? "white" : B.navTxt }}>{item.label}</span>
-                  {!accessible && <Lock size={10} style={{ color: "rgba(255,255,255,0.25)" }} />}
                   {active && <div className="w-1.5 h-4 rounded-full" style={{ background: CGo, boxShadow: `0 0 8px ${CGo}` }} />}
                 </>
               )}
@@ -643,16 +659,39 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const updateMenuPosition = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 288;
+    const menuHeight = 220;
+    setMenuPosition({
+      top: Math.min(rect.bottom + 8, window.innerHeight - menuHeight - 16),
+      left: Math.max(16, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 16)),
+    });
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
     const handleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target && target.closest("[data-profile-menu]")) return;
+      if (target && (target.closest("[data-profile-menu]") || target.closest("[data-profile-menu-content]"))) return;
       setMenuOpen(false);
     };
+    const handleResize = () => updateMenuPosition();
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleResize, true);
+    updateMenuPosition();
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleResize, true);
+    };
   }, [menuOpen]);
 
   return (
@@ -680,7 +719,14 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
           )}
         </button>
         <div className="relative overflow-visible" data-profile-menu>
-          <button onClick={() => setMenuOpen((value) => !value)} className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl"
+          <button ref={triggerRef} onClick={() => {
+            if (menuOpen) {
+              setMenuOpen(false);
+              return;
+            }
+            setMenuOpen(true);
+            requestAnimationFrame(() => updateMenuPosition());
+          }} className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl"
             style={{ background: "rgba(255,255,255,0.30)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.45)" }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: B.nav }}>
               {user.avatar}
@@ -691,8 +737,8 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
             </div>
             <ChevronDown size={13} style={{ color: B.textFaint }} />
           </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full z-[99999] mt-2 w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl">
+          {menuOpen && createPortal(
+            <div data-profile-menu-content className="w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl" style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 2147483647 }}>
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
                 <div className="text-sm font-semibold text-slate-900">{user.name}</div>
                 <div className="text-xs mt-1 text-slate-500">Employee ID: {user.employeeId ?? user.id}</div>
@@ -707,7 +753,8 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
                   <LogOut size={14} /> Logout
                 </button>
               </div>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>
@@ -962,13 +1009,15 @@ function MDDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
           <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>MD Operations Dashboard · Prajahita Trust</p>
           <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()} · {user.name}</p>
         </div>
+        {/* Future task module actions are disabled for now.
         <div className="flex gap-2">
           <SecondaryButton icon={MessageSquare}>Message Vice President</SecondaryButton>
           <PrimaryButton icon={Plus}>New Request</PrimaryButton>
         </div>
+        */}
       </div>
 
-      {/* MD communication note */}
+      {/* Future MD communication escalation block disabled for now.
       <div className="p-4 rounded-2xl flex items-start gap-3"
         style={{ background: "rgba(78,128,80,0.08)", border: "1px solid rgba(78,128,80,0.18)" }}>
         <ArrowUpRight size={16} style={{ color: CG, flexShrink: 0, marginTop: 2 }} />
@@ -979,15 +1028,18 @@ function MDDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
           </p>
         </div>
       </div>
+      */}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard icon={Users}    label="Team Present Today"     value={String(stats.activeEmployees)} sub="Live from profiles"    accentColor={CG}  />
         <KPICard icon={FileText} label="Bills Awaiting Review"  value={String(stats.pendingBills)} sub={`₹${stats.monthlyRevenue.toLocaleString()} tracked`}       accentColor={CGo} />
+        {/* Future task KPI card disabled for now.
         <KPICard icon={DIcon}    label={`${dept} Tasks`}        value={String(stats.totalRoles)} sub="Roles configured"           accentColor={CB}  />
+        */}
         <KPICard icon={Activity} label="Dept. Attendance Rate"  value={`${Math.round((stats.activeEmployees / Math.max(stats.totalEmployees, 1)) * 100)}%`} sub="Based on active profiles"   accentColor={CT}  />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-5">
         <GlassCard className="p-5">
           <h3 className="font-semibold text-base mb-1" style={{ color: B.text }}>Monthly Revenue Trend — {dept}</h3>
           <p className="text-xs mb-4" style={{ color: B.textMuted }}>Jan – Jul 2025</p>
@@ -1000,26 +1052,6 @@ function MDDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
               <Line id="md-rev" type="monotone" dataKey="revenue" stroke={CG} strokeWidth={2.5} dot={{ fill: CG, r: 4, strokeWidth: 0 }} name="Revenue" />
             </LineChart>
           </ResponsiveContainer>
-        </GlassCard>
-
-        <GlassCard className="p-5">
-          <h3 className="font-semibold text-base mb-3" style={{ color: B.text }}>Escalate to Executive</h3>
-          <p className="text-xs mb-4" style={{ color: B.textMuted }}>Reserved for critical issues. Only MDs have direct access.</p>
-          {[
-            { label: "Vice Chairman", name: "Rajendra Mehta", init: "RM" },
-            { label: "Vice President",       name: "Sunita Patel",   init: "SP" },
-          ].map(p => (
-            <button key={p.name} className="w-full flex items-center gap-3 p-3 rounded-xl mb-2 text-left transition-all hover:bg-white/20"
-              style={{ border: "1px solid rgba(255,255,255,0.40)", background: "rgba(255,255,255,0.20)" }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                style={{ background: B.nav }}>{p.init}</div>
-              <div className="flex-1">
-                <div className="text-sm font-medium" style={{ color: B.text }}>{p.name}</div>
-                <div className="text-xs" style={{ color: B.textMuted }}>{p.label}</div>
-              </div>
-              <Send size={14} style={{ color: B.textFaint }} />
-            </button>
-          ))}
         </GlassCard>
       </div>
     </div>
@@ -1035,12 +1067,16 @@ function GMDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
         <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>{user.dept} Department · {user.name}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
+      {/* Future communication restriction notice disabled for now.
       <CommFlowNotice role={user.role} />
+      */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard icon={Users}       label="Team Present"        value={String(stats.activeEmployees)}  sub="From active profiles"         accentColor={CG}  />
         <KPICard icon={FileText}    label="Bills to Review"     value={String(stats.pendingBills)}   sub="Current pending bills"        accentColor={CGo} />
         <KPICard icon={CheckCircle} label="Bills Approved Today" value={String(stats.approvedBills)} sub="Approved bills count"  accentColor={CB}  />
+        {/* Future task KPI card disabled for now.
         <KPICard icon={Activity}    label="Active CM Tasks"     value={String(stats.totalRoles)}  sub="Configured roles"         accentColor={CT}  />
+        */}
       </div>
       <GlassCard className="p-5">
         <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Weekly Attendance — {user.dept}</h3>
@@ -1069,29 +1105,28 @@ function CMDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
         <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>{user.dept} Department · {user.name}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
+      {/* Future communication restriction notice disabled for now.
       <CommFlowNotice role={user.role} />
+      */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <KPICard icon={Users}    label="Managers Under You"   value={String(stats.totalRoles)}  sub="Configured roles"            accentColor={CG}  />
+        <KPICard icon={Users}    label="Managers Under You"   value={String(stats.managerCount)}  sub="Reports to you"            accentColor={CG}  />
         <KPICard icon={Calendar} label="Team Attendance Today" value={`${Math.round((stats.activeEmployees / Math.max(stats.totalEmployees, 1)) * 100)}%`} sub="Based on active profiles"   accentColor={CB}  />
         <KPICard icon={ClipboardList} label="Active Operations" value={String(stats.approvedBills)} sub="Approved bills"   accentColor={CGo} />
       </div>
       <GlassCard className="p-5">
         <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Team Responsibilities</h3>
-        {[
-          { name: "Vikram Das",    role: "Manager",    dept: "Production",   status: "Active" },
-          { name: "Meera Iyer",   role: "Manager",    dept: "Marketing",    status: "Active" },
-          { name: "Kiran Joshi",  role: "Manager",    dept: "Finance",      status: "Active" },
-          { name: "Pradeep Rao",  role: "Manager",    dept: "Transport",    status: "Active" },
-        ].map((m, i, arr) => (
-          <div key={m.name} className="flex items-center gap-3 py-3"
+        {stats.teamResponsibilities.length === 0 ? (
+          <p className="text-sm" style={{ color: B.textMuted }}>No direct reports found.</p>
+        ) : stats.teamResponsibilities.map((member, i, arr) => (
+          <div key={member.id} className="flex items-center gap-3 py-3"
             style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-              style={{ background: B.nav }}>{m.name.split(" ").map(w => w[0]).join("")}</div>
+              style={{ background: B.nav }}>{member.name.split(" ").map(w => w[0]).join("")}</div>
             <div className="flex-1">
-              <div className="text-sm font-medium" style={{ color: B.text }}>{m.name}</div>
-              <div className="text-xs" style={{ color: B.textMuted }}>{m.role} · {m.dept}</div>
+              <div className="text-sm font-medium" style={{ color: B.text }}>{member.name}</div>
+              <div className="text-xs" style={{ color: B.textMuted }}>{member.role} · {member.department}</div>
             </div>
-            <StatusBadge status={m.status} />
+            <StatusBadge status={member.status} />
           </div>
         ))}
       </GlassCard>
@@ -1110,12 +1145,16 @@ function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStat
         <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>Manager · {user.dept}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
+      {/* Future communication restriction notice disabled for now.
       <CommFlowNotice role={user.role} />
+      */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard icon={Users}       label="Supervisors Under You" value={String(stats.totalRoles)}  sub="Configured roles"         accentColor={CG}  />
+        <KPICard icon={Users}       label="Supervisors Under You" value={String(stats.supervisorCount)}  sub="Reports to you"         accentColor={CG}  />
         <KPICard icon={Calendar}    label="Team Attendance"       value={`${Math.round((stats.activeEmployees / Math.max(stats.totalEmployees, 1)) * 100)}%`} sub="Based on profiles" accentColor={CB}  />
         <KPICard icon={FileText}    label="Bills Submitted"       value={String(stats.pendingBills)}  sub="Current pending"         accentColor={CGo} />
+        {/* Future task KPI card disabled for now.
         <KPICard icon={Activity}    label="Daily Tasks"           value={String(stats.approvedBills)} sub="Approved bills"           accentColor={CT}  />
+        */}
       </div>
       <GlassCard>
         <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
@@ -1150,6 +1189,8 @@ function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStat
 
 // ─── Supervisor Dashboard ─────────────────────────────────────────────────────
 function SupervisorDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) {
+  const attendanceRows = stats.supervisorAttendanceRows ?? [];
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -1159,33 +1200,33 @@ function SupervisorDashboard({ user, stats }: { user: AppUser; stats: DashboardS
         <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>Supervisor · {user.dept}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
+      {/* Future communication restriction notice disabled for now.
       <CommFlowNotice role={user.role} />
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <KPICard icon={Users}    label="Workers Under You"    value={String(stats.totalEmployees)} sub="Profiles available"     accentColor={CG}  />
-        <KPICard icon={Calendar} label="Attendance Marked"   value={String(stats.activeEmployees)} sub="Active profiles" accentColor={CB}  />
-        <KPICard icon={Activity} label="Daily Tasks Assigned" value={String(stats.pendingBills)} sub="Pending bills"          accentColor={CGo} />
+      */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard icon={Users} label="Workers Under Me" value={String(stats.supervisorWorkersCount)} sub="Direct reports" accentColor={CG} />
+        <KPICard icon={CheckCircle} label="Present Today" value={String(stats.supervisorPresentCount)} sub="Attendance recorded" accentColor={CG} />
+        <KPICard icon={XCircle} label="Absent Today" value={String(stats.supervisorAbsentCount)} sub="No attendance record" accentColor={CR} />
+        <KPICard icon={Clock} label="Half Day" value={String(stats.supervisorHalfDayCount)} sub="Partial attendance" accentColor={CGo} />
       </div>
       <GlassCard className="overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-          <h2 className="font-semibold text-base" style={{ color: B.text }}>Worker Attendance — Today</h2>
-          <PrimaryButton size="sm" icon={CheckSquare}>Mark Attendance</PrimaryButton>
+        <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+          <h2 className="font-semibold text-base" style={{ color: B.text }}>Today Attendance</h2>
+          <p className="text-xs mt-0.5" style={{ color: B.textMuted }}>Live data from attendance records</p>
         </div>
-        {[
-          { name: "Suresh Nair",   id: "EMP-001", status: "Present",  time: "08:42" },
-          { name: "Kavya Reddy",   id: "EMP-002", status: "Present",  time: "08:55" },
-          { name: "Mohan Tiwari",  id: "EMP-003", status: "Absent",   time: "—" },
-          { name: "Lalita Patil",  id: "EMP-004", status: "Half Day", time: "09:10" },
-        ].map((w, i, arr) => (
-          <div key={w.id} className="flex items-center gap-3 px-5 py-3 hover:bg-white/10"
+        {attendanceRows.length === 0 ? (
+          <div className="px-5 py-6 text-sm" style={{ color: B.textMuted }}>No attendance records found</div>
+        ) : attendanceRows.map((row: { id: string; employeeId: string; employeeName: string; status: string; checkIn: string }, i: number, arr: Array<{ id: string; employeeId: string; employeeName: string; status: string; checkIn: string }>) => (
+          <div key={row.id} className="flex items-center gap-3 px-5 py-3 hover:bg-white/10"
             style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-              style={{ background: B.nav }}>{w.name.split(" ").map(x => x[0]).join("")}</div>
+              style={{ background: B.nav }}>{row.employeeName.split(" ").map((x: string) => x[0]).join("").slice(0, 2)}</div>
             <div className="flex-1">
-              <div className="text-sm font-medium" style={{ color: B.text }}>{w.name}</div>
-              <div className="text-xs" style={{ color: B.textMuted }}>{w.id}</div>
+              <div className="text-sm font-medium" style={{ color: B.text }}>{row.employeeName}</div>
+              <div className="text-xs" style={{ color: B.textMuted }}>{row.employeeId}</div>
             </div>
-            <span className="text-xs mr-3" style={{ color: B.textMuted, fontFamily: "monospace" }}>{w.time}</span>
-            <StatusBadge status={w.status} />
+            <span className="text-xs mr-3" style={{ color: B.textMuted, fontFamily: "monospace" }}>{row.checkIn}</span>
+            <StatusBadge status={row.status} />
           </div>
         ))}
       </GlassCard>
@@ -1203,7 +1244,9 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
         </h1>
         <p className="text-sm mt-1" style={{ color: B.textMuted }}>{getTodayLabel()} · {user.dept} Department</p>
       </div>
+      {/* Future communication restriction notice disabled for now.
       <CommFlowNotice role="Worker" />
+      */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-2xl overflow-hidden"
           style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
@@ -1214,9 +1257,9 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
               <CheckCircle size={22} style={{ color: CG }} />
             </div>
             <div>
-              <div className="font-bold" style={{ fontSize: 28, color: B.text, lineHeight: 1.1 }}>{stats.activeEmployees > 0 ? "Present" : "Awaiting"}</div>
+              <div className="font-bold" style={{ fontSize: 28, color: B.text, lineHeight: 1.1 }}>{stats.todayAttendanceStatus === "Present" ? "Present" : stats.todayAttendanceStatus === "Absent" ? "Absent" : "Not Marked"}</div>
               <div className="text-sm font-medium mt-0.5" style={{ color: B.textSub }}>Today's Attendance Status</div>
-              <div className="text-xs mt-0.5" style={{ color: B.textMuted }}>Checked in at 08:42 AM</div>
+              <div className="text-xs mt-0.5" style={{ color: B.textMuted }}>{stats.todayAttendanceStatus === "Present" ? "Attendance recorded today" : "No attendance record today"}</div>
             </div>
           </div>
         </div>
@@ -1229,15 +1272,15 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
               <Calendar size={22} style={{ color: CB }} />
             </div>
             <div>
-              <div className="font-bold" style={{ fontSize: 28, color: B.text, lineHeight: 1.1 }}>{stats.activeEmployees > 0 ? `${Math.min(stats.activeEmployees, 8)} Days` : "0 Days"}</div>
+              <div className="font-bold" style={{ fontSize: 28, color: B.text, lineHeight: 1.1 }}>{stats.leaveBalance}</div>
               <div className="text-sm font-medium mt-0.5" style={{ color: B.textSub }}>Leave Balance Remaining</div>
-              <div className="text-xs mt-0.5" style={{ color: B.textMuted }}>2 casual · 6 annual leave</div>
+              <div className="text-xs mt-0.5" style={{ color: B.textMuted }}>Taken: {stats.leaveTaken}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Assigned Work */}
+      {/* Future assigned work widget disabled for now.
       <GlassCard>
         <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
           <h2 className="font-semibold text-base" style={{ color: B.text }}>Assigned Work — Today</h2>
@@ -1264,6 +1307,7 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
           </div>
         ))}
       </GlassCard>
+      */}
 
       {/* Attendance History */}
       <GlassCard>
@@ -1271,20 +1315,16 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
           <h2 className="font-semibold text-base" style={{ color: B.text }}>Attendance History</h2>
           <p className="text-xs mt-0.5" style={{ color: B.textMuted }}>Your recent attendance records</p>
         </div>
-        {[
-          { date: "Tue, 22 Jul", status: "Present",  time: "08:42 AM" },
-          { date: "Mon, 21 Jul", status: "Present",  time: "08:50 AM" },
-          { date: "Fri, 18 Jul", status: "Present",  time: "08:38 AM" },
-          { date: "Thu, 17 Jul", status: "Half Day", time: "08:55 AM" },
-          { date: "Wed, 16 Jul", status: "Leave",    time: "—" },
-        ].map((r, i, arr) => (
-          <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-white/10"
+        {stats.attendanceHistory.length === 0 ? (
+          <div className="px-5 py-4 text-sm" style={{ color: B.textMuted }}>No attendance history found.</div>
+        ) : stats.attendanceHistory.map((record, i, arr) => (
+          <div key={record.id} className="flex items-center gap-3 px-5 py-3 hover:bg-white/10"
             style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
             <div className="flex-1">
-              <div className="text-sm font-medium" style={{ color: B.text }}>{r.date}</div>
-              <div className="text-xs" style={{ color: B.textMuted }}>Clock in: {r.time}</div>
+              <div className="text-sm font-medium" style={{ color: B.text }}>{record.date}</div>
+              <div className="text-xs" style={{ color: B.textMuted }}>Clock in: {record.time}</div>
             </div>
-            <StatusBadge status={r.status} />
+            <StatusBadge status={record.status} />
           </div>
         ))}
       </GlassCard>
@@ -1343,7 +1383,7 @@ function AttendancePage({ user }: { user: AppUser }) {
   const [dept, setDept] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
-  const attendanceScope = useMemo(() => ({ role: user.role, department: user.dept }), [user.role, user.dept]);
+  const attendanceScope = useMemo(() => ({ role: user.role, department: user.dept, userId: user.id }), [user.role, user.dept, user.id]);
 
   const { rows, setRows, weekly, summary, loading, error, reloadAttendance } = useAttendance(selectedDate, attendanceScope);
 
@@ -1352,20 +1392,13 @@ function AttendancePage({ user }: { user: AppUser }) {
   };
 
   const isOrgWide = isExec(user.role) || isMD(user.role);
+  const isWorker = user.role === "Worker";
   const myDept = user.dept;
   const today = new Date().toISOString().split("T")[0];
   const isFutureDate = selectedDate > today;
 
-  function canManage(currentUser: AppUser, employee: any) {
-    if (currentUser.role === "Vice Chairman" || currentUser.role === "Vice President") {
-      return true;
-    }
-
-    return employee.department === currentUser.dept;
-  }
-
   const filtered = rows
-    .filter((emp) => canManage(user, emp))
+    .filter((emp) => (isWorker ? emp.employee_id === user.id : true))
     .filter((emp) => {
       const deptOk = dept === "All" || emp.department === dept;
       const searchOk = [emp.name, emp.department, emp.employee_id, emp.role, emp.status]
@@ -1412,11 +1445,13 @@ function AttendancePage({ user }: { user: AppUser }) {
         actions={
           <>
             <SecondaryButton icon={Download} onClick={() => exportAttendanceToCSV(filtered)}>Export</SecondaryButton>
-            <div title={isFutureDate ? "Future attendance cannot be marked." : undefined}>
-              <PrimaryButton onClick={submitAttendance} disabled={isFutureDate}>
-                Submit Attendance
-              </PrimaryButton>
-            </div>
+            {!isWorker && (
+              <div title={isFutureDate ? "Future attendance cannot be marked." : undefined}>
+                <PrimaryButton onClick={submitAttendance} disabled={isFutureDate}>
+                  Submit Attendance
+                </PrimaryButton>
+              </div>
+            )}
           </>
         }
       />
@@ -1458,7 +1493,7 @@ function AttendancePage({ user }: { user: AppUser }) {
               className="px-3 py-2 text-sm rounded-xl outline-none"
               style={{ background: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.50)", color: B.text }}>
               <option>All</option>
-              {(["Manufacturing", "Marketing", "Transport", "R&D", "Finance"] as const).map((d) => <option key={d}>{d}</option>)}
+              {(["Administration", "Manufacturing", "Marketing", "Transport", "Research & Development"] as const).map((d) => <option key={d}>{d}</option>)}
             </select>
           )}
           <input
@@ -1480,7 +1515,7 @@ function AttendancePage({ user }: { user: AppUser }) {
           <div className="overflow-x-auto">
             {filtered.length === 0 ? (
               <div className="p-6 text-center text-sm" style={{ color: B.textMuted }}>
-                No employees match the current search or department filter.
+                No attendance records found
               </div>
             ) : (
             <table className="w-full min-w-[600px]">
@@ -1959,7 +1994,7 @@ function BillsPage({ user }: { user: AppUser }) {
             <label className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Department</label>
             <select value={formDepartment} onChange={(e) => setFormDepartment(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
               style={{ background: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}>
-              {['Manufacturing','Marketing','Transport','R&D','Finance'].map(d => <option key={d} value={d}>{d}</option>)}
+              {['Administration','Manufacturing','Marketing','Transport','Research & Development'].map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
 
@@ -2905,7 +2940,7 @@ function ReportsPage({ user }: { user: AppUser }) {
             <select value={department} onChange={(e) => setDepartment(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
               style={{ background: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}>
               <option>All Departments</option>
-              {['Manufacturing','Marketing','Transport','R&D','Finance'].map(d => <option key={d}>{d}</option>)}
+              {['Administration','Manufacturing','Marketing','Transport','Research & Development'].map(d => <option key={d}>{d}</option>)}
             </select>
           </div>
         </div>
@@ -3170,15 +3205,19 @@ export default function App() {
         </div>
       );
     }
+    if (page === "profile") {
+      return <EmployeeProfilePage employeeId={profile.id} editable currentUserId={profile.id} currentUserRole={profile.role} />;
+    }
+
     if (page === "employees") {
       if (employeeRoute === "profile") {
-        return <EmployeeProfilePage employeeId={selectedEmployeeId ?? ""} />;
+        return <EmployeeProfilePage employeeId={selectedEmployeeId ?? ""} editable currentUserId={profile.id} currentUserRole={profile.role} />;
       }
       if (employeeRoute === "attendance") {
         return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.dept }} />;
       }
       if (employeeRoute === "organization") {
-        return <OrganizationChartPage />;
+        return <OrganizationChartPage currentUser={{ id: profile.id, role: profile.role }} />;
       }
       return <EmployeeDirectoryPage currentUser={profile} onSelectEmployee={(employeeId) => {
         setSelectedEmployeeId(employeeId);
@@ -3205,6 +3244,7 @@ export default function App() {
         user={profile} page={page} onNav={handleNav}
         collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         mobile={isMobile} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)}
+        onViewProfile={() => handleNav("profile")}
       />
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden" style={{ background: B.bg }}>
         <TopBar user={profile} onMenuClick={() => setMobileOpen(true)} notifCount={notifCount} onNotifClick={() => handleNav("notifications")} onViewProfile={() => handleNav("profile")} />

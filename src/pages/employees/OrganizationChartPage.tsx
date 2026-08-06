@@ -3,6 +3,13 @@ import { AlertCircle, Building2, Contact, Users } from "lucide-react";
 import { useOrganizationChart } from "../../hooks/useOrganizationChart";
 import type { OrganizationNode } from "../../types/employee.types";
 
+interface OrganizationChartPageProps {
+  currentUser?: {
+    id: string;
+    role: string;
+  };
+}
+
 interface OrganizationCardProps {
   node: OrganizationNode;
 }
@@ -37,8 +44,8 @@ function OrganizationCard({ node }: OrganizationCardProps) {
   );
 }
 
-export function OrganizationChartPage() {
-  const { nodes, loading, error } = useOrganizationChart();
+export function OrganizationChartPage({ currentUser }: OrganizationChartPageProps) {
+  const { nodes, loading, error } = useOrganizationChart({ userId: currentUser?.id });
 
   if (loading) {
     return <div className="p-6 text-sm text-slate-600">Loading organization chart...</div>;

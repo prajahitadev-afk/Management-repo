@@ -10,12 +10,13 @@ export function useAttendance(selectedDate?: string, user?: AttendanceScope) {
 
   const scopeRole = user?.role;
   const scopeDepartment = user?.department;
+  const scopeUserId = user?.userId;
 
   async function loadAttendance(date: string) {
     try {
       setLoading(true);
-      const nextRows = await getAttendanceByDate(date, { role: scopeRole, department: scopeDepartment });
-      const nextWeekly = await getAttendanceForWeek(date, { role: scopeRole, department: scopeDepartment });
+      const nextRows = await getAttendanceByDate(date, { role: scopeRole, department: scopeDepartment, userId: scopeUserId });
+      const nextWeekly = await getAttendanceForWeek(date, { role: scopeRole, department: scopeDepartment, userId: scopeUserId });
       const nextSummary = getAttendanceSummary(nextRows);
       setRows(nextRows);
       setWeekly(nextWeekly);
@@ -31,7 +32,7 @@ export function useAttendance(selectedDate?: string, user?: AttendanceScope) {
   useEffect(() => {
     const effectiveDate = selectedDate ?? new Date().toISOString().split("T")[0];
     void loadAttendance(effectiveDate);
-  }, [selectedDate, scopeRole, scopeDepartment]);
+  }, [selectedDate, scopeRole, scopeDepartment, scopeUserId]);
 
   return { rows, setRows, weekly, summary, loading, error, reloadAttendance: loadAttendance };
 }

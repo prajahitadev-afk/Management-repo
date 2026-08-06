@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { normalizeDepartmentName } from "../constants/departments";
 import type {
   AttendanceStatus,
   AttendanceSummary,
@@ -42,7 +43,7 @@ function toEmployee(record: Record<string, unknown>): Employee {
   const name = readString(record.name) ?? "Unnamed Employee";
   const email = readString(record.email) ?? "";
   const phone = readString(record.phone) ?? "";
-  const department = readString(record.department) ?? readString(record.department_name) ?? "Unassigned";
+  const department = normalizeDepartmentName(readString(record.department) ?? readString(record.department_name));
   const role = readString(record.role) ?? readString(record.role_name) ?? "Worker";
   const reportsTo = readString(record.reports_to) ?? readString(record.manager_id) ?? null;
   const status = readString(record.status) ?? "Active";
@@ -105,7 +106,7 @@ function buildEmployeeProfilePayload(input: {
     email: input.email,
     phone: input.phone,
     role: input.role,
-    department: input.department,
+    department: normalizeDepartmentName(input.department),
     reports_to: input.reportsTo,
     joining_date: input.joiningDate,
     status: "Active",
@@ -116,9 +117,66 @@ function employeeProfilesQuery(select = "*") {
   return supabase.from("profiles").select(select).not("role", "is", null).neq("role", "Customer") as any;
 }
 
-function userVisibleProfilesQuery(select = "*", userId?: string) {
-  const query = employeeProfilesQuery(select);
-  return userId ? query.or(`id.eq.${userId},reports_to.eq.${userId}`) : query;
+function userVisibleProfilesQuery(select = "*") {
+  return employeeProfilesQuery(select);
+}
+
+async function getAllEmployeeProfiles(select = "*"): Promise<Array<Record<string, unknown>>> {
+  const { data, error } = await employeeProfilesQuery(select);
+  if (error) throw error;
+  return ((data ?? []) as Array<Record<string, unknown>>).filter((record) => readString(record.id));
+}
+
+async function getVisibleEmployeeProfileIds(userId: string): Promise<string[]> {
+  const { data: currentProfile, error: currentProfileError } = await employeeProfilesQuery("id, role, reports_to")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (currentProfileError || !currentProfile) {
+    return [userId];
+  }
+
+  const currentRole = normalizeRoleName(readString(currentProfile.role) ?? "Worker");
+  if (currentRole === "Worker") {
+    return [userId];
+  }
+
+  const allProfiles = await getAllEmployeeProfiles("id, role, reports_to");
+  const profiles = allProfiles.filter((record) => readString(record.id));
+
+  if (currentRole === "Vice Chairman") {
+    return profiles.map((record) => readString(record.id) as string).filter(Boolean);
+  }
+
+  const visibleIds = new Set<string>();
+  if (currentRole === "Vice President") {
+    visibleIds.add(userId);
+  }
+
+  const collectDescendants = (parentId: string) => {
+    profiles.forEach((profile) => {
+      const profileId = readString(profile.id);
+      const reportsTo = readString(profile.reports_to);
+      if (!profileId || !reportsTo || visibleIds.has(profileId)) return;
+      if (reportsTo === parentId) {
+        visibleIds.add(profileId);
+        collectDescendants(profileId);
+      }
+    });
+  };
+
+  collectDescendants(userId);
+
+  return Array.from(visibleIds);
+}
+
+async function getVisibleEmployeeProfilesForUser(userId: string): Promise<Array<Record<string, unknown>>> {
+  const visibleIds = await getVisibleEmployeeProfileIds(userId);
+  const profiles = await getAllEmployeeProfiles("*");
+  return profiles.filter((profile) => {
+    const profileId = readString(profile.id);
+    return profileId ? visibleIds.includes(profileId) : false;
+  });
 }
 
 function buildEmployeeQuery(filters: EmployeeFilters = {}) {
@@ -184,38 +242,34 @@ export async function getEmployees(filters: EmployeeFilters = {}): Promise<Emplo
 }
 
 export async function getEmployeesForUser(userId: string, filters: EmployeeFilters = {}): Promise<Employee[]> {
-  let query = userVisibleProfilesQuery("*", userId);
-
+  const visibleProfiles = await getVisibleEmployeeProfilesForUser(userId);
   const { search, department, role, status } = filters;
-  const term = search?.trim();
-  if (term) {
-    const pattern = `%${term}%`;
-    query = query.or(
-      `employee_id.ilike.${pattern},name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern},department.ilike.${pattern},role.ilike.${pattern}`,
-    );
-  }
+  const term = search?.trim()?.toLowerCase();
 
-  if (department) {
-    query = query.eq("department", department);
-  }
+  const filteredProfiles = visibleProfiles.filter((profile) => {
+    const employee = toEmployee(profile as Record<string, unknown>);
 
-  if (role) {
-    query = query.eq("role", role);
-  }
+    if (term) {
+      const haystack = [employee.employeeId, employee.name, employee.email, employee.phone, employee.department, employee.role]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(term)) return false;
+    }
 
-  if (status) {
-    query = query.eq("status", status);
-  }
+    if (department && employee.department !== department) return false;
+    if (role && employee.role !== role) return false;
+    if (status && employee.status !== status) return false;
 
-  const { data, error } = await query.order("created_at", { ascending: false });
-  if (error) {
-    const fallback = await buildEmployeeQuery(filters);
-    const { data: fallbackData, error: fallbackError } = await fallback;
-    if (fallbackError) throw fallbackError;
-    return ((fallbackData ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
-  }
+    return true;
+  });
 
-  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
+  return filteredProfiles
+    .sort((left, right) => {
+      const leftCreatedAt = readString((left as Record<string, unknown>).created_at) ?? "";
+      const rightCreatedAt = readString((right as Record<string, unknown>).created_at) ?? "";
+      return rightCreatedAt.localeCompare(leftCreatedAt);
+    })
+    .map((profile) => toEmployee(profile as Record<string, unknown>));
 }
 
 export async function searchEmployees(searchTerm: string, filters: EmployeeFilters = {}): Promise<Employee[]> {
@@ -325,16 +379,24 @@ export async function createEmployee(actorId: string, input: {
   });
 
   console.log("Creating Profile", JSON.stringify(payload, null, 2));
-  const { data, error } = await supabase.from("profiles").insert([payload]).select("*").single();
-  console.log("Profile Result", data);
+  const insertResult = await supabase.from("profiles").insert([payload]).select("*").single();
+  let profileData = insertResult.data;
+  let profileError = insertResult.error;
 
-  if (error) {
-    console.error("Profile creation failed", error);
-    await cleanupCreatedAuthUser(authUserId);
-    throw error;
+  if (profileError) {
+    console.error("Profile creation failed, attempting upsert", profileError);
+    const upsertResult = await supabase.from("profiles").upsert([payload], { onConflict: "id" }).select("*").single();
+    profileData = upsertResult.data;
+    profileError = upsertResult.error;
   }
 
-  return toEmployee(data as Record<string, unknown>);
+  if (profileError || !profileData) {
+    console.error("Profile creation failed", profileError);
+    await cleanupCreatedAuthUser(authUserId);
+    throw profileError ?? new Error("Failed to create employee profile");
+  }
+
+  return toEmployee(profileData as Record<string, unknown>);
 }
 
 export async function updateEmployee(actorId: string, employeeId: string, updates: Partial<Employee>): Promise<Employee> {
@@ -344,7 +406,7 @@ export async function updateEmployee(actorId: string, employeeId: string, update
     email: updates.email,
     phone: updates.phone,
     role: updates.role,
-    department: updates.department,
+    department: updates.department ? normalizeDepartmentName(updates.department) : undefined,
     reports_to: updates.reportsTo,
     status: updates.status,
     joining_date: updates.joiningDate,
@@ -457,20 +519,7 @@ async function assertCanManageRole(
 
   const visibleIds = await getVisibleEmployeeIdsForUser(actorId);
   if (targetId && !visibleIds.includes(targetId)) {
-    const { data: profiles, error } = await employeeProfilesQuery("id, reports_to");
-    if (error) throw error;
-    const directOrLower = new Set<string>();
-    const collect = (parentId: string) => {
-      for (const profile of profiles ?? []) {
-        const id = readString(profile.id);
-        if (id && readString(profile.reports_to) === parentId && !directOrLower.has(id)) {
-          directOrLower.add(id);
-          collect(id);
-        }
-      }
-    };
-    collect(actorId);
-    if (!directOrLower.has(targetId)) throw new Error("You can only manage employees in your hierarchy");
+    throw new Error("You can only manage employees in your hierarchy");
   }
 }
 
@@ -586,132 +635,22 @@ export async function saveAttendanceEntries(entries: Array<{ employeeId: string;
 }
 
 export async function getSubordinateEmployeeIds(userId: string): Promise<string[]> {
-  const { data: currentProfile, error: currentProfileError } = await employeeProfilesQuery("id, role, reports_to")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (currentProfileError || !currentProfile) {
-    return [userId];
-  }
-
-  const { data: allProfiles, error } = await employeeProfilesQuery("id, role, reports_to");
-  if (error) throw error;
-
-  const profiles = ((allProfiles ?? []) as Array<Record<string, unknown>>).filter((record) => readString(record.id));
-  const currentRole = normalizeRoleName(readString(currentProfile.role) ?? "Worker");
-  const visibleIds = new Set<string>();
-
-  if (currentRole === "Vice Chairman") {
-    profiles.forEach((profile) => visibleIds.add(readString(profile.id) as string));
-    return Array.from(visibleIds);
-  }
-  if (currentRole === "Vice President") {
-    profiles.forEach((profile) => visibleIds.add(readString(profile.id) as string));
-    return Array.from(visibleIds);
-  }
-
-  if (currentRole === "Worker") {
-    return [userId];
-  }
-
-  const collectDescendants = (parentId: string) => {
-    profiles.forEach((profile) => {
-      const profileId = readString(profile.id);
-      const reportsTo = readString(profile.reports_to);
-      if (!profileId || !reportsTo) return;
-      if (reportsTo === parentId) {
-        visibleIds.add(profileId);
-        collectDescendants(profileId);
-      }
-    });
-  };
-
-  collectDescendants(userId);
-
-  if (currentRole === "Supervisor") {
-    return Array.from(visibleIds).filter((id) => {
-      const profile = profiles.find((candidate) => readString(candidate.id) === id);
-      return normalizeRoleName(readString(profile?.role) ?? "Worker") === "Worker";
-    });
-  }
-
-  return Array.from(visibleIds);
+  const visibleIds = await getVisibleEmployeeProfileIds(userId);
+  return visibleIds.filter((id) => id !== userId);
 }
 
 export async function getVisibleEmployeeIdsForUser(userId: string): Promise<string[]> {
-  const { data: currentProfile, error: currentProfileError } = await supabase
-    .from("profiles")
-    .select("id, role, department, reports_to")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (currentProfileError || !currentProfile) {
-    return [userId];
-  }
-
-  const currentRole = normalizeRoleName(readString(currentProfile.role) ?? "Worker");
-  const currentDepartment = readString(currentProfile.department) ?? "";
-  const { data: allProfiles, error } = await employeeProfilesQuery("id, role, department, reports_to");
-  if (error) throw error;
-
-    const profiles = ((allProfiles ?? []) as unknown as Array<Record<string, unknown>>).filter((record) => readString(record.id));
-
-  if (currentRole === "Worker") {
-    return [userId];
-  }
-
-  const visibleIds = new Set<string>([userId]);
-
-  if (currentRole === "Vice Chairman") {
-    return profiles.map((record) => readString(record.id) as string).filter(Boolean) as string[];
-  }
-
-  if (currentRole === "Vice President") {
-    return profiles.map((record) => readString(record.id) as string).filter(Boolean) as string[];
-  }
-
-  const collectDescendants = (parentId: string) => {
-    profiles.forEach((profile) => {
-      const profileId = readString(profile.id);
-      const reportsTo = readString(profile.reports_to);
-      if (!profileId || !reportsTo) return;
-      if (reportsTo === parentId) {
-        visibleIds.add(profileId);
-        collectDescendants(profileId);
-      }
-    });
-  };
-
-  collectDescendants(userId);
-
-  const filtered = Array.from(visibleIds).filter((id) => {
-    const profile = profiles.find((candidate) => readString(candidate.id) === id);
-    if (!profile) return false;
-    const profileDepartment = readString(profile.department) ?? "";
-    if (currentDepartment && profileDepartment && profileDepartment !== currentDepartment) {
-      return false;
-    }
-    if (currentRole === "Supervisor") {
-      return normalizeRoleName(readString(profile.role) ?? "Worker") === "Worker";
-    }
-    return true;
-  });
-
-  return filtered;
+  return getVisibleEmployeeProfileIds(userId);
 }
 
 export async function getAttendanceViewEmployees(userId: string): Promise<Employee[]> {
-  const { data, error } = await userVisibleProfilesQuery("*", userId);
-  if (error) throw error;
-  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(toEmployee);
+  const visibleProfiles = await getVisibleEmployeeProfilesForUser(userId);
+  return visibleProfiles.map((profile) => toEmployee(profile as Record<string, unknown>));
 }
 
-export async function getOrganizationChart(): Promise<OrganizationNode[]> {
-  const { data, error } = await employeeProfilesQuery("*");
-
-  if (error) throw error;
-
-  const employees = ((data ?? []) as Array<Record<string, unknown>>).map(toEmployee);
+export async function getOrganizationChart(userId?: string): Promise<OrganizationNode[]> {
+  const profiles = userId ? await getVisibleEmployeeProfilesForUser(userId) : await getAllEmployeeProfiles("*");
+  const employees = profiles.map((profile) => toEmployee(profile as Record<string, unknown>));
   const nodes = new Map<string, OrganizationNode>();
 
   employees.forEach((employee) => {
