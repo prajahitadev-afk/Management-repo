@@ -76,7 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single();
 
     if (error) {
-      console.error("Failed to load profile:", error);
       setProfile(null);
       return;
     }
@@ -97,7 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single();
 
     if (error) {
-      console.error("Failed to refresh profile:", error);
       return;
     }
 
@@ -123,9 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const hasRefreshToken = !!params.get("refresh_token");
         if (hasRecoveryType || hasAccessToken || hasRefreshToken) {
           const { error: sessionError } = await (supabase.auth as any).getSessionFromUrl();
-          if (sessionError) {
-            console.error("Failed to parse recovery session from URL:", sessionError);
-          } else {
+          if (!sessionError) {
             const search = window.location.search || "";
             const hash = window.location.hash || "";
             if (window.location.pathname !== "/reset-password") {

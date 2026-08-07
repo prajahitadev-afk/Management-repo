@@ -91,45 +91,46 @@ function buildWeekDays() {
   return result;
 }
 
+function readNumericValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 async function getLeaveSummary(userId?: string) {
   if (!userId) return { leaveBalance: 0, leaveTaken: 0 };
 
-  try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("leave_balance, leave_taken, annual_leave_balance, casual_leave_balance, leave_days_taken, leave_days_remaining")
-      .eq("id", userId)
-      .maybeSingle();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("leave_balance, leave_taken, annual_leave_balance, casual_leave_balance, leave_days_taken, leave_days_remaining")
+    .eq("id", userId)
+    .maybeSingle();
 
-    if (error) throw error;
+  if (error) throw error;
 
-    const profile = data as Record<string, unknown> | null;
-    const balanceValue = [
-      profile?.leave_balance,
-      profile?.annual_leave_balance,
-      profile?.casual_leave_balance,
-      profile?.leave_days_remaining,
-    ].find((value) => typeof value === "number" && Number.isFinite(value));
-    const takenValue = [
-      profile?.leave_taken,
-      profile?.leave_days_taken,
-    ].find((value) => typeof value === "number" && Number.isFinite(value));
+  const profile = data as Record<string, unknown> | null;
+  if (!profile) return { leaveBalance: 0, leaveTaken: 0 };
 
-    return {
-      leaveBalance: balanceValue !== undefined ? Number(balanceValue) : 0,
-      leaveTaken: takenValue !== undefined ? Number(takenValue) : 0,
-    };
-  } catch {
-    const { data: attendanceRows, error: attendanceError } = await supabase
-      .from("attendance")
-      .select("status")
-      .eq("employee_id", userId);
+  const balanceValue = [
+    profile.leave_balance,
+    profile.annual_leave_balance,
+    profile.casual_leave_balance,
+    profile.leave_days_remaining,
+  ].map(readNumericValue).find((value): value is number => value !== null);
+  const takenValue = [
+    profile.leave_taken,
+    profile.leave_days_taken,
+  ].map(readNumericValue).find((value): value is number => value !== null);
 
-    if (attendanceError) return { leaveBalance: 0, leaveTaken: 0 };
-
-    const leaveTaken = (attendanceRows || []).filter((row: any) => row.status === "Leave").length;
-    return { leaveBalance: Math.max(0, 12 - leaveTaken), leaveTaken };
-  }
+  return {
+    leaveBalance: balanceValue ?? 0,
+    leaveTaken: takenValue ?? 0,
+  };
 }
 
 async function getSubordinateProfiles(userId?: string) {

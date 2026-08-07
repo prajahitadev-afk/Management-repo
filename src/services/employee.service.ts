@@ -28,6 +28,20 @@ const ROLE_LEVEL: Record<string, number> = {
   Worker: 1,
 };
 
+const ROLE_ORDER = [
+  "Worker",
+  "Supervisor",
+  "Manager",
+  "Chief Manager",
+  "General Manager",
+  "MD-Manufacturing",
+  "MD-Marketing",
+  "MD-Transport",
+  "MD-RD",
+  "Vice President",
+  "Vice Chairman",
+] as const;
+
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
@@ -685,6 +699,23 @@ async function resolveManagerName(managerId: string): Promise<string | null> {
   const { data, error } = await supabase.from("profiles").select("name").eq("id", managerId).maybeSingle();
   if (error || !data) return null;
   return readString(data.name) ?? null;
+}
+
+export function getAllowedEmployeeRoles(actorRole?: string | null): string[] {
+  const normalizedActorRole = normalizeRoleName(actorRole ?? "Worker");
+  if (normalizedActorRole === "Vice Chairman") {
+    return [...ROLE_ORDER];
+  }
+
+  if (normalizedActorRole === "Vice President") {
+    return ROLE_ORDER.filter((role) => role !== "Vice Chairman" && role !== "Vice President");
+  }
+
+  const actorLevel = ROLE_LEVEL[normalizedActorRole] ?? 1;
+  return ROLE_ORDER.filter((role) => {
+    const targetLevel = ROLE_LEVEL[role] ?? 1;
+    return targetLevel < actorLevel && role !== "Vice Chairman" && role !== "Vice President";
+  });
 }
 
 function normalizeRoleName(value: string): string {
