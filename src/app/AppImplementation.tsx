@@ -26,7 +26,7 @@ import { useNotifications } from "../hooks/useNotifications";
 import { markAllAsRead } from "../services/notification.service";
 import type { NotificationEventType, NotificationRecord } from "../services/notification.service";
 import type { MarketingOrder } from "../services/marketing.service";
-import { getBillAttachments, getBillHistory, type BillHistory, type BillRecord, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
+import { getBillAttachments, getBillHistory, viewBillAttachment, downloadBillAttachment, type BillAttachment, type BillHistory, type BillRecord, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
 import logoSrc from "../assets/images/Prajahita.jpeg";
 import { getMonthlyRevenueData, getCommunityImpactData, getWeeklyAttendanceData, getAttendanceBreakdownData, type MonthData, type CommunityData, type AttendanceDay, type AttendanceBreakdown } from "../services/dashboard.service";
 import { exportMarketingWorkbook } from "../services/marketing.service";
@@ -1690,9 +1690,33 @@ function BillsPage({ user }: { user: AppUser }) {
   const [formDueDate, setFormDueDate] = useState<string>("");
   const [formDescription, setFormDescription] = useState<string>("");
   const [formAttachmentFiles, setFormAttachmentFiles] = useState<File[]>([]);
-  const [formAttachmentUrls, setFormAttachmentUrls] = useState<Array<{ file_name: string; attachment_url: string }>>([]);
+  const [formAttachmentUrls, setFormAttachmentUrls] = useState<BillAttachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [approvalCancelReason, setApprovalCancelReason] = useState<string>("");
+
+  async function handleViewAttachment(attachment: BillAttachment) {
+    try {
+      const url = await viewBillAttachment(attachment);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Failed to view attachment", err);
+    }
+  }
+
+  async function handleDownloadAttachment(attachment: BillAttachment) {
+    try {
+      const url = await downloadBillAttachment(attachment);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = attachment.file_name || "bill-attachment";
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Failed to download attachment", err);
+    }
+  }
 
   async function handleApprove() {
     if (!selectedBill) return;
@@ -1766,7 +1790,7 @@ function BillsPage({ user }: { user: AppUser }) {
         bill_date: formBillDate || new Date().toISOString().slice(0,10),
         due_date: formDueDate || null,
         description: formDescription || "",
-        attachment_url: uploadedUrls.length > 0 ? JSON.stringify(uploadedUrls) : null,
+        attachment_url: uploadedUrls.length > 0 ? JSON.stringify(uploadedUrls.map(({ file_name, storage_path }) => ({ file_name, storage_path }))) : null,
         submitted_by: user.id,
         submitted_role: user.role,
         status: "Pending Approval",
@@ -1800,7 +1824,7 @@ function BillsPage({ user }: { user: AppUser }) {
         bill_date: formBillDate || new Date().toISOString().slice(0,10),
         due_date: formDueDate || null,
         description: formDescription || "",
-        attachment_url: uploadedUrls.length > 0 ? JSON.stringify(uploadedUrls) : null,
+        attachment_url: uploadedUrls.length > 0 ? JSON.stringify(uploadedUrls.map(({ file_name, storage_path }) => ({ file_name, storage_path }))) : null,
         submitted_by: user.id,
         submitted_role: user.role,
         status: "Draft",
@@ -1871,15 +1895,30 @@ function BillsPage({ user }: { user: AppUser }) {
           </div>
 
           <h3 className="font-semibold mb-4" style={{ color: B.text }}>Complete Audit Trail</h3>
-          {getBillAttachments(selectedBill?.attachment_url ?? null).length > 0 && (
-            <div className="mb-4 text-xs" style={{ color: B.textMuted }}>
-              {getBillAttachments(selectedBill?.attachment_url ?? null).map((attachment) => (
-                <a key={attachment.attachment_url} href={attachment.attachment_url} target="_blank" rel="noreferrer" className="block underline">
-                  {attachment.file_name}
-                </a>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const attachments = getBillAttachments(selectedBill?.attachment_url ?? null);
+            if (attachments.length > 0) {
+              return (
+                <div className="mb-4 space-y-2 text-xs" style={{ color: B.textMuted }}>
+                  {attachments.map((attachment) => (
+                    <div key={`${attachment.file_name}-${attachment.storage_path ?? attachment.attachment_url ?? "unknown"}`} className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2"
+                      style={{ background: "rgba(255,255,255,0.30)", border: "1px solid rgba(255,255,255,0.45)" }}>
+                      <span className="truncate">{attachment.file_name}</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => void handleViewAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
+                          <Eye size={13} /> View
+                        </button>
+                        <button onClick={() => void handleDownloadAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
+                          <Download size={13} /> Download
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+            return <div className="mb-4 text-xs" style={{ color: B.textMuted }}>No attachments uploaded for this bill.</div>;
+          })()}
           {billHistory.length > 0 ? billHistory.map((entry, i) => {
             const done = entry.action !== "saved_draft" && entry.action !== "submitted";
             return (
@@ -2026,16 +2065,55 @@ function BillsPage({ user }: { user: AppUser }) {
             <textarea rows={3} value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Purpose of this expense…" className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
               style={{ background: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
           </div>
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Attach Invoice (PDF/Image)</label>
-            <div className="border-2 border-dashed rounded-2xl p-8 text-center hover:bg-white/20 cursor-pointer transition-colors"
-              style={{ borderColor: "rgba(255,255,255,0.50)" }}>
-              <Upload size={22} className="mx-auto mb-2" style={{ color: B.textFaint }} />
-              <p className="text-sm" style={{ color: B.textSub }}>Drop PDF or Image, or <span style={{ color: B.green }}>browse files</span></p>
-              <p className="text-xs mt-1" style={{ color: B.textMuted }}>Max 10MB · PDF, JPG, PNG</p>
-              <input type="file" accept="application/pdf,.pdf,.jpg,.jpeg,.png" multiple onChange={(e) => { setFormAttachmentFiles(Array.from(e.target.files ?? [])); }} className="mt-3 w-full text-xs text-left text-gray-700" />
-              {formAttachmentFiles.length > 0 && <div className="text-xs mt-2" style={{ color: B.textMuted }}>Selected: {formAttachmentFiles.map((file) => file.name).join(", ")}</div>}
-            </div>
+         <div className="sm:col-span-2">
+            <label
+              className="block text-xs font-bold mb-1.5 uppercase tracking-widest"
+              style={{ color: B.textMuted }}
+            >
+              Attach Invoice (PDF/Image)
+            </label>
+
+            <label
+              className="relative block border-2 border-dashed rounded-2xl p-8 text-center hover:bg-white/20 cursor-pointer transition-colors"
+              style={{ borderColor: "rgba(255,255,255,0.50)" }}
+            >
+              <Upload
+                size={22}
+                className="mx-auto mb-2"
+                style={{ color: B.textFaint }}
+              />
+
+              <p className="text-sm" style={{ color: B.textSub }}>
+                Drop PDF or Image, or{" "}
+                <span style={{ color: B.green }}>browse files</span>
+              </p>
+
+              <p className="text-xs mt-1" style={{ color: B.textMuted }}>
+                Max 10MB · PDF, JPG, PNG
+              </p>
+
+              {formAttachmentFiles.length > 0 && (
+                <div
+                  className="text-xs mt-2"
+                  style={{ color: B.textMuted }}
+                >
+                  Selected:{" "}
+                  {formAttachmentFiles.map((file) => file.name).join(", ")}
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                multiple
+                onChange={(e) =>
+                  setFormAttachmentFiles(
+                    Array.from(e.target.files ?? [])
+                  )
+                }
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </label>
           </div>
         </div>
         <div className="flex gap-3 mt-5">
@@ -2729,9 +2807,11 @@ function AdminPage({ user }: { user: AppUser }) {
 
   const [activeTab, setActiveTab] = useState<"roles"|"audit">("roles");
   const [roles, setRoles] = useState<Array<{ id: string; role_name: string; hierarchy_level?: number }>>([]);
+  const [auditLogs, setAuditLogs] = useState<Array<{ id: string; action: string; comments: string | null; performed_by: string | null; performed_role: string | null; created_at: string | null }>>([]);
 
   useEffect(() => {
     loadRoles();
+    void loadAuditLogs();
   }, []);
 
   async function loadRoles() {
@@ -2743,6 +2823,25 @@ function AdminPage({ user }: { user: AppUser }) {
 
     if (data) {
       setRoles(data as Array<{ id: string; role_name: string; hierarchy_level?: number }>);
+    }
+  }
+
+  async function loadAuditLogs() {
+    try {
+      const { data, error } = await supabase
+        .from("bill_history")
+        .select("id, action, comments, performed_by, performed_role, created_at")
+        .order("created_at", { ascending: false })
+        .limit(25);
+
+      if (error) {
+        throw error;
+      }
+
+      setAuditLogs((data ?? []) as Array<{ id: string; action: string; comments: string | null; performed_by: string | null; performed_role: string | null; created_at: string | null }>);
+    } catch (err) {
+      console.error("Failed to load audit log", err);
+      setAuditLogs([]);
     }
   }
 
@@ -2821,33 +2920,29 @@ function AdminPage({ user }: { user: AppUser }) {
       {activeTab === "audit" && (
         <GlassCard className="p-5">
           <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Activity Audit Log</h3>
-          {[
-            { user: "Priya Sharma",    action: "Approved bill BILL-2025-0892 — ₹26,550",              time: "Today, 02:45 PM",     type: "approval" },
-            { user: "Anil Kumar",      action: "Dispatched shipment ORD-2025-1203 → Nashik",          time: "Today, 11:30 AM",     type: "create"   },
-            { user: "Rajendra Mehta",  action: "Suspended user EMP-SP-001 (Deepa Nambiar)",           time: "Today, 09:45 AM",     type: "admin"    },
-            { user: "Vikram Das",      action: "Submitted bill BILL-2025-0887 for approval",          time: "Yesterday, 04:50 PM", type: "submit"   },
-            { user: "Priya Sharma",    action: "Returned bill BILL-2025-0888 — GST certificate req.", time: "Yesterday, 02:20 PM", type: "rejection"},
-            { user: "Sunita Patel",    action: "Exported Attendance Report — June 2025",              time: "Yesterday, 11:00 AM", type: "export"   },
-            { user: "Rajendra Mehta",  action: "Created new user: Rajan Thomas (MD-Transport)",       time: "2 days ago, 10:00 AM",type: "recruit"  },
-          ].map((log, i, arr) => {
+          {auditLogs.length > 0 ? auditLogs.map((log, i, arr) => {
             const icons: Record<string, ComponentType<{ size?: number; style?: React.CSSProperties }>> = { approval: CheckCircle, create: Plus, admin: Shield, submit: Send, rejection: XCircle, export: Download, recruit: UserCheck };
             const colors: Record<string,string>= { approval: CG, create: CB, admin: CGo, submit: CB, rejection: CR, export: CG, recruit: B.purple };
-            const Icon = icons[log.type];
+            const actionType = log.action.includes("approve") || log.action.includes("approved") ? "approval" : log.action.includes("submit") || log.action.includes("submitted") ? "submit" : log.action.includes("reject") || log.action.includes("rejected") ? "rejection" : "admin";
+            const Icon = icons[actionType];
+            const color = colors[actionType];
             return (
-              <div key={i} className="flex items-start gap-3 py-3.5"
+              <div key={log.id ?? i} className="flex items-start gap-3 py-3.5"
                 style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: `${colors[log.type]}18` }}>
-                  <Icon size={14} style={{ color: colors[log.type] }} />
+                  style={{ background: `${color}18` }}>
+                  <Icon size={14} style={{ color }} />
                 </div>
                 <div className="flex-1">
-                  <span className="text-sm font-semibold" style={{ color: B.text }}>{log.user}</span>
-                  <span className="text-sm" style={{ color: B.textSub }}> — {log.action}</span>
-                  <div className="text-xs mt-0.5" style={{ color: B.textFaint }}>{log.time}</div>
+                  <span className="text-sm font-semibold" style={{ color: B.text }}>{log.performed_role || log.performed_by || "System"}</span>
+                  <span className="text-sm" style={{ color: B.textSub }}> — {log.action.replace(/_/g, " ")}</span>
+                  <div className="text-xs mt-0.5" style={{ color: B.textFaint }}>{log.comments || (log.created_at ? new Date(log.created_at).toLocaleString("en-IN") : "No note")}</div>
                 </div>
               </div>
             );
-          })}
+          }) : (
+            <div className="text-xs" style={{ color: B.textMuted }}>No audit activity available yet.</div>
+          )}
         </GlassCard>
       )}
     </div>

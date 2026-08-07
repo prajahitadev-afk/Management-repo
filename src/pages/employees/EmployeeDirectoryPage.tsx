@@ -6,6 +6,7 @@ import {
   activateEmployee,
   createEmployee,
   deleteEmployee,
+  getAllowedEmployeeRoles,
   getEmployeesForUser,
   suspendEmployee,
   updateEmployee,
@@ -130,6 +131,14 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     () => Array.from(new Set([...employees.map((employee) => employee.role), ...EMPLOYEE_ROLES])).sort(),
     [employees],
   );
+  const allowedRoles = useMemo(() => getAllowedEmployeeRoles(currentUser.role), [currentUser.role]);
+  const roleSelectionOptions = useMemo(() => {
+    const options = allowedRoles.filter((role) => EMPLOYEE_ROLES.includes(role));
+    if (selectedRole && !options.includes(selectedRole) && EMPLOYEE_ROLES.includes(selectedRole)) {
+      options.push(selectedRole);
+    }
+    return options;
+  }, [allowedRoles, selectedRole]);
 
   const supervisorOptions = useMemo(() => {
     const selectedLevel = ROLE_LEVEL[selectedRole] ?? 1;
@@ -255,7 +264,10 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
           </div>
           {currentUser.role !== "Worker" && (
             <button
-              onClick={() => setFormOpen(true)}
+              onClick={() => {
+                setSelectedRole(allowedRoles[0] ?? "Worker");
+                setFormOpen(true);
+              }}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
             >
               <Plus size={16} /> Add Employee
@@ -455,7 +467,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Role</span>
                 <select required value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
-                  {EMPLOYEE_ROLES.map((option) => (
+                  {roleSelectionOptions.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
@@ -522,7 +534,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Role</span>
                 <select required value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
-                  {roleOptions.map((option) => (
+                  {roleSelectionOptions.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>

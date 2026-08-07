@@ -57,7 +57,8 @@ export interface BillHistory {
 
 export interface BillAttachment {
   file_name: string;
-  attachment_url: string;
+  attachment_url?: string | null;
+  storage_path?: string | null;
 }
 
 interface BillRow {
@@ -94,6 +95,15 @@ interface BillRow {
 
 function isExec(role: string) {
   return ["Vice Chairman", "Vice President"].includes(role);
+}
+
+async function getCurrentAuthenticatedUserId(): Promise<string | null> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("Unable to resolve authenticated user for bill workflow", error);
+    return null;
+  }
+  return user?.id ?? null;
 }
 
 function isMD(role: string) {
@@ -221,6 +231,7 @@ async function updateBillStatus(
   note?: string,
   currentStatus?: BillStatus,
 ): Promise<BillRecord> {
+  const resolvedActorId = actorId ?? (await getCurrentAuthenticatedUserId());
   const updatePayload: {
     status: BillStatus;
     approved_by?: string | null;
@@ -236,29 +247,29 @@ async function updateBillStatus(
     last_action_at?: string | null;
   } = {
     status: nextStatus,
-    last_action_by: actorId ?? null,
+    last_action_by: resolvedActorId ?? null,
     last_action_at: new Date().toISOString(),
   };
 
   if (nextStatus === "Approved") {
-    updatePayload.approved_by = actorId ?? null;
+    updatePayload.approved_by = resolvedActorId ?? null;
   }
 
   if (nextStatus === "Reviewed") {
-    updatePayload.reviewed_by = actorId ?? null;
+    updatePayload.reviewed_by = resolvedActorId ?? null;
     updatePayload.reviewed_at = new Date().toISOString();
-    updatePayload.approved_by = actorId ?? null;
+    updatePayload.approved_by = resolvedActorId ?? null;
   }
 
   if (nextStatus === "Returned for Correction") {
     updatePayload.return_reason = note ?? "Bill returned for correction";
-    updatePayload.returned_by = actorId ?? null;
+    updatePayload.returned_by = resolvedActorId ?? null;
     updatePayload.returned_at = new Date().toISOString();
   }
 
   if (nextStatus === "Rejected") {
     updatePayload.rejection_reason = note ?? "Bill rejected";
-    updatePayload.rejected_by = actorId ?? null;
+    updatePayload.rejected_by = resolvedActorId ?? null;
     updatePayload.rejected_at = new Date().toISOString();
   }
 
@@ -273,7 +284,7 @@ async function updateBillStatus(
     action: nextStatus.toLowerCase().replace(/ /g, "_"),
     old_status: currentStatus ?? null,
     new_status: nextStatus,
-    performed_by: actorId ?? null,
+    performed_by: resolvedActorId ?? actorId ?? null,
     role: actorRole ?? "Unknown",
     note: note ?? `Bill status changed to ${nextStatus}`,
   });
@@ -296,13 +307,14 @@ export async function updateBill(id: string, payload: Partial<BillRecord> & {
   attachment_url?: string | null;
 }) {
   const nextStatus: BillStatus = payload.status === "Draft" ? "Draft" : "Pending Approval";
+  const resolvedActorId = payload.submitted_by ?? (await getCurrentAuthenticatedUserId());
   const dbPayload = {
     bill_number: payload.bill_number ?? payload.ref ?? `BILL-${Date.now()}`,
     title: payload.title ?? payload.ref ?? `Bill ${new Date().toLocaleDateString("en-IN")}`,
     vendor_name: payload.vendor ?? "",
     amount: Number(payload.amount ?? 0),
     status: nextStatus,
-    submitted_by: payload.submitted_by ?? null,
+    submitted_by: resolvedActorId ?? null,
     approved_by: null,
     department: payload.department ?? "",
     gst: Number(payload.gst ?? 0),
@@ -318,7 +330,7 @@ export async function updateBill(id: string, payload: Partial<BillRecord> & {
   await insertBillHistory({
     bill_id: id,
     action: nextStatus === "Draft" ? "updated_draft" : "resubmitted",
-    performed_by: payload.submitted_by ?? null,
+    performed_by: resolvedActorId ?? null,
     role: payload.submitted_role ?? "Manager",
     note: nextStatus === "Draft" ? "Bill updated as draft" : "Bill resubmitted for approval",
   });
@@ -340,13 +352,14 @@ export async function createBill(payload: Partial<BillRecord> & {
   attachment_url?: string | null;
 }) {
   const initialStatus: BillStatus = payload.status === "Draft" ? "Draft" : "Pending Approval";
+  const resolvedActorId = payload.submitted_by ?? (await getCurrentAuthenticatedUserId());
   const dbPayload = {
     bill_number: payload.bill_number ?? payload.ref ?? `BILL-${Date.now()}`,
     title: payload.title ?? payload.ref ?? `Bill ${new Date().toLocaleDateString("en-IN")}`,
     vendor_name: payload.vendor ?? "",
     amount: Number(payload.amount ?? 0),
     status: initialStatus,
-    submitted_by: payload.submitted_by ?? null,
+    submitted_by: resolvedActorId ?? null,
     approved_by: null,
     created_at: new Date().toISOString(),
     department: payload.department ?? "",
@@ -366,7 +379,7 @@ export async function createBill(payload: Partial<BillRecord> & {
   await insertBillHistory({
     bill_id: data.id,
     action: initialStatus === "Draft" ? "saved_draft" : "submitted",
-    performed_by: payload.submitted_by ?? null,
+    performed_by: resolvedActorId ?? null,
     role: payload.submitted_role ?? "Manager",
     note: initialStatus === "Draft" ? "Bill saved as draft" : "Bill submitted for approval",
   });
@@ -374,7 +387,15 @@ export async function createBill(payload: Partial<BillRecord> & {
 }
 
 const BILL_ATTACHMENT_BUCKET = "bill-attachments";
-const BILL_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const BILL_ATTACHMENT_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+]);
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 
 export async function uploadBillAttachments(files: File[]): Promise<BillAttachment[]> {
@@ -382,7 +403,8 @@ export async function uploadBillAttachments(files: File[]): Promise<BillAttachme
 
   for (const file of files) {
     const extension = file.name.toLowerCase().split(".").pop() ?? "";
-    if (!BILL_ATTACHMENT_TYPES.has(file.type) && !["pdf", "jpg", "jpeg", "png"].includes(extension)) {
+    const isAllowedType = BILL_ATTACHMENT_TYPES.has(file.type) || ["pdf", "doc", "docx", "xls", "xlsx", "jpg", "jpeg", "png"].includes(extension);
+    if (!isAllowedType) {
       throw new Error(`Unsupported attachment type: ${file.name}`);
     }
     if (file.size > MAX_ATTACHMENT_SIZE) {
@@ -393,18 +415,36 @@ export async function uploadBillAttachments(files: File[]): Promise<BillAttachme
     const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${safeName}`;
     const { error: uploadError } = await supabase.storage
       .from(BILL_ATTACHMENT_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
 
     if (uploadError) throw uploadError;
 
-    const { data: signedUrl, error: signedUrlError } = await supabase.storage
-      .from(BILL_ATTACHMENT_BUCKET)
-      .createSignedUrl(path, 60 * 60 * 24 * 365);
-    if (signedUrlError || !signedUrl.signedUrl) throw signedUrlError ?? new Error(`Unable to create attachment URL for ${file.name}`);
-    attachments.push({ file_name: file.name, attachment_url: signedUrl.signedUrl });
+    attachments.push({ file_name: file.name, storage_path: path });
   }
 
   return attachments;
+}
+
+export async function viewBillAttachment(attachment: BillAttachment): Promise<string> {
+  if (attachment.attachment_url && /^https?:\/\//i.test(attachment.attachment_url)) {
+    return attachment.attachment_url;
+  }
+
+  const storagePath = attachment.storage_path || attachment.attachment_url;
+  if (!storagePath) {
+    throw new Error("Attachment is missing a storage path.");
+  }
+
+  const { data, error } = await supabase.storage.from(BILL_ATTACHMENT_BUCKET).createSignedUrl(storagePath, 60 * 60 * 24);
+  if (error || !data?.signedUrl) {
+    throw error ?? new Error("Unable to create attachment view URL.");
+  }
+
+  return data.signedUrl;
+}
+
+export async function downloadBillAttachment(attachment: BillAttachment): Promise<string> {
+  return viewBillAttachment(attachment);
 }
 
 async function insertBillHistory({
@@ -424,6 +464,7 @@ async function insertBillHistory({
   note?: string;
   role?: string;
 }) {
+  const resolvedPerformerId = performed_by ?? (await getCurrentAuthenticatedUserId());
   const { error } = await supabase
     .from("bill_history")
     .insert([
@@ -433,7 +474,7 @@ async function insertBillHistory({
         old_status: old_status ?? null,
         new_status: new_status ?? null,
         comments: note ?? "",
-        performed_by: performed_by ?? null,
+        performed_by: resolvedPerformerId ?? null,
         performed_role: role ?? "",
         created_at: new Date().toISOString(),
       },
@@ -523,16 +564,16 @@ export async function cancelApprovalBill(id: string, actorId?: string | null, ac
     throw new Error("Only the Vice Chairman can cancel approval.");
   }
 
+  const resolvedActorId = actorId ?? (await getCurrentAuthenticatedUserId());
   const { data, error } = await supabase
     .from("bills")
     .update({
       status: "Pending Approval",
       approved_by: null,
-      review_status: null,
-      approval_cancelled_by: actorId ?? null,
+      approval_cancelled_by: resolvedActorId ?? null,
       approval_cancelled_at: new Date().toISOString(),
       approval_cancel_reason: reason ?? "Approval cancelled by Vice Chairman",
-      last_action_by: actorId ?? null,
+      last_action_by: resolvedActorId ?? null,
       last_action_at: new Date().toISOString(),
     })
     .eq("id", id)
@@ -548,7 +589,7 @@ export async function cancelApprovalBill(id: string, actorId?: string | null, ac
     action: "cancel_approval",
     old_status: bill.status,
     new_status: "Pending Approval",
-    performed_by: actorId ?? null,
+    performed_by: resolvedActorId ?? null,
     role: actorRole ?? "Vice Chairman",
     note: reason ?? "Approval cancelled by Vice Chairman",
   });
@@ -654,19 +695,41 @@ export function getBillAttachments(value: string | null): BillAttachment[] {
     const parsed: unknown = JSON.parse(value);
     if (Array.isArray(parsed)) {
       return parsed.flatMap((item): BillAttachment[] => {
-        if (typeof item === "string") return [{ file_name: item.split("/").pop() ?? item, attachment_url: item }];
-        if (typeof item === "object" && item !== null && "file_name" in item && "attachment_url" in item) {
-          const record = item as { file_name: unknown; attachment_url: unknown };
-          return typeof record.file_name === "string" && typeof record.attachment_url === "string"
-            ? [{ file_name: record.file_name, attachment_url: record.attachment_url }]
-            : [];
+        if (typeof item === "string") {
+          const normalizedValue = item.trim();
+          return [{
+            file_name: normalizedValue.split("/").pop() ?? normalizedValue,
+            attachment_url: /^https?:\/\//i.test(normalizedValue) ? normalizedValue : null,
+            storage_path: /^https?:\/\//i.test(normalizedValue) ? null : normalizedValue,
+          }];
+        }
+        if (typeof item === "object" && item !== null) {
+          const record = item as { file_name?: unknown; attachment_url?: unknown; storage_path?: unknown };
+          if (typeof record.file_name === "string") {
+            const attachmentUrl = typeof record.attachment_url === "string" ? record.attachment_url : null;
+            const storagePath = typeof record.storage_path === "string" ? record.storage_path : null;
+            return [{
+              file_name: record.file_name,
+              attachment_url: attachmentUrl,
+              storage_path: storagePath,
+            }];
+          }
         }
         return [];
       });
     }
   } catch {
-    return [{ file_name: value.split("/").pop() ?? value, attachment_url: value }];
+    const normalizedValue = value.trim();
+    return [{
+      file_name: normalizedValue.split("/").pop() ?? normalizedValue,
+      attachment_url: /^https?:\/\//i.test(normalizedValue) ? normalizedValue : null,
+      storage_path: /^https?:\/\//i.test(normalizedValue) ? null : normalizedValue,
+    }];
   }
-  return [{ file_name: value.split("/").pop() ?? value, attachment_url: value }];
+  return [{
+    file_name: value.split("/").pop() ?? value,
+    attachment_url: null,
+    storage_path: value,
+  }];
 }
 
