@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { isValidUUID } from "../utils/uuid";
 
 export type NotificationEventType =
   | "bill_submitted"
@@ -122,6 +123,7 @@ async function getProfilesByDepartmentAndRoles(department: string, roles: string
 }
 
 async function getDirectManagerId(userId: string): Promise<string | null> {
+  if (!isValidUUID(userId)) return null;
   const { data, error } = await supabase
     .from("profiles")
     .select("reports_to")
@@ -146,16 +148,19 @@ async function getNotificationRecipientsByManagerChain(userId: string): Promise<
 }
 
 export async function getSuperior(profileId: string): Promise<string | null> {
+  if (!isValidUUID(profileId)) return null;
   const { data, error } = await supabase.from("profiles").select("reports_to").eq("id", profileId).maybeSingle();
   if (error) throw error;
   return (data?.reports_to as string | null) ?? null;
 }
 
 export async function getSupervisors(profileId: string, levels = 2): Promise<string[]> {
+  if (!isValidUUID(profileId)) return [];
   const collected: string[] = [];
   let current = await getSuperior(profileId);
   let depth = 0;
   while (current && depth < levels) {
+    if (!isValidUUID(current)) break;
     collected.push(current);
     // get next
     // eslint-disable-next-line no-await-in-loop
@@ -426,20 +431,24 @@ export async function createNotifications(payloads: CreateNotificationPayload[])
 // provider configured.
 export async function sendDeliveryOTP(deliveryId: string, otp: string): Promise<void> {
   // Fetch delivery + customer phone
-  const { data, error } = await supabase
-    .from("deliveries")
-    .select("id, orders(order_number, customers(phone, first_name, last_name)), driver_id")
-    .eq("id", deliveryId)
-    .maybeSingle();
+  const { data, error } = await supabase.from("deliveries").select("id, order_id, driver_id").eq("id", deliveryId).maybeSingle();
 
   if (error) {
     console.error("sendDeliveryOTP: failed to fetch delivery", error);
     return;
   }
 
-  const delivery = data as { id?: string; orders?: { order_number?: string; customers?: { phone?: string; first_name?: string; last_name?: string } } | null; driver_id?: string } | null;
-  const phone = delivery?.orders?.customers?.phone ?? null;
-  const company = delivery?.orders?.customers ? `${delivery.orders.customers.first_name ?? ""} ${delivery.orders.customers.last_name ?? ""}`.trim() || "Prajahita Trust" : "Prajahita Trust";
+  const delivery = data as { id?: string; order_id?: string | null; driver_id?: string } | null;
+  let phone: string | null = null;
+  let company = "Prajahita Trust";
+  if (delivery?.order_id) {
+    const { data: order } = await supabase.from("orders").select("customer_id").eq("id", delivery.order_id).maybeSingle();
+    if (order?.customer_id) {
+      const { data: customer } = await supabase.from("customers").select("phone, name").eq("id", order.customer_id).maybeSingle();
+      phone = customer?.phone ?? null;
+      company = customer?.name || company;
+    }
+  }
 
   // TODO: Implement provider-specific sending here (server-side recommended).
   // Example: call a serverless function that forwards to Twilio/MSG91 etc.

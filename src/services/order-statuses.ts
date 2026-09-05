@@ -1,25 +1,17 @@
 export const ORDER_STATUSES = [
   "Pending",
   "Approved",
-  "Created",
-  "Loaded",
   "Dispatched",
-  "In Transit",
   "Delivered",
-  "Cancelled",
-  "Returned",
+  "Rejected",
 ] as const;
 
 export const ORDER_STATUS = {
   Pending: "Pending",
   Approved: "Approved",
-  Created: "Created",
-  Loaded: "Loaded",
   Dispatched: "Dispatched",
-  "In Transit": "In Transit",
   Delivered: "Delivered",
-  Cancelled: "Cancelled",
-  Returned: "Returned",
+  Rejected: "Rejected",
 } as const;
 
 export type OrderStatus = typeof ORDER_STATUSES[number];
@@ -28,14 +20,19 @@ const LEGACY_ORDER_STATUS_MAP: Record<string, OrderStatus> = {
   "Pending Approval": "Pending",
   "Submitted": "Pending",
   "Order Approved": "Approved",
-  "Processing": "Created",
-  "Packed": "Created",
+  "Processing": "Pending",
+  "Packed": "Pending",
+  "Created": "Approved",
+  "Loaded": "Approved",
   "Shipped": "Dispatched",
-  "Out For Delivery": "In Transit",
+  "Out For Delivery": "Dispatched",
+  "In Transit": "Dispatched",
   "Confirmed": "Delivered",
   "Completed": "Delivered",
   "Draft": "Pending",
-  "Returned for Correction": "Returned",
+  "Cancelled": "Rejected",
+  "Returned": "Rejected",
+  "Returned for Correction": "Rejected",
 };
 
 export function isOrderStatus(value: string | null | undefined): value is OrderStatus {

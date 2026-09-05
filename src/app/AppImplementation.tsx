@@ -26,11 +26,11 @@ import { useNotifications } from "../hooks/useNotifications";
 import { markAllAsRead } from "../services/notification.service";
 import type { NotificationEventType, NotificationRecord } from "../services/notification.service";
 import type { MarketingOrder } from "../services/marketing.service";
-import { getBillAttachments, getBillHistory, viewBillAttachment, downloadBillAttachment, type BillAttachment, type BillHistory, type BillRecord, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
+import { getBillAttachments, getBillHistory, viewBillAttachment, downloadBillAttachment, type BillAttachment, type BillHistory, type BillRecord, exportBillToPDF, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
 import logoSrc from "../assets/images/Prajahita.jpeg";
 import { getMonthlyRevenueData, getCommunityImpactData, getWeeklyAttendanceData, getAttendanceBreakdownData, type MonthData, type CommunityData, type AttendanceDay, type AttendanceBreakdown } from "../services/dashboard.service";
 import { exportMarketingWorkbook } from "../services/marketing.service";
-import { approveOrder, rejectOrder } from "../services/orders.service";
+import { approveOrder, rejectOrder, getOrderDetails, type OrderDetails } from "../services/orders.service";
 import { ORDER_STATUS } from "../services/order-statuses";
 import { exportShipmentsToCSV, getDeliveryDetails, getDeliveryEditableOptions, updateDeliveryDetails, type TransportShipment, type DeliveryOption } from "../services/transport.service";
 import { exportAttendanceToCSV } from "../services/attendance.service";
@@ -42,20 +42,26 @@ import { CreateOrderPage } from "./CreateOrderPage";
 import { CreateDispatchPage } from "./CreateDispatchPage";
 import { EmployeeDirectoryPage } from "../pages/employees/EmployeeDirectoryPage";
 import { EmployeeProfilePage } from "../pages/employees/EmployeeProfilePage";
+import { PaymentsPage } from "../pages/PaymentsPage";
 import { AttendancePage as EmployeeAttendancePage } from "../pages/employees/AttendancePage";
 import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage";
+import { EmployeeKpiWidget } from "../components/EmployeeKpiWidget";
+import { LeavePage } from "../pages/leave/LeavePage";
+import { ExecutiveAnalyticsDashboard } from "../components/ExecutiveAnalyticsDashboard";
+import { canAccessDepartmentModule } from "../services/hierarchy.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Role =
-  | "Vice Chairman" | "Vice President"
+  | "Vice Chairman" | "President" | "Vice President"
+  | "Managing Director"
   | "MD-Manufacturing" | "MD-Marketing" | "MD-Transport" | "MD-RD"
   | "General Manager" | "Chief Manager" | "Manager" | "Supervisor" | "Worker"
   | "Admin";
 
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "transport" | "admin" | "reports" | "notifications" | "employees" | "profile";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department";
 type EmployeeRoute = "directory" | "profile" | "attendance" | "organization";
 
-interface AppUser { id: string; name: string; role: Role; dept: string; avatar: string; email: string; employeeId?: string; department?: string; }
+interface AppUser { id: string; name: string; role: Role; department: string; avatar: string; email: string; employeeId?: string; }
 
 interface DashboardStats {
   totalEmployees: number;
@@ -63,6 +69,7 @@ interface DashboardStats {
   suspendedEmployees: number;
   totalRoles: number;
   ordersReceived: number;
+  pendingApprovals: number;
   pendingBills: number;
   approvedBills: number;
   rejectedBills: number;
@@ -76,7 +83,7 @@ interface DashboardStats {
   leaveBalance: number;
   leaveTaken: number;
   todayAttendanceStatus: string;
-  attendanceHistory: Array<{ id: string; date: string; status: string; time: string }>;
+  attendanceHistory: Array<{ id: string; date: string; status: string; checkIn: string; checkOut: string }>;
   supervisorWorkersCount: number;
   supervisorPresentCount: number;
   supervisorAbsentCount: number;
@@ -132,6 +139,11 @@ function getTodayLabel() {
   return new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
+function navigateDashboardAction(path: string) {
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 function getEmployeeRoutePath() {
   if (typeof window === "undefined") return "";
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -157,17 +169,18 @@ function formatRoleLabel(roleName: string): string {
 
 // Role hierarchy level (higher = more authority)
 const ROLE_LEVEL: Record<Role, number> = {
-  "Vice Chairman": 8, "Vice President": 7,
+  "Vice Chairman": 8, "President": 7, "Vice President": 7,
+  "Managing Director": 6,
   "MD-Manufacturing": 6, "MD-Marketing": 6, "MD-Transport": 6, "MD-RD": 6,
   "General Manager": 5, "Chief Manager": 4, "Manager": 3, "Supervisor": 2, "Worker": 1,
   "Admin": 9,
 };
 
-const isMD   = (r: Role) => r.startsWith("MD-");
-const isExec = (r: Role) => r === "Vice Chairman" || r === "Vice President";
+const isMD   = (r: Role) => r === "Managing Director" || r.startsWith("MD-");
+const isExec = (r: Role) => r === "Vice Chairman" || r === "President" || r === "Vice President";
 const canApproveBills = (r: Role) => ["Vice Chairman","MD-Manufacturing","MD-Marketing","MD-Transport","MD-RD","General Manager"].includes(r);
 const canSubmitBills  = (r: Role) => ROLE_LEVEL[r] >= ROLE_LEVEL["Supervisor"];
-const canViewReports  = (r: Role) => ROLE_LEVEL[r] >= ROLE_LEVEL["Supervisor"];
+const canViewReports  = (r: Role) => ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"].includes(r);
 const canViewAdmin    = (r: Role) => isExec(r) || r === "Admin";
 
 const MD_DEPT: Partial<Record<Role, string>> = {
@@ -176,6 +189,10 @@ const MD_DEPT: Partial<Record<Role, string>> = {
   "MD-Transport":     "Transport",
   "MD-RD":            "Research & Development",
 };
+
+const EMPLOYEE_NAV_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
+const MANAGEMENT_NAV_ROLES: Role[] = ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
+const DEPARTMENT_MODULE_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD"];
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const B = {
@@ -517,18 +534,25 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: "dashboard",     label: "Dashboard",       icon: LayoutDashboard, minLevel: 1 },
-  { id: "attendance",    label: "Attendance",       icon: Calendar,        minLevel: 1 },
-  { id: "bills",         label: "Bill Management",  icon: FileText,        minLevel: 3 }, // Manager+
-  { id: "marketing",     label: "Marketing",        icon: ShoppingCart,    minLevel: 3 }, // Manager+
-  { id: "transport",     label: "Transport",        icon: Truck,           minLevel: 3 }, // Manager+
-  { id: "admin",         label: "Admin / RBAC",     icon: Shield,          adminOnly: true },
-  { id: "employees",     label: "Employees",         icon: Users,           minLevel: 1 },
-  { id: "reports",       label: "Reports",          icon: BarChart2,       minLevel: 2 }, // Supervisor+
+  { id: "attendance",    label: "Attendance",       icon: Calendar,        minLevel: 1, allowedRoles: EMPLOYEE_NAV_ROLES },
+  { id: "employees",     label: "Employees",        icon: Users,           minLevel: 1, allowedRoles: EMPLOYEE_NAV_ROLES },
+  { id: "department",    label: "Department",       icon: Building2,       minLevel: 1 },
+  { id: "leave",         label: "Leave Dashboard",  icon: Calendar,        minLevel: 1 },
+  { id: "reports",       label: "Reports",          icon: BarChart2,       minLevel: 3, allowedRoles: ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD"] as Role[] },
   { id: "notifications", label: "Notifications",    icon: Bell,            minLevel: 1 },
+  { id: "profile",       label: "My Profile",        icon: User,            minLevel: 1 },
+  { id: "bills",         label: "Bill Management",  icon: FileText,        minLevel: 3, allowedRoles: MANAGEMENT_NAV_ROLES },
+  { id: "orders",        label: "Orders",            icon: ShoppingCart,    minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Marketing" },
+  { id: "transport",     label: "Transport",        icon: Truck,           minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Transport" },
+  { id: "admin",         label: "Admin / RBAC",     icon: Shield,          adminOnly: true },
 ];
 
 function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
   if (item.adminOnly) return canViewAdmin(user.role);
+  if (item.allowedRoles && !item.allowedRoles.includes(user.role)) return false;
+  if (item.id === "reports" && !canViewReports(user.role)) return false;
+  const requiredDepartment = (item as { requiredDepartment?: string }).requiredDepartment;
+  if (requiredDepartment && !canAccessDepartmentModule(user.department, requiredDepartment)) return false;
   const lvl = ROLE_LEVEL[user.role];
   return lvl >= (item.minLevel ?? 1);
 }
@@ -539,7 +563,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
-  const visibleNavItems = NAV_ITEMS.filter((item) => navAccess(item, user));
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible !== false && navAccess(item, user));
 
   const content = (
     <div className="flex flex-col h-full relative overflow-hidden">
@@ -743,7 +767,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
                 <div className="text-sm font-semibold text-slate-900">{user.name}</div>
                 <div className="text-xs mt-1 text-slate-500">Employee ID: {user.employeeId ?? user.id}</div>
                 <div className="text-xs mt-1 text-slate-500">Role: {user.role}</div>
-                <div className="text-xs mt-1 text-slate-500">Department: {user.department ?? user.dept}</div>
+                <div className="text-xs mt-1 text-slate-500">Department: {user.department}</div>
               </div>
               <div className="mt-2 space-y-1">
                 <button onClick={() => { setMenuOpen(false); onViewProfile(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-slate-900 hover:bg-slate-50">
@@ -850,7 +874,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard icon={Users}        label="Staff Present Today"    value={String(stats.activeEmployees)} sub={`${Math.round((stats.activeEmployees / Math.max(stats.totalEmployees, 1)) * 100)}% active`} accentColor={CG}  />
           <KPICard icon={FileText}     label="Bills Pending Approval"  value={String(stats.pendingBills)}  sub={`₹${stats.monthlyRevenue.toLocaleString()} tracked`}         accentColor={CGo} />
-          <KPICard icon={ShoppingCart} label="Orders Received"         value={String(stats.ordersReceived)} sub="Live from bills"             accentColor={CB}  />
+          <KPICard icon={ShoppingCart} label="Pending Approvals"       value={String(stats.pendingApprovals)} sub="Orders awaiting approval"       accentColor={CB}  />
           <KPICard icon={DollarSign}   label="Monthly Revenue"         value={`₹${stats.monthlyRevenue.toLocaleString()}`} sub="Aggregated from bills"    accentColor={CT}  />
         </div>
       </div>
@@ -992,7 +1016,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
 
 // ─── MD Dashboard ─────────────────────────────────────────────────────────────
 function MDDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) {
-  const dept = MD_DEPT[user.role] ?? user.dept;
+  const dept = MD_DEPT[user.role] ?? user.department;
   const deptIcons: Record<string, ComponentType<{ size?: number }>> = {
     "Manufacturing": Building2, "Marketing": ShoppingCart,
     "Transport": Truck, "Research & Development": FlaskConical,
@@ -1064,7 +1088,7 @@ function GMDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
     <div className="p-6 space-y-6">
       <div>
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>General Manager</h1>
-        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>{user.dept} Department · {user.name}</p>
+        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>{user.department} Department · {user.name}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
       {/* Future communication restriction notice disabled for now.
@@ -1079,7 +1103,7 @@ function GMDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
         */}
       </div>
       <GlassCard className="p-5">
-        <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Weekly Attendance — {user.dept}</h3>
+        <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Weekly Attendance — {user.department}</h3>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={stats.weeklyAttendance.length > 0 ? stats.weeklyAttendance : ATTEND_WEEK}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
@@ -1102,7 +1126,7 @@ function CMDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
     <div className="p-6 space-y-6">
       <div>
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>Chief Manager</h1>
-        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>{user.dept} Department · {user.name}</p>
+        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>{user.department} Department · {user.name}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
       {/* Future communication restriction notice disabled for now.
@@ -1142,7 +1166,7 @@ function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStat
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>
           Good morning, {user.name.split(" ")[0]} 👋
         </h1>
-        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>Manager · {user.dept}</p>
+        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>Manager · {user.department}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
       {/* Future communication restriction notice disabled for now.
@@ -1162,12 +1186,13 @@ function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStat
         </div>
         <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { icon: FileText,  label: "Submit Bill",    desc: "Expense reimbursement", color: CB  },
-            { icon: Calendar,  label: "Apply Leave",    desc: "Request time off",       color: CGo },
-            { icon: Users,     label: "Team Attendance",desc: "Mark for your team",     color: CG  },
-            { icon: Bell,      label: "Notifications",  desc: "View updates",           color: CR  },
+            { icon: FileText,  label: "Submit Bill",    desc: "Expense reimbursement", color: CB, path: "/bills" },
+            { icon: Calendar,  label: "Apply Leave",    desc: "Request time off",       color: CGo, path: "/leave" },
+            { icon: Users,     label: "Team Attendance",desc: "Mark for your team",     color: CG, path: "/attendance" },
+            { icon: Bell,      label: "Notifications",  desc: "View updates",           color: CR, path: "/notifications" },
           ].map(a => (
             <button key={a.label} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all duration-200"
+              onClick={() => navigateDashboardAction(a.path)}
               style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; }}>
@@ -1197,7 +1222,7 @@ function SupervisorDashboard({ user, stats }: { user: AppUser; stats: DashboardS
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>
           Good morning, {user.name.split(" ")[0]} 👋
         </h1>
-        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>Supervisor · {user.dept}</p>
+        <p className="text-sm mt-0.5 font-medium" style={{ color: B.green }}>Supervisor · {user.department}</p>
         <p className="text-sm" style={{ color: B.textMuted }}>{getTodayLabel()}</p>
       </div>
       {/* Future communication restriction notice disabled for now.
@@ -1242,7 +1267,7 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>
           Good morning, {user.name.split(" ")[0]} 👋
         </h1>
-        <p className="text-sm mt-1" style={{ color: B.textMuted }}>{getTodayLabel()} · {user.dept} Department</p>
+        <p className="text-sm mt-1" style={{ color: B.textMuted }}>{getTodayLabel()} · {user.department} Department</p>
       </div>
       {/* Future communication restriction notice disabled for now.
       <CommFlowNotice role="Worker" />
@@ -1322,7 +1347,7 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
             style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
             <div className="flex-1">
               <div className="text-sm font-medium" style={{ color: B.text }}>{record.date}</div>
-              <div className="text-xs" style={{ color: B.textMuted }}>Clock in: {record.time}</div>
+              <div className="text-xs" style={{ color: B.textMuted }}>Check in: {record.checkIn} · Check out: {record.checkOut}</div>
             </div>
             <StatusBadge status={record.status} />
           </div>
@@ -1336,10 +1361,15 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
         </div>
         <div className="p-4 grid grid-cols-2 gap-3">
           {[
-            { icon: Calendar, label: "Apply Leave",     desc: "Submit leave request", color: CGo },
-            { icon: Bell,     label: "Notifications",   desc: "View updates",          color: CB  },
+            { icon: Calendar, label: "Attendance",      desc: "View attendance",       color: CG, path: "/attendance" },
+            { icon: Calendar, label: "Apply Leave",     desc: "Submit leave request", color: CGo, path: "/leave" },
+            { icon: Users,    label: "Employee Directory", desc: "View employees",    color: CB, path: "/employees" },
+            { icon: FileText, label: "Bills",           desc: "Submit a bill",        color: CT, path: "/bills" },
+            ...(user.department === "Transport" ? [{ icon: Truck, label: "Transport", desc: "View transport", color: CT, path: "/transport" }] : []),
+            ...(user.department === "Marketing" ? [{ icon: ShoppingCart, label: "Orders", desc: "View orders", color: CB, path: "/orders" }] : []),
+            ...(ROLE_LEVEL[user.role] >= ROLE_LEVEL.Manager ? [{ icon: BarChart2, label: "Reports", desc: "View reports", color: CGo, path: "/reports" }] : []),
           ].map(a => (
-            <button key={a.label} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all"
+            <button key={a.label} onClick={() => navigateDashboardAction(a.path)} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all"
               style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center"
                 style={{ background: `${a.color}18`, border: `1px solid ${a.color}30` }}>
@@ -1368,13 +1398,20 @@ function DashboardPage({ user }: { user: AppUser }) {
     return <div className="p-6" style={{ color: CR }}>Failed to load dashboard data.</div>;
   }
 
-  if (isExec(user.role))  return <VCDashboard user={user} stats={stats} />;
-  if (isMD(user.role))    return <MDDashboard user={user} stats={stats} />;
-  if (user.role === "General Manager")  return <GMDashboard user={user} stats={stats} />;
-  if (user.role === "Chief Manager")    return <CMDashboard user={user} stats={stats} />;
-  if (user.role === "Manager")          return <ManagerDashboard user={user} stats={stats} />;
-  if (user.role === "Supervisor")       return <SupervisorDashboard user={user} stats={stats} />;
-  return <WorkerDashboard user={user} stats={stats} />;
+  let dashboard = <WorkerDashboard user={user} stats={stats} />;
+  if (isExec(user.role)) dashboard = <ExecutiveAnalyticsDashboard role={user.role === "Vice Chairman" ? "Vice Chairman" : user.role === "President" ? "President" : "Vice President"} department={user.department} userId={user.id} />;
+  else if (isMD(user.role)) dashboard = <ExecutiveAnalyticsDashboard role="MD" department={user.department} userId={user.id} />;
+  else if (user.role === "General Manager") dashboard = <ExecutiveAnalyticsDashboard role="General Manager" department={user.department} userId={user.id} />;
+  else if (user.role === "Chief Manager") dashboard = <ExecutiveAnalyticsDashboard role="Chief Manager" department={user.department} userId={user.id} />;
+  else if (user.role === "Manager") dashboard = <ManagerDashboard user={user} stats={stats} />;
+  else if (user.role === "Supervisor") dashboard = <SupervisorDashboard user={user} stats={stats} />;
+
+  return <>
+    {dashboard}
+    <div className="px-6 pb-6">
+      <EmployeeKpiWidget userId={user.id} role={user.role} department={user.department} />
+    </div>
+  </>;
 }
 
 // ─── Attendance Page ──────────────────────────────────────────────────────────
@@ -1383,7 +1420,7 @@ function AttendancePage({ user }: { user: AppUser }) {
   const [dept, setDept] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
-  const attendanceScope = useMemo(() => ({ role: user.role, department: user.dept, userId: user.id }), [user.role, user.dept, user.id]);
+  const attendanceScope = useMemo(() => ({ role: user.role, department: user.department, userId: user.id }), [user.role, user.department, user.id]);
 
   const { rows, setRows, weekly, summary, loading, error, reloadAttendance } = useAttendance(selectedDate, attendanceScope);
 
@@ -1393,7 +1430,7 @@ function AttendancePage({ user }: { user: AppUser }) {
 
   const isOrgWide = isExec(user.role) || isMD(user.role);
   const isWorker = user.role === "Worker";
-  const myDept = user.dept;
+  const myDept = user.department;
   const today = new Date().toISOString().split("T")[0];
   const isFutureDate = selectedDate > today;
 
@@ -1631,8 +1668,17 @@ function BillsPage({ user }: { user: AppUser }) {
   const { bills, pendingBills, loading, error, refreshBills, createBill, approveBill, reviewBill, rejectBill, returnBill, cancelApproval } = useBills();
   const canSubmit  = canSubmitBills(user.role);
 
-  const normalizeDepartment = (department: string) => String(department || "").replace(/\s+/g, "").toLowerCase();
-  const isMDOfDepartment = (role: Role, department: string) => role.startsWith("MD-") && role.replace("MD-", "").toLowerCase() === normalizeDepartment(department);
+  const normalizeDepartment = (department: string) => String(department || "").replace(/\s+/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const isMDOfDepartment = (role: Role, department: string) => {
+    const departmentKeys: Record<string, string[]> = {
+      "MD-Manufacturing": ["MANUFACTURING"],
+      "MD-Marketing": ["MARKETING"],
+      "MD-Transport": ["TRANSPORT", "TRANSPORTATION"],
+      "MD-RD": ["RD", "RND", "RESEARCHANDDEVELOPMENT", "RESEARCHDEVELOPMENT"],
+    };
+    return departmentKeys[role]?.includes(normalizeDepartment(department)) ?? false;
+  };
+  const canApprovePendingBill = (role: Role, department: string) => ["Vice Chairman", "Vice President", "General Manager"].includes(role) || isMDOfDepartment(role, department);
 
   interface BillActions {
     primaryLabel: string | null;
@@ -1644,10 +1690,10 @@ function BillsPage({ user }: { user: AppUser }) {
 
   const getBillActions = (bill: BillRecord | null, actor: AppUser): BillActions => {
     const noActions: BillActions = { primaryLabel: null, primaryAction: null, canReject: false, canReturn: false, canCancelApproval: false };
-    if (!bill || actor.role === "Vice President") return noActions;
+    if (!bill) return noActions;
 
     if (bill.status === "Pending Approval") {
-      if (actor.role === "Vice Chairman" || actor.role.startsWith("MD-")) {
+      if (canApprovePendingBill(actor.role, bill.department)) {
         return { primaryLabel: "Approve Bill", primaryAction: "approve", canReject: true, canReturn: true, canCancelApproval: false };
       }
       return noActions;
@@ -1999,7 +2045,7 @@ function BillsPage({ user }: { user: AppUser }) {
             </div>
           )}
           <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-            <button className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
+            <button onClick={() => { if (selectedBill) void exportBillToPDF(selectedBill); }} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
               <Printer size={14} /> Print Bill
             </button>
           </div>
@@ -2178,7 +2224,6 @@ function BillsPage({ user }: { user: AppUser }) {
             <option value="All">All Status</option>
             {Array.from(new Set(bills.map((bill) => bill.status))).map((status) => <option key={status} value={status}>{status}</option>)}
           </select>
-          <SecondaryButton icon={Filter}>Filter</SecondaryButton>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[750px]">
@@ -2219,24 +2264,32 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const { profile } = useAuth();
   const userRole = profile?.role as Role | undefined;
   const { metrics, orders, customers, revenue, performance, loading, error, refreshData } = useMarketing();
-  const [activeTab, setActiveTab] = useState<"orders"|"customers">("orders");
+  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments">("orders");
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [actionLoadingOrderId, setActionLoadingOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<MarketingOrder | null>(null);
+  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
+  const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
 
-  const filteredOrders = orders.filter(o => 
-    o.ref.toLowerCase().includes(orderSearch.toLowerCase()) ||
-    o.customer.toLowerCase().includes(orderSearch.toLowerCase()) ||
-    o.location.toLowerCase().includes(orderSearch.toLowerCase())
-  );
+  const filteredOrders = orders;
 
   const canApproveOrders = (role?: Role) => ["Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "Worker");
+  const canApproveCurrentUser = canApproveOrders(userRole);
+
+  useEffect(() => {
+    console.log("ORDERS", orders);
+    console.log("CUSTOMERS", customers);
+    console.log("ORDERS COMPONENT STATE", orders.length);
+    console.log("CUSTOMERS COMPONENT STATE", customers.length);
+  }, [orders, customers]);
 
   async function handleApproveOrder(order: MarketingOrder) {
+    console.log("APPROVE CLICK", order.id, order.status, userRole);
     if (!canApproveOrders(userRole)) return;
     setActionLoadingOrderId(order.id);
     try {
-      await approveOrder(order.id, order.ref);
+      await approveOrder(order.id, order.ref, userRole);
       await refreshData();
       // no success shown until database update succeeds
     } catch (err) {
@@ -2247,12 +2300,13 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   }
 
   async function handleRejectOrder(order: MarketingOrder) {
+    console.log("REJECT CLICK", order.id, order.status, userRole);
     if (!canApproveOrders(userRole)) return;
     const reason = window.prompt(`Provide a reason for rejecting order ${order.ref}:`);
     if (!reason) return;
     setActionLoadingOrderId(order.id);
     try {
-      await rejectOrder(order.id, order.ref, reason);
+      await rejectOrder(order.id, order.ref, reason, userRole);
       await refreshData();
       alert(`Order ${order.ref} rejected.`);
     } catch (err) {
@@ -2262,15 +2316,28 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
     }
   }
 
-  const filteredCustomers = customers.filter(c =>
-    c.id.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.location.toLowerCase().includes(customerSearch.toLowerCase())
-  );
+  async function handleOpenOrder(order: MarketingOrder) {
+    setSelectedOrder(order);
+    setOrderDetails(null);
+    setOrderDetailsLoading(true);
+    try {
+      setOrderDetails(await getOrderDetails(order.id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load order details");
+    } finally {
+      setOrderDetailsLoading(false);
+    }
+  }
+
+  const filteredCustomers = customers;
 
   const handleExport = () => {
     void exportMarketingWorkbook(filteredOrders, filteredCustomers, metrics, revenue, performance);
   };
+
+  console.log("ORDERS TABLE ROWS", filteredOrders.length);
+  console.log("CUSTOMERS TABLE ROWS", filteredCustomers.length);
+  console.log("APPROVAL ROLE", userRole, "AUTHORIZED", canApproveCurrentUser);
 
   return (
     <div className="p-6 space-y-5">
@@ -2331,8 +2398,9 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
               <div key={idx} className="mb-3.5">
                 <div className="flex justify-between text-xs mb-1.5">
                   <span className="font-medium" style={{ color: B.text }}>{p.name}</span>
-                  <span style={{ color: B.textMuted }}>{p.val}</span>
+                  <span style={{ color: B.textMuted }}>{p.unitsSold} units · {p.val}</span>
                 </div>
+                <div className="text-xs mb-1.5" style={{ color: B.textMuted }}>{p.ordersCount} orders · Revenue {p.val}</div>
                 <div className="h-1.5 rounded-full" style={{ background: "rgba(0,0,0,0.08)" }}>
                   <div className="h-1.5 rounded-full" style={{ width: `${p.pct}%`, background: CG }} />
                 </div>
@@ -2345,18 +2413,20 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       {/* Tabs */}
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
-        {(["orders","customers"] as const).map(t => (
+        {(["orders","customers","payments"] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium capitalize transition-all"
             style={{
               background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
               color: activeTab === t ? B.nav : B.textMuted, fontWeight: activeTab === t ? 600 : 400,
-              borderRight: t !== "customers" ? "1px solid rgba(255,255,255,0.40)" : "none",
+              borderRight: t !== "payments" ? "1px solid rgba(255,255,255,0.40)" : "none",
             }}>
-            {t === "orders" ? "Orders" : "Customer Database"}
+            {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : "Payments"}
           </button>
         ))}
       </div>
+
+      {activeTab === "payments" && <PaymentsPage />}
 
       {activeTab === "orders" && (
         <GlassCard>
@@ -2372,7 +2442,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                 style={{ color: B.text }} 
               />
             </div>
-            <SecondaryButton icon={Filter}>Filter</SecondaryButton>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
@@ -2385,7 +2454,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
               </thead>
               <tbody>
                 {filteredOrders.map(o => (
-                  <tr key={o.ref} className="transition-colors hover:bg-white/20" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                  <tr key={o.id} onClick={() => void handleOpenOrder(o)} className="transition-colors hover:bg-white/20 cursor-pointer" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
                     <td className="py-3.5 px-4 text-sm font-bold" style={{ color: B.text, fontFamily: "monospace" }}>{o.ref}</td>
                     <td className="py-3.5 px-4 text-sm font-medium" style={{ color: B.text }}>{o.customer}</td>
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}><span className="flex items-center gap-1"><MapPin size={11} />{o.location}</span></td>
@@ -2396,29 +2465,30 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{o.delivery}</td>
                     <td className="py-3.5 px-4"><StatusBadge status={o.status} /></td>
                     <td className="py-3.5 px-4">
+                      {console.log("ORDER STATUS", o.status, "BUTTON DISABLED", actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status))}
                       <div className="flex flex-wrap gap-2">
                         <button
-                          onClick={() => void handleApproveOrder(o)}
-                          disabled={actionLoadingOrderId === o.id || o.status !== ORDER_STATUS.Pending}
+                          onClick={(event) => { event.stopPropagation(); void handleApproveOrder(o); }}
+                          disabled={actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status)}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
                           style={{
-                            background: o.status === ORDER_STATUS.Pending ? (actionLoadingOrderId === o.id ? "rgba(78,128,80,0.18)" : "rgba(78,128,80,0.15)") : "rgba(156,163,175,0.18)",
-                            color: o.status === ORDER_STATUS.Pending ? CG : B.textMuted,
-                            border: `1px solid ${o.status === ORDER_STATUS.Pending ? `${CG}33` : "rgba(156,163,175,0.22)"}`,
-                            cursor: o.status === ORDER_STATUS.Pending ? "pointer" : "not-allowed",
+                            background: !["Approved", "Rejected", "Delivered"].includes(o.status) ? "rgba(78,128,80,0.15)" : "rgba(156,163,175,0.18)",
+                            color: !["Approved", "Rejected", "Delivered"].includes(o.status) ? CG : B.textMuted,
+                            border: `1px solid ${!["Approved", "Rejected", "Delivered"].includes(o.status) ? `${CG}33` : "rgba(156,163,175,0.22)"}`,
+                            cursor: !["Approved", "Rejected", "Delivered"].includes(o.status) ? "pointer" : "not-allowed",
                           }}
                         >
                           Approve
                         </button>
                         <button
-                          onClick={() => void handleRejectOrder(o)}
-                          disabled={actionLoadingOrderId === o.id || o.status !== ORDER_STATUS.Pending}
+                          onClick={(event) => { event.stopPropagation(); void handleRejectOrder(o); }}
+                          disabled={actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status)}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
                           style={{
-                            background: o.status === ORDER_STATUS.Pending ? (actionLoadingOrderId === o.id ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.10)") : "rgba(156,163,175,0.10)",
-                            color: o.status === ORDER_STATUS.Pending ? CR : B.textMuted,
-                            border: `1px solid ${o.status === ORDER_STATUS.Pending ? `${CR}33` : "rgba(156,163,175,0.22)"}`,
-                            cursor: o.status === ORDER_STATUS.Pending ? "pointer" : "not-allowed",
+                            background: !["Approved", "Rejected", "Delivered"].includes(o.status) ? "rgba(239,68,68,0.10)" : "rgba(156,163,175,0.10)",
+                            color: !["Approved", "Rejected", "Delivered"].includes(o.status) ? CR : B.textMuted,
+                            border: `1px solid ${!["Approved", "Rejected", "Delivered"].includes(o.status) ? `${CR}33` : "rgba(156,163,175,0.22)"}`,
+                            cursor: !["Approved", "Rejected", "Delivered"].includes(o.status) ? "pointer" : "not-allowed",
                           }}
                         >
                           Reject
@@ -2483,6 +2553,44 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
             )}
           </div>
         </GlassCard>
+      )}
+
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.28)" }}>
+          <GlassCard className="w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between gap-4 mb-5">
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: B.text }}>Order Details</h2>
+                <p className="text-xs mt-1" style={{ color: B.textMuted }}>{selectedOrder.ref}</p>
+              </div>
+              <button onClick={() => { setSelectedOrder(null); setOrderDetails(null); }} className="p-2 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><X size={18} /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-6">
+              <div><span className="font-semibold" style={{ color: B.text }}>Order Number:</span> {selectedOrder.ref}</div>
+              <div><span className="font-semibold" style={{ color: B.text }}>Customer:</span> {selectedOrder.customer}</div>
+              <div><span className="font-semibold" style={{ color: B.text }}>Date:</span> {selectedOrder.date}</div>
+              <div><span className="font-semibold" style={{ color: B.text }}>Status:</span> {selectedOrder.status}</div>
+              <div><span className="font-semibold" style={{ color: B.text }}>Total Amount:</span> ₹{selectedOrder.value.toLocaleString()}</div>
+            </div>
+            <h3 className="font-semibold mb-3" style={{ color: B.text }}>Items</h3>
+            {orderDetailsLoading && <p className="text-sm" style={{ color: B.textMuted }}>Loading items...</p>}
+            {!orderDetailsLoading && orderDetails && (
+              <>
+                <div className="space-y-2">
+                  {orderDetails.items.map((item) => (
+                    <div key={item.id} className="grid grid-cols-4 gap-3 text-sm py-2 border-b border-black/5">
+                      <span style={{ color: B.text }}>{item.productName}</span>
+                      <span style={{ color: B.textMuted }}>Qty {item.quantity}</span>
+                      <span style={{ color: B.textMuted }}>₹{item.unitPrice.toLocaleString()}</span>
+                      <span className="text-right" style={{ color: B.text }}>₹{item.totalPrice.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-3 mt-4 font-bold" style={{ color: B.text }}>Grand Total: ₹{orderDetails.grandTotal.toLocaleString()}</div>
+              </>
+            )}
+          </GlassCard>
+        </div>
       )}
     </div>
   );
@@ -2615,13 +2723,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 text-sm rounded-xl outline-none"
               style={{ background: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.50)", color: B.text }}>
               <option value="All">All Status</option>
-              <option value="Created">Created</option>
-              <option value="Loaded">Loaded</option>
-              <option value="Dispatched">Dispatched</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Failed">Failed</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="Approved">Approved</option>
             </select>
             <SecondaryButton icon={Filter}>Filter</SecondaryButton>
           </div>
@@ -2657,16 +2759,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
                   <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{s.delivery}</td>
                   <td className="py-3.5 px-4"><StatusBadge status={s.status} /></td>
                   <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5">
-                      <button onClick={() => void handleOpenDetails(s.deliveryId)} className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
-                      {s.status !== "Delivered" && s.status !== "Failed" && s.status !== "Cancelled" && (
-                        <button onClick={() => void updateStatus(s.deliveryId)}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-                          style={{ background: B.greenLight, color: CG, border: `1px solid ${CG}30` }}>
-                          <ArrowRight size={11} /> {s.status === "Created" ? "Load" : s.status === "Loaded" ? "Dispatch" : s.status === "Dispatched" ? "Transit" : s.status === "In Transit" ? "Deliver" : "Advance"}
-                        </button>
-                      )}
-                    </div>
+                    <div className="text-xs" style={{ color: B.textMuted }}>Select for dispatch</div>
                   </td>
                 </tr>
               ))}
@@ -2970,6 +3063,7 @@ function ReportsPage({ user }: { user: AppUser }) {
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         department: department === "All Departments" ? undefined : department,
+        userDepartment: user.department,
       });
       setGeneratedReport(report);
     } catch (err) {
@@ -3272,6 +3366,8 @@ export default function App() {
     setPage(p);
     if (p === "employees") {
       window.location.hash = "#/employees";
+    } else if (p === "organization") {
+      window.location.hash = "#/employees/organization";
     } else if (typeof window !== "undefined" && window.location.hash.startsWith("#/employees")) {
       window.location.hash = "";
     }
@@ -3309,10 +3405,13 @@ export default function App() {
         return <EmployeeProfilePage employeeId={selectedEmployeeId ?? ""} editable currentUserId={profile.id} currentUserRole={profile.role} />;
       }
       if (employeeRoute === "attendance") {
-        return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.dept }} />;
+        return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.department }} />;
       }
       if (employeeRoute === "organization") {
-        return <OrganizationChartPage currentUser={{ id: profile.id, role: profile.role }} />;
+        return <OrganizationChartPage currentUser={{ id: profile.id, role: profile.role }} onSelectEmployee={(employeeId) => {
+          setSelectedEmployeeId(employeeId);
+          window.location.hash = `#/employees/${employeeId}`;
+        }} />;
       }
       return <EmployeeDirectoryPage currentUser={profile} onSelectEmployee={(employeeId) => {
         setSelectedEmployeeId(employeeId);
@@ -3321,8 +3420,12 @@ export default function App() {
     }
 
     switch (page) {
+      case "organization": return <OrganizationChartPage currentUser={{ id: profile.id, role: profile.role }} onSelectEmployee={(employeeId) => {
+        setSelectedEmployeeId(employeeId);
+        window.location.hash = `#/employees/${employeeId}`;
+      }} />;
       case "dashboard":     return <DashboardPage user={profile} />;
-      case "attendance":    return <AttendancePage user={profile} />;
+      case "attendance":    return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.department }} />;
       case "bills":         return <BillsPage user={profile} />;
       case "marketing":     return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
       case "transport":     return <TransportPage setShowCreateDispatch={setShowCreateDispatch} />;

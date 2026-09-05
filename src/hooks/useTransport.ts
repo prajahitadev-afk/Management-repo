@@ -72,6 +72,9 @@ export function useTransport() {
 
   useEffect(() => {
     void refreshData();
+    const handleWorkflowChange = () => void refreshData();
+    window.addEventListener("order-workflow-changed", handleWorkflowChange);
+    return () => window.removeEventListener("order-workflow-changed", handleWorkflowChange);
   }, []);
 
   async function handleConfirmDelivery(deliveryId: string) {

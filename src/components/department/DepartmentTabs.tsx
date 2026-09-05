@@ -1,0 +1,3 @@
+export function DepartmentTabs({ tabs, activeTab, onChange }: { tabs: string[]; activeTab: string; onChange: (tab: string) => void }) {
+  return <nav aria-label="Department sections" className="flex gap-1 overflow-x-auto border-b border-[#d9d0bf] pb-px">{tabs.map((tab) => <button key={tab} type="button" onClick={() => onChange(tab)} aria-current={activeTab === tab ? "page" : undefined} className={`whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${activeTab === tab ? "bg-[#4e8050] text-white" : "text-[#4e8050] hover:bg-[#e8f0e5]"}`}>{tab}</button>)}</nav>;
+}

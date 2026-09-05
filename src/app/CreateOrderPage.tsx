@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, Plus, Trash2, Send, Archive } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "../hooks/useAuth";
 import { getCustomers } from "../services/customers.service";
 import { getProducts } from "../services/products.service";
 import { createOrderWithItems } from "../services/orders.service";
@@ -25,15 +24,17 @@ const B = {
 
 interface Customer {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
+  name: string | null;
   email: string | null;
 }
 
 interface Product {
   id: string;
+  product_code: string | null;
+  category: string | null;
   name: string | null;
   price: number | string | null;
+  unit_price: number | string | null;
   stock_quantity: number | null;
 }
 
@@ -42,6 +43,7 @@ interface OrderItem {
   product_name: string;
   unit_price: number;
   quantity: number;
+  total_price: number;
 }
 
 function PrimaryButton({
@@ -108,8 +110,8 @@ function SecondaryButton({
 export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => void }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const { user, profile } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +131,8 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
       const [customersData, productsData] = await Promise.all([getCustomers(), getProducts()]);
       setCustomers(customersData as Customer[]);
       setProducts(productsData as Product[]);
+      console.log("PRODUCTS COMPONENT", productsData);
+      console.log("PRODUCTS COMPONENT COUNT", productsData?.length);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -141,6 +145,12 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
     void loadData();
   }, []);
 
+  useEffect(() => {
+    console.log("PRODUCTS COMPONENT STATE", products);
+    console.log("PRODUCTS COMPONENT STATE COUNT", products.length);
+    console.log("PRODUCTS IN DROPDOWN", products);
+  }, [products]);
+
   function handleAddItem(productId: string) {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
@@ -148,15 +158,17 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
     const existingItem = orderItems.find((item) => item.product_id === productId);
     if (existingItem) {
       existingItem.quantity += 1;
+      existingItem.total_price = existingItem.quantity * existingItem.unit_price;
       setOrderItems([...orderItems]);
     } else {
       setOrderItems([
         ...orderItems,
         {
           product_id: productId,
-          product_name: product.name || "Unknown",
-          unit_price: Number(product.price || 0),
+          product_name: product.name || "Unknown Product",
+          unit_price: Number(product.price ?? product.unit_price ?? 0),
           quantity: 1,
+          total_price: Number(product.price ?? product.unit_price ?? 0),
         },
       ]);
     }
@@ -170,6 +182,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
     const item = orderItems.find((item) => item.product_id === productId);
     if (item) {
       item.quantity = Math.max(1, quantity);
+      item.total_price = item.quantity * item.unit_price;
       setOrderItems([...orderItems]);
     }
   }
@@ -188,8 +201,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
         .insert([
           {
             customer_code: customerCode,
-            first_name: newCustomerFirstName.trim(),
-            last_name: newCustomerLastName.trim(),
+            name: `${newCustomerFirstName.trim()} ${newCustomerLastName.trim()}`.trim(),
             email: newCustomerEmail.trim() || null,
             phone: newCustomerPhone.trim() || null,
             city: newCustomerCity.trim() || null,
@@ -197,7 +209,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
             status: "Active",
           },
         ])
-        .select("id, first_name, last_name, email")
+        .select("id, name, email")
         .single();
 
       if (customerError) throw customerError;
@@ -221,8 +233,8 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
   }
 
   async function handleSubmit() {
-    if (!selectedCustomer || orderItems.length === 0) {
-      alert("Please select a customer and add at least one item");
+    if (!selectedCustomer || !paymentMethod.trim() || orderItems.length === 0) {
+      alert("Please select a customer, enter a payment method, and add at least one item");
       return;
     }
 
@@ -243,14 +255,11 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
 
       const itemsToInsert = orderItems.map((item) => ({
         product_id: item.product_id,
+        product_name: item.product_name,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        total_price: item.total_price,
       }));
-      const createdBy = profile?.id ?? user?.id;
-      if (!createdBy) {
-        throw new Error("Authenticated user profile is unavailable");
-      }
-
       const orderId = await createOrderWithItems({
         order_number: orderNumber,
         customer_id: selectedCustomer,
@@ -258,19 +267,20 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
         expected_delivery: expectedDelivery,
         status: ORDER_STATUS.Pending,
         total_amount: totalAmount,
-        created_by: createdBy,
+        payment_method: paymentMethod.trim(),
         items: itemsToInsert,
       });
 
-      const customerName = `${customers.find((c) => c.id === selectedCustomer)?.first_name || ""} ${customers.find((c) => c.id === selectedCustomer)?.last_name || ""}`.trim() || "Customer";
+      const customerName = customers.find((c) => c.id === selectedCustomer)?.name || "Customer";
       await notifyOrderPendingApproval(orderId, orderNumber, customerName);
+      window.dispatchEvent(new CustomEvent("order-workflow-changed"));
 
       const notifyPromises = orderItems.map(async (item) => {
         const product = products.find((p) => p.id === item.product_id);
         if (!product || product.stock_quantity === null) return null;
         const remainingStock = product.stock_quantity - item.quantity;
         if (remainingStock <= 5) {
-          return notifyInventoryShortage(product.name || "Product", product.id, remainingStock, 5);
+          return notifyInventoryShortage(product.name || "Unknown Product", product.id, remainingStock, 5);
         }
         return null;
       });
@@ -338,7 +348,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
                 <option value="">-- Choose Customer --</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {`${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() || c.email || "Unknown"}
+                    {c.name || c.email || "Unknown"}
                   </option>
                 ))}
               </select>
@@ -367,17 +377,31 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
 
             <div className="mb-6">
               <label className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>
+                Payment Method
+              </label>
+              <input
+                value={paymentMethod}
+                onChange={(event) => setPaymentMethod(event.target.value)}
+                required
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                placeholder="Enter payment method"
+                style={{ background: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>
                 Select Products to Add
               </label>
               <div className="grid grid-cols-1 gap-2">
-                {products.map((p) => (
+                {products.length > 0 && products.map((p) => (
                   <div key={p.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.30)", border: "1px solid rgba(255,255,255,0.45)" }}>
                     <div className="flex-1">
                       <p className="text-sm font-medium" style={{ color: B.text }}>
                         {p.name}
                       </p>
                       <p className="text-xs" style={{ color: B.textMuted }}>
-                        ₹{Number(p.price || 0).toLocaleString()} · Stock: {p.stock_quantity || 0}
+                        {p.category || ""} · ₹{Number(p.price ?? p.unit_price ?? 0).toLocaleString()} · Stock: {p.stock_quantity ?? 0} · {p.product_code}
                       </p>
                     </div>
                     <button onClick={() => handleAddItem(p.id)} className="p-2 rounded-lg hover:bg-white/20">
@@ -413,7 +437,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
                         style={{ background: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}
                       />
                       <p className="text-sm font-semibold w-24 text-right" style={{ color: B.text }}>
-                        ₹{(item.unit_price * item.quantity).toLocaleString()}
+                          ₹{item.total_price.toLocaleString()}
                       </p>
                       <button onClick={() => handleRemoveItem(item.product_id)} className="p-1.5 rounded-lg hover:bg-red-500/20">
                         <Trash2 size={14} style={{ color: B.red }} />
@@ -434,7 +458,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
             </div>
 
             <div className="flex gap-3">
-              <PrimaryButton icon={Send} onClick={handleSubmit} disabled={submitting || !selectedCustomer || orderItems.length === 0}>
+              <PrimaryButton icon={Send} onClick={handleSubmit} disabled={submitting || !selectedCustomer || !paymentMethod.trim() || orderItems.length === 0}>
                 {submitting ? "Creating…" : "Create Order"}
               </PrimaryButton>
               <SecondaryButton icon={Archive} onClick={onClose}>

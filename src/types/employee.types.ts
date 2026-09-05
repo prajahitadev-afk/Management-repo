@@ -1,11 +1,14 @@
 export interface Employee {
   id: string;
   employeeId: string;
+  employeeCode: string;
   name: string;
   email: string;
   phone: string;
   department: string;
   role: string;
+  designation: string;
+  hierarchyLevel: number | null;
   reportsTo: string | null;
   status: string;
   joiningDate: string | null;
