@@ -26,6 +26,7 @@ export function normalizeDepartmentName(value: string | null | undefined): Emplo
     marketing: "Marketing",
     manufacturing: "Manufacturing",
     transport: "Transport",
+    transportation: "Transport",
     "research & development": "Research & Development",
     "research and development": "Research & Development",
     rnd: "Research & Development",

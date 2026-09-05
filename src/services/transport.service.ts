@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { sendDeliveryOTP, sendNotification, getSupervisors, type NotificationEventType } from "./notification.service";
 import { ORDER_STATUS, type OrderStatus } from "./order-statuses";
+import { transitionOrderStatus } from "./orders.service";
 
 export type DeliveryStatus = "Created" | "Loaded" | "Dispatched" | "In Transit" | "Delivered" | "Failed" | "Cancelled";
 type MutableStatus = Exclude<DeliveryStatus, "Delivered" | "Failed" | "Cancelled">;
@@ -95,13 +96,13 @@ async function getOrderIdForDelivery(deliveryId: string): Promise<string | null>
 }
 
 const DELIVERY_TO_ORDER_STATUS: Record<DeliveryStatus, OrderStatus | null> = {
-  Created: ORDER_STATUS.Created,
-  Loaded: ORDER_STATUS.Loaded,
+  Created: null,
+  Loaded: null,
   Dispatched: ORDER_STATUS.Dispatched,
-  "In Transit": ORDER_STATUS["In Transit"],
+  "In Transit": null,
   Delivered: ORDER_STATUS.Delivered,
   Failed: null,
-  Cancelled: ORDER_STATUS.Cancelled,
+  Cancelled: null,
 };
 
 async function syncOrderStatusWithDelivery(deliveryId: string, deliveryStatus: DeliveryStatus): Promise<void> {
@@ -111,8 +112,7 @@ async function syncOrderStatusWithDelivery(deliveryId: string, deliveryStatus: D
   const orderId = await getOrderIdForDelivery(deliveryId);
   if (!orderId) return;
 
-  const { error } = await supabase.from("orders").update({ status: orderStatus }).eq("id", orderId);
-  if (error) throw error;
+  await transitionOrderStatus(orderId, orderStatus);
 }
 
 export async function getDashboardMetrics(): Promise<TransportMetrics> {
@@ -129,29 +129,46 @@ export async function getDashboardMetrics(): Promise<TransportMetrics> {
 }
 
 export async function getShipments(): Promise<TransportShipment[]> {
-  const { data, error } = await supabase.from("deliveries").select("id, dispatch_date, expected_delivery_date, delivery_date, status, driver_confirmed, customer_confirmed, orders(order_number, customers(city)), vehicles(vehicle_number), drivers:profiles(id, name)").order("created_at", { ascending: false });
+  const { data: orders, error } = await supabase.from("orders").select("*").eq("status", ORDER_STATUS.Approved).order("created_at", { ascending: false });
   if (error) throw error;
-  const today = new Date().toISOString().slice(0, 10);
-  return ((data ?? []) as unknown as DeliveryRow[]).map((row) => {
-    const order = unwrapFirst(row.orders);
-    const vehicle = unwrapFirst(row.vehicles);
-    const driver = unwrapFirst(row.drivers);
-    const customerLocation = unwrapFirst(order?.customers);
-    const status = normalizeStatus(row.status);
-    const delayed = Boolean(row.expected_delivery_date && row.expected_delivery_date < today && status !== "Delivered");
-    return { id: row.id, deliveryId: row.id, order: order?.order_number ?? "N/A", vehicle: vehicle?.vehicle_number ?? "N/A", driver: driver?.name ?? "Unassigned", driverId: driver?.id ?? undefined, dispatch: formatDate(row.dispatch_date), delivery: formatDate(row.delivery_date ?? row.expected_delivery_date), status, dest: customerLocation?.city ?? "N/A", confirmed: row.customer_confirmed === true, delayed };
+  const rows = (orders ?? []) as Array<{ id: string; order_number: string | null; customer_id: string | null; order_date: string | null; expected_delivery: string | null; status: string | null }>;
+  const customerIds = Array.from(new Set(rows.map((order) => order.customer_id).filter(Boolean))) as string[];
+  const { data: customers, error: customersError } = customerIds.length ? await supabase.from("customers").select("*").in("id", customerIds) : { data: [], error: null };
+  if (customersError) throw customersError;
+  const customerMap = new Map((customers ?? []).map((row) => [String(row.id), row]));
+  return rows.map((row) => {
+    const customer = customerMap.get(String(row.customer_id));
+    return { id: row.id, deliveryId: row.id, order: row.order_number ?? "", vehicle: "", driver: "", dispatch: "", delivery: formatDate(row.expected_delivery), status: ORDER_STATUS.Approved, dest: customer?.city ?? "", confirmed: false, delayed: false };
   });
 }
 
 export async function getFleetStatus(): Promise<FleetVehicle[]> {
-  const { data, error } = await supabase.from("delivery_assignments").select("vehicles(vehicle_number, status), drivers(name), deliveries(status, orders(customers(city)))").order("assigned_at", { ascending: false }).limit(4);
+  const { data, error } = await supabase.from("delivery_assignments").select("vehicle_id, driver_id, delivery_id").order("assigned_at", { ascending: false }).limit(4);
   if (error) throw error;
-  return ((data ?? []) as unknown as AssignmentRow[]).map((row) => {
-    const vehicle = unwrapFirst(row.vehicles);
-    const driver = unwrapFirst(row.drivers);
-    const delivery = unwrapFirst(row.deliveries);
-    const order = unwrapFirst(delivery?.orders);
-    const customer = unwrapFirst(order?.customers);
+  const rows = data ?? [];
+  const vehicleIds = Array.from(new Set(rows.map((row) => row.vehicle_id).filter(Boolean))) as string[];
+  const driverIds = Array.from(new Set(rows.map((row) => row.driver_id).filter(Boolean))) as string[];
+  const deliveryIds = Array.from(new Set(rows.map((row) => row.delivery_id).filter(Boolean))) as string[];
+  const [{ data: vehicles }, { data: drivers }, { data: deliveries }] = await Promise.all([
+    vehicleIds.length ? supabase.from("vehicles").select("id, vehicle_number, status").in("id", vehicleIds) : Promise.resolve({ data: [] }),
+    driverIds.length ? supabase.from("profiles").select("id, name").in("id", driverIds) : Promise.resolve({ data: [] }),
+    deliveryIds.length ? supabase.from("deliveries").select("id, status, order_id").in("id", deliveryIds) : Promise.resolve({ data: [] }),
+  ]);
+  const orderIds = Array.from(new Set((deliveries ?? []).map((delivery) => delivery.order_id).filter(Boolean))) as string[];
+  const { data: orders } = orderIds.length ? await supabase.from("orders").select("id, customer_id").in("id", orderIds) : { data: [] };
+  const customerIds = Array.from(new Set((orders ?? []).map((order) => order.customer_id).filter(Boolean))) as string[];
+  const { data: customers } = customerIds.length ? await supabase.from("customers").select("id, city").in("id", customerIds) : { data: [] };
+  const vehicleMap = new Map((vehicles ?? []).map((row) => [String(row.id), row]));
+  const driverMap = new Map((drivers ?? []).map((row) => [String(row.id), row]));
+  const deliveryMap = new Map((deliveries ?? []).map((row) => [String(row.id), row]));
+  const orderMap = new Map((orders ?? []).map((row) => [String(row.id), row]));
+  const customerMap = new Map((customers ?? []).map((row) => [String(row.id), row]));
+  return rows.map((row) => {
+    const vehicle = vehicleMap.get(String(row.vehicle_id));
+    const driver = driverMap.get(String(row.driver_id));
+    const delivery = deliveryMap.get(String(row.delivery_id));
+    const order = orderMap.get(String(delivery?.order_id));
+    const customer = customerMap.get(String(order?.customer_id));
     return { vehicleNumber: vehicle?.vehicle_number ?? "N/A", driverName: driver?.name ?? "Unassigned", destination: customer?.city ?? "N/A", status: normalizeStatus(delivery?.status), vehicleStatus: vehicle?.status ?? "Inactive" };
   });
 }
@@ -175,27 +192,21 @@ export async function getTrackingHistory(deliveryId: string): Promise<DeliveryTr
 export async function getDeliveryDetails(deliveryId: string): Promise<DeliveryDetails> {
   const { data, error } = await supabase
     .from("deliveries")
-    .select(`
-      id,
-      vehicle_id,
-      driver_id,
-      dispatch_date,
-      expected_delivery_date,
-      delivery_date,
-      status,
-      orders(order_number, customers(city)),
-      vehicles(vehicle_number),
-      drivers:profiles(id, name)
-    `)
+    .select("id, order_id, vehicle_id, driver_id, dispatch_date, expected_delivery_date, delivery_date, status")
     .eq("id", deliveryId)
     .maybeSingle();
 
   if (error) throw error;
   const row = (data ?? {}) as Record<string, unknown>;
-  const order = unwrapFirst((row.orders as Array<Record<string, unknown>> | undefined));
-  const vehicle = unwrapFirst((row.vehicles as Array<Record<string, unknown>> | undefined));
-  const driver = unwrapFirst((row.drivers as Array<Record<string, unknown>> | undefined));
-  const customer = unwrapFirst(((order?.customers as Array<Record<string, unknown>> | undefined)));
+  const [orderResult, vehicleResult, driverResult] = await Promise.all([
+    row.order_id ? supabase.from("orders").select("order_number, customer_id").eq("id", row.order_id).maybeSingle() : Promise.resolve({ data: null }),
+    row.vehicle_id ? supabase.from("vehicles").select("vehicle_number").eq("id", row.vehicle_id).maybeSingle() : Promise.resolve({ data: null }),
+    row.driver_id ? supabase.from("profiles").select("id, name").eq("id", row.driver_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  const order = orderResult.data as { order_number?: string; customer_id?: string } | null;
+  const vehicle = vehicleResult.data as { vehicle_number?: string } | null;
+  const driver = driverResult.data as { id?: string; name?: string } | null;
+  const { data: customer } = order?.customer_id ? await supabase.from("customers").select("city").eq("id", order.customer_id).maybeSingle() : { data: null };
   const tracking = await getTrackingHistory(deliveryId);
   const status = normalizeStatus((row.status as string | null) ?? null);
   const expectedDate = (row.expected_delivery_date as string | null) ?? null;
@@ -287,6 +298,7 @@ export async function updateDeliveryStatus(deliveryId: string, newStatus: Delive
   if (error) throw error;
   await insertTracking(deliveryId, newStatus, userId, failureReason);
   await syncOrderStatusWithDelivery(deliveryId, newStatus);
+  if (newStatus === "Dispatched" || newStatus === "Delivered") window.dispatchEvent(new CustomEvent("order-workflow-changed"));
   const title: Record<DeliveryStatus, string> = { Created: "Shipment Created", Loaded: "Shipment Loaded", Dispatched: "Shipment Dispatched", "In Transit": "Shipment In Transit", Delivered: "Delivery Completed", Failed: "Delivery Failed", Cancelled: "Delivery Cancelled" };
   const roles = newStatus === "Delivered" ? ["Vice Chairman", "Vice President", "MD-Transport", "MD-Marketing"] : newStatus === "Failed" ? ["Vice Chairman", "Vice President", "MD-Transport"] : newStatus === "Loaded" ? [] : ["MD-Transport"];
   const departments: string[] = [];

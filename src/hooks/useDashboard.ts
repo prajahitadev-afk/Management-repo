@@ -8,6 +8,7 @@ export function useDashboard(user?: DashboardUser) {
     suspendedEmployees: 0,
     totalRoles: 0,
     ordersReceived: 0,
+    pendingApprovals: 0,
     pendingBills: 0,
     approvedBills: 0,
     rejectedBills: 0,
@@ -46,7 +47,10 @@ export function useDashboard(user?: DashboardUser) {
       }
     }
 
-    loadStats();
+    void loadStats();
+    const handleWorkflowChange = () => void loadStats();
+    window.addEventListener("order-workflow-changed", handleWorkflowChange);
+    return () => window.removeEventListener("order-workflow-changed", handleWorkflowChange);
   }, [user]);
 
   return { stats, loading, error };

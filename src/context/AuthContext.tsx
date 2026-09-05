@@ -50,7 +50,7 @@ function buildProfileCompatibility(profileData: any, authUser: any) {
 
   return {
     ...profileData,
-    dept: profileData.department || profileData.dept || "",
+    department: profileData.department || "",
     avatar,
   };
 }

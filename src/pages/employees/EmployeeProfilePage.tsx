@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, BadgeCheck, Building2, CalendarDays, Mail, Pencil, Phone, Save, ShieldCheck } from "lucide-react";
-import { EMPLOYEE_DEPARTMENTS, normalizeDepartmentName } from "../../constants/departments";
 import { useAuth } from "../../hooks/useAuth";
 import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
 import { updateEmployee } from "../../services/employee.service";
+import { getEmployeeDepartmentHistory } from "../../services/department.service";
+import type { EmployeeDepartmentHistory } from "../../types/department.types";
 
 interface EmployeeProfilePageProps {
   employeeId: string;
@@ -15,10 +16,11 @@ interface EmployeeProfilePageProps {
 export function EmployeeProfilePage({ employeeId, editable = false, currentUserId, currentUserRole }: EmployeeProfilePageProps) {
   const { refreshProfile } = useAuth();
   const { profile, loading, error, refresh } = useEmployeeProfile(employeeId);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", department: "", status: "Active", reportsTo: "" });
+  const [form, setForm] = useState({ name: "", employeeCode: "", designation: "", hierarchyLevel: "1", email: "", phone: "", address: "", department: "", status: "Active", reportsTo: "" });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [departmentHistory, setDepartmentHistory] = useState<EmployeeDepartmentHistory[]>([]);
 
   const canEditProfile = editable && Boolean(currentUserId) && employeeId === currentUserId;
   const canEditReportsTo = editable && Boolean(currentUserId) && employeeId !== currentUserId && Boolean(currentUserRole) && ["Vice Chairman", "Vice President", "Managing Director", "General Manager", "Chief Manager", "Manager"].includes(currentUserRole ?? "");
@@ -39,34 +41,20 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
       setSaving(true);
       setMessage(null);
 
-      const updates: Record<string, string | null> = {};
-      const nextName = form.name.trim();
       const nextPhone = form.phone.trim();
       const nextEmail = form.email.trim();
-      const nextDepartment = normalizeDepartmentName(form.department || profile.department);
-      const nextStatus = form.status.trim();
-      const nextReportsTo = form.reportsTo.trim();
+      const nextAddress = form.address.trim();
 
-      if (nextName && nextName !== profile.name) updates.name = nextName;
-      if (nextPhone && nextPhone !== profile.phone) updates.phone = nextPhone;
-      if (nextEmail && nextEmail !== profile.email) updates.email = nextEmail;
-      if (nextDepartment && nextDepartment !== normalizeDepartmentName(profile.department)) updates.department = nextDepartment;
-      if (nextStatus && nextStatus !== profile.status) updates.status = nextStatus;
-      if (canEditReportsTo && nextReportsTo !== (profile.reportsTo ?? "")) updates.reportsTo = nextReportsTo || null;
-
-      if (Object.keys(updates).length === 0) {
+      if (nextPhone === (profile.phone ?? "") && nextEmail === (profile.email ?? "") && nextAddress === (profile.address ?? "")) {
         setMessage("No changes to save.");
         return;
       }
 
       await updateEmployee(currentUserId, employeeId, {
-        name: typeof updates.name === "string" ? updates.name : undefined,
-        phone: typeof updates.phone === "string" ? updates.phone : undefined,
-        email: typeof updates.email === "string" ? updates.email : undefined,
-        department: typeof updates.department === "string" ? updates.department : undefined,
-        status: typeof updates.status === "string" ? updates.status : undefined,
-        reportsTo: typeof updates.reportsTo === "string" || updates.reportsTo === null ? updates.reportsTo : undefined,
-      } as any);
+        phone: nextPhone,
+        email: nextEmail,
+        address: nextAddress,
+      });
 
       await Promise.all([refresh(), refreshProfile()]);
       setIsEditing(false);
@@ -82,14 +70,23 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
     if (profile) {
       setForm({
         name: profile.name ?? "",
+        employeeCode: profile.employeeCode ?? "",
+        designation: profile.designation ?? "",
+        hierarchyLevel: profile.hierarchyLevel ? String(profile.hierarchyLevel) : "1",
         email: profile.email ?? "",
         phone: profile.phone ?? "",
-        department: profile.department ?? "",
+        address: profile.address ?? "",
+        department: profile.department === "Transport" ? "Transportation" : profile.department ?? "",
         status: profile.status ?? "Active",
         reportsTo: profile.reportsTo ?? "",
       });
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!employeeId) return;
+    void getEmployeeDepartmentHistory(employeeId).then(setDepartmentHistory).catch(() => setDepartmentHistory([]));
+  }, [employeeId, profile?.department]);
 
   if (loading) {
     return <div className="p-6 text-sm text-slate-600">Loading profile...</div>;
@@ -153,15 +150,23 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
           <div className="grid gap-4 md:grid-cols-2">
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</div>
-              {isEditing && canEditProfile ? (
-                <input value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" />
-              ) : (
-                <div className="mt-2 font-medium text-slate-800">{profile.name}</div>
-              )}
+              <div className="mt-2 font-medium text-slate-800">{profile.name}</div>
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee ID</div>
               <div className="mt-2 font-medium text-slate-800">{profile.employeeId}</div>
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee Code</div>
+              <div className="mt-2 font-medium text-slate-800">{profile.employeeCode || "—"}</div>
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Designation</div>
+              <div className="mt-2 font-medium text-slate-800">{profile.designation || "—"}</div>
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</div>
+              <div className="mt-2 font-medium text-slate-800">{profile.hierarchyLevel ?? "—"}</div>
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</div>
@@ -169,15 +174,7 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Department</div>
-              {isEditing && canEditProfile ? (
-                <select value={form.department} onChange={(event) => setForm((value) => ({ ...value, department: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none">
-                  {EMPLOYEE_DEPARTMENTS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              ) : (
-                <div className="mt-2 font-medium text-slate-800">{profile.departmentName ?? profile.department}</div>
-              )}
+              <div className="mt-2 font-medium text-slate-800">{profile.departmentName ?? profile.department}</div>
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</div>
@@ -187,6 +184,14 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
                 <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
                   <Mail size={14} /> {profile.email}
                 </div>
+              )}
+            </label>
+            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700 md:col-span-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Address</div>
+              {isEditing && canEditProfile ? (
+                <textarea value={form.address} onChange={(event) => setForm((value) => ({ ...value, address: event.target.value }))} className="mt-2 min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none" />
+              ) : (
+                <div className="mt-2 font-medium text-slate-800">{profile.address || "—"}</div>
               )}
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
@@ -207,16 +212,9 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
-              {isEditing && canEditProfile ? (
-                <select value={form.status} onChange={(event) => setForm((value) => ({ ...value, status: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none">
-                  <option value="Active">Active</option>
-                  <option value="Suspended">Suspended</option>
-                </select>
-              ) : (
-                <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
-                  <BadgeCheck size={14} /> {profile.status}
-                </div>
-              )}
+              <div className="mt-2 flex items-center gap-2 font-medium text-slate-800">
+                <BadgeCheck size={14} /> {profile.status}
+              </div>
             </label>
             <label className="md:col-span-2 rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reports To</div>
@@ -228,6 +226,15 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
                 </div>
               )}
             </label>
+          </div>
+          <div className="mt-5 rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Department History</div>
+            {departmentHistory.length > 0 ? departmentHistory.map((change) => (
+              <div key={change.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 py-2 first:border-t-0 first:pt-0">
+                <span>{change.previousDepartment ?? "Unassigned"} to {change.newDepartment}</span>
+                <span className="text-xs text-slate-500">{new Date(change.createdAt).toLocaleString()}</span>
+              </div>
+            )) : <div className="text-slate-500">No department changes recorded.</div>}
           </div>
         </div>
 

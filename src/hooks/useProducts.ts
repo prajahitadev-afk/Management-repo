@@ -35,6 +35,8 @@ export function useProducts() {
       setLoading(true);
       const data = await getProducts();
       setProducts(data || []);
+      console.log("PRODUCTS HOOK", data);
+      console.log("PRODUCTS HOOK COUNT", data?.length);
       setError(null);
     } catch (err) {
       setError(

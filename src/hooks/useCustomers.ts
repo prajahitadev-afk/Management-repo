@@ -4,8 +4,7 @@ import { getCustomers } from "../services/customers.service";
 export interface Customer {
   id: string;
   customer_code: string | null;
-  first_name: string | null;
-  last_name: string | null;
+  name: string | null;
   email: string | null;
   phone: string | null;
   city: string | null;

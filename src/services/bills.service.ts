@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { canApproveSubordinate } from "./hierarchy.service";
 
 export type BillStatus =
   | "Draft"
@@ -117,7 +118,17 @@ function normalizeDepartmentKey(department: string) {
 function isMDOfDepartment(role: string, department: string) {
   if (!isMD(role)) return false;
   const roleDept = role.replace("MD-", "").toUpperCase();
-  return roleDept === normalizeDepartmentKey(department);
+  const departmentKeys: Record<string, string[]> = {
+    MANUFACTURING: ["MANUFACTURING"],
+    MARKETING: ["MARKETING"],
+    TRANSPORT: ["TRANSPORT", "TRANSPORTATION"],
+    RD: ["RD", "RND", "RESEARCHANDDEVELOPMENT", "RESEARCHDEVELOPMENT"],
+  };
+  return departmentKeys[roleDept]?.includes(normalizeDepartmentKey(department)) ?? false;
+}
+
+function canApprovePendingBill(role: string, department: string) {
+  return ["Vice Chairman", "Vice President", "General Manager"].includes(role) || isMDOfDepartment(role, department);
 }
 
 function normalizeBillStatus(status: string | null | undefined): BillStatus {
@@ -145,7 +156,7 @@ function getNextStatusForApproval(currentStatus: BillStatus, actorRole: string):
   }
 
   if (currentStatus === "Pending Approval") {
-    return actorRole === "Vice Chairman" ? "Approved" : null;
+    return ["Vice Chairman", "Vice President", "General Manager"].includes(actorRole) || isMD(actorRole) ? "Approved" : null;
   }
 
   if (currentStatus === "Approved") {
@@ -503,11 +514,13 @@ export async function getBillHistory(billId: string): Promise<BillHistory[]> {
 export async function approveBill(id: string, actorId?: string | null, actorRole?: string, note?: string): Promise<BillRecord> {
   const bill = await getBillById(id);
   const role = actorRole ?? "";
+  const resolvedActorId = actorId ?? await getCurrentAuthenticatedUserId();
 
-  const canApproveAsMD = bill.status === "Pending Approval" && isMDOfDepartment(role, bill.department);
-  const canApproveAsVC = role === "Vice Chairman";
-  if (!canApproveAsMD && !canApproveAsVC) {
-    throw new Error("Only the Vice Chairman or the department MD can approve this bill.");
+  if (bill.status !== "Pending Approval" || !canApprovePendingBill(role, bill.department)) {
+    throw new Error("Only the Vice Chairman, Vice President, General Manager, or the department MD can approve this bill.");
+  }
+  if (!resolvedActorId || !bill.submitted_by || !(await canApproveSubordinate(resolvedActorId, bill.submitted_by))) {
+    throw new Error("Only a higher-level approver in the bill creator's hierarchy can approve this bill.");
   }
 
   const nextStatus = getNextStatusForApproval(bill.status, role);
@@ -531,10 +544,14 @@ export async function reviewBill(id: string, actorId?: string | null, actorRole?
 export async function rejectBill(id: string, actorId?: string | null, actorRole?: string, note?: string): Promise<BillRecord> {
   const bill = await getBillById(id);
   const role = actorRole ?? "";
+  const resolvedActorId = actorId ?? await getCurrentAuthenticatedUserId();
+  if (!resolvedActorId || !bill.submitted_by || !(await canApproveSubordinate(resolvedActorId, bill.submitted_by))) {
+    throw new Error("Only a higher-level approver in the bill creator's hierarchy can reject this bill.");
+  }
   const canReject =
     (bill.status === "Approved" && (isMDOfDepartment(role, bill.department) || role === "Vice Chairman")) ||
     (bill.status === "Reviewed" && role === "Vice Chairman") ||
-    (bill.status === "Pending Approval" && role === "Vice Chairman");
+    (bill.status === "Pending Approval" && canApprovePendingBill(role, bill.department));
   if (!canReject) {
     throw new Error(`Cannot reject bill from ${bill.status} using role ${role}`);
   }
@@ -546,10 +563,14 @@ export async function rejectBill(id: string, actorId?: string | null, actorRole?
 export async function returnBill(id: string, actorId?: string | null, actorRole?: string, note?: string): Promise<BillRecord> {
   const bill = await getBillById(id);
   const role = actorRole ?? "";
+  const resolvedActorId = actorId ?? await getCurrentAuthenticatedUserId();
+  if (!resolvedActorId || !bill.submitted_by || !(await canApproveSubordinate(resolvedActorId, bill.submitted_by))) {
+    throw new Error("Only a higher-level approver in the bill creator's hierarchy can return this bill.");
+  }
   const canReturn =
     (bill.status === "Approved" && (isMDOfDepartment(role, bill.department) || role === "Vice Chairman")) ||
     (bill.status === "Reviewed" && role === "Vice Chairman") ||
-    (bill.status === "Pending Approval" && role === "Vice Chairman");
+    (bill.status === "Pending Approval" && canApprovePendingBill(role, bill.department));
   if (!canReturn) {
     throw new Error(`Cannot return bill from ${bill.status} using role ${role}`);
   }

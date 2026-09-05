@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CalendarDays, Filter, Save } from "lucide-react";
-import { getAttendanceSummary, getAttendanceViewEmployees, saveAttendanceEntries } from "../../services/employee.service";
+import { getAttendanceSummary, getAttendanceViewEmployees, getEmployeeAttendanceHistory, saveAttendanceEntries } from "../../services/employee.service";
 import type { AttendanceStatus } from "../../types/employee.types";
 
 const statusOptions: AttendanceStatus[] = ["Present", "Absent", "Half Day", "Leave"];
@@ -25,7 +25,7 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [attendanceSelections, setAttendanceSelections] = useState<Record<string, AttendanceStatus>>({});
-
+  const [employeeHistory, setEmployeeHistory] = useState<Awaited<ReturnType<typeof getEmployeeAttendanceHistory>>>([]);
   const isWorker = currentUser?.role === "Worker";
 
   const departmentOptions = useMemo(() => Array.from(new Set(employees.map((employee) => employee.department))).sort(), [employees]);
@@ -44,15 +44,21 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
         setError(null);
         setMessage(null);
 
-        const visibleEmployees = await getAttendanceViewEmployees(currentUser.id);
+        const visibleEmployees = isWorker
+          ? await getAttendanceViewEmployees(currentUser.id)
+          : await getAttendanceViewEmployees(currentUser.id);
         if (!active) return;
+
+        if (isWorker) {
+          setEmployeeHistory(await getEmployeeAttendanceHistory(currentUser.id));
+        }
 
         const visibleEmployeeIds = visibleEmployees.map((employee) => employee.id);
         setEmployees(visibleEmployees.map((employee) => ({ id: employee.id, name: employee.name, department: employee.department, role: employee.role })));
 
         const nextSummary = isWorker
-          ? await getAttendanceSummary({ date: selectedDate, employeeId: currentUser.id })
-          : await getAttendanceSummary({ date: selectedDate, employeeIds: visibleEmployeeIds });
+            ? await getAttendanceSummary({ date: selectedDate, employeeId: currentUser.id })
+            : await getAttendanceSummary({ date: selectedDate, employeeIds: visibleEmployeeIds });
 
         if (!active) return;
         setSummary(nextSummary);
@@ -81,7 +87,9 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
     try {
       setLoading(true);
       setError(null);
-      const visibleEmployees = await getAttendanceViewEmployees(currentUser.id);
+      const visibleEmployees = isWorker
+        ? await getAttendanceViewEmployees(currentUser.id)
+        : await getAttendanceViewEmployees(currentUser.id);
       const visibleEmployeeIds = visibleEmployees.map((employee) => employee.id);
       const nextSummary = isWorker
         ? await getAttendanceSummary({ date: selectedDate, employeeId: currentUser.id })
@@ -107,7 +115,7 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
       setError(null);
       setMessage(null);
 
-      const payload = employees.map((employee) => ({
+      const payload = visibleEmployees.map((employee) => ({
         employeeId: employee.id,
         status: attendanceSelections[employee.id] ?? "Absent",
         date: selectedDate,
@@ -126,12 +134,17 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
   const visibleEmployees = useMemo(() => {
     const departmentFilter = selectedDepartment === "All" ? undefined : selectedDepartment;
     const employeeFilter = selectedEmployee === "All" ? undefined : selectedEmployee;
+    const recordMap = new Map(summary?.records.map((record) => [record.employeeId, record.status]) ?? []);
     return employees.filter((employee) => {
       if (departmentFilter && employee.department !== departmentFilter) return false;
       if (employeeFilter && employee.id !== employeeFilter) return false;
+      if (selectedStatus !== "All") {
+        const status = attendanceSelections[employee.id] ?? recordMap.get(employee.id) ?? "Absent";
+        if (status !== selectedStatus) return false;
+      }
       return true;
     });
-  }, [employees, selectedDepartment, selectedEmployee]);
+  }, [attendanceSelections, employees, selectedDepartment, selectedEmployee, selectedStatus, summary]);
 
   const summaryRows = useMemo(() => {
     if (!summary) return [];
@@ -191,12 +204,12 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {summary.records.map((record) => (
-                      <tr key={`${record.employeeId}-${record.date}`} className="border-t border-white/40 bg-white/20">
-                        <td className="px-4 py-3 text-slate-700">{record.date}</td>
-                        <td className="px-4 py-3 text-slate-700">{record.status}</td>
-                        <td className="px-4 py-3 text-slate-700">—</td>
-                        <td className="px-4 py-3 text-slate-700">—</td>
+                    {employeeHistory.map((record) => (
+                      <tr key={record.id} className="border-t border-white/40 bg-white/20">
+                        <td className="px-4 py-3 text-slate-700">{record.attendance_date}</td>
+                        <td className="px-4 py-3 text-slate-700">{record.status ?? ""}</td>
+                        <td className="px-4 py-3 text-slate-700">{record.check_in ?? ""}</td>
+                        <td className="px-4 py-3 text-slate-700">{record.check_out ?? ""}</td>
                       </tr>
                     ))}
                   </tbody>

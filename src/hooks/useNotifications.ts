@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import type { NotificationRecord } from "../services/notification.service";
 import { getNotifications } from "../services/notification.service";
+import { isValidUUID } from "../utils/uuid";
 
 export function useNotifications(userId?: string) {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
@@ -10,7 +11,7 @@ export function useNotifications(userId?: string) {
   const subscriptionRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!userId) {
+    if (!isValidUUID(userId)) {
       setNotifications([]);
       setLoading(false);
       return;

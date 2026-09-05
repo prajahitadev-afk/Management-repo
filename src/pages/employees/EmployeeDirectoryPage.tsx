@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Plus, Search, UserCheck, UserX, Trash2, Eye, Pencil } from "lucide-react";
 import { EMPLOYEE_DEPARTMENTS, normalizeDepartmentName } from "../../constants/departments";
 import { useEmployees } from "../../hooks/useEmployees";
@@ -8,31 +8,35 @@ import {
   deleteEmployee,
   getAllowedEmployeeRoles,
   getEmployeesForUser,
+  getReportingChain,
   suspendEmployee,
   updateEmployee,
 } from "../../services/employee.service";
 import type { Employee } from "../../types/employee.types";
+import { ASSIGNABLE_DEPARTMENTS } from "../../types/department.types";
 
 const EMPLOYEE_ROLES = [
-  "Worker",
-  "Supervisor",
-  "Manager",
-  "Chief Manager",
+  "Vice Chairman",
+  "President",
+  "Managing Director",
   "General Manager",
+  "Chief Manager",
+  "Manager",
+  "Supervisor",
+  "Worker",
+  "Vice President",
   "MD-Manufacturing",
   "MD-Marketing",
   "MD-Transport",
   "MD-RD",
-  "Vice President",
-  "Vice Chairman",
 ];
 
-const EMPLOYEE_DEPARTMENT_OPTIONS = [...EMPLOYEE_DEPARTMENTS];
+const EMPLOYEE_DEPARTMENT_OPTIONS = [...ASSIGNABLE_DEPARTMENTS];
 
 interface CurrentUser {
   id: string;
   role: string;
-  dept: string;
+  department: string;
 }
 
 interface EmployeeDirectoryPageProps {
@@ -83,6 +87,9 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   const [editOpen, setEditOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [name, setName] = useState("");
+  const [employeeCode, setEmployeeCode] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [hierarchyLevel, setHierarchyLevel] = useState("1");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedRole, setSelectedRole] = useState("Worker");
@@ -92,6 +99,8 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   const [joiningDate, setJoiningDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [reportingChain, setReportingChain] = useState<Employee[] | null>(null);
+  const [reportingChainEmployeeId, setReportingChainEmployeeId] = useState<string | null>(null);
 
   const { employees, loading, error, refresh } = useEmployees({
     search,
@@ -153,7 +162,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
 
   async function handleCreateEmployee(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!name || !email || !phone || !selectedRole || !selectedDepartment) {
+    if (!name || !employeeCode || !designation || !hierarchyLevel || !email || !phone || !selectedRole || !selectedDepartment) {
       setMessage("Please complete the required fields.");
       return;
     }
@@ -163,15 +172,21 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       setMessage(null);
       await createEmployee(currentUser.id, {
         name,
+        employeeCode,
+        designation,
+        hierarchyLevel: Number(hierarchyLevel),
         email,
         phone,
         role: selectedRole,
-        department: normalizeDepartmentName(selectedDepartment),
+        department: selectedDepartment,
         reportsTo: supervisorId || null,
         joiningDate: joiningDate || null,
       });
       setFormOpen(false);
       setName("");
+      setEmployeeCode("");
+      setDesignation("");
+      setHierarchyLevel("1");
       setEmail("");
       setPhone("");
       setSelectedRole("Worker");
@@ -204,10 +219,13 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   function openEditModal(employee: Employee) {
     setEditingEmployee(employee);
     setName(employee.name);
+    setEmployeeCode(employee.employeeCode);
+    setDesignation(employee.designation);
+    setHierarchyLevel(employee.hierarchyLevel ? String(employee.hierarchyLevel) : "1");
     setEmail(employee.email);
     setPhone(employee.phone);
     setSelectedRole(employee.role);
-    setSelectedDepartment(normalizeDepartmentName(employee.department));
+    setSelectedDepartment(employee.department === "Transport" ? "Transportation" : normalizeDepartmentName(employee.department) as (typeof EMPLOYEE_DEPARTMENT_OPTIONS)[number]);
     setSupervisorId(employee.reportsTo ?? "");
     setJoiningDate(employee.joiningDate ?? "");
     setEditOpen(true);
@@ -216,7 +234,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   async function handleUpdateEmployee(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingEmployee) return;
-    if (!name || !email || !phone || !selectedRole || !selectedDepartment) {
+    if (!name || !employeeCode || !designation || !hierarchyLevel || !email || !phone || !selectedRole || !selectedDepartment) {
       setMessage("Please complete the required fields.");
       return;
     }
@@ -226,10 +244,13 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       setMessage(null);
       await updateEmployee(currentUser.id, editingEmployee.id, {
         name,
+        employeeCode,
+        designation,
+        hierarchyLevel: Number(hierarchyLevel),
         email,
         phone,
         role: selectedRole,
-        department: normalizeDepartmentName(selectedDepartment),
+        department: selectedDepartment,
         reportsTo: supervisorId || null,
         joiningDate: joiningDate || null,
       });
@@ -251,6 +272,23 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       await refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to delete employee");
+    }
+  }
+
+  async function toggleReportingChain(employee: Employee) {
+    if (reportingChainEmployeeId === employee.id) {
+      setReportingChainEmployeeId(null);
+      setReportingChain(null);
+      return;
+    }
+
+    try {
+      setReportingChainEmployeeId(employee.id);
+      setReportingChain(await getReportingChain(employee.id));
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to load reporting chain");
+      setReportingChainEmployeeId(null);
+      setReportingChain(null);
     }
   }
 
@@ -365,6 +403,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <thead className="bg-white/60 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Employee ID</th>
+                  <th className="px-4 py-3">Employee Code</th>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Designation</th>
                   <th className="px-4 py-3">Department</th>
@@ -378,14 +417,18 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               </thead>
               <tbody>
                 {pagedEmployees.map((employee) => (
+                  <Fragment key={employee.id}>
                   <tr key={employee.id} className="border-t border-white/40 bg-white/20">
                     <td className="px-4 py-3 font-semibold text-slate-700">{employee.employeeId}</td>
+                    <td className="px-4 py-3 text-slate-600">{employee.employeeCode || "—"}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{employee.name}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{employee.role}</td>
+                    <td className="px-4 py-3 text-slate-600">{employee.designation || "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{employee.department}</td>
-                    <td className="px-4 py-3 text-slate-600">{employee.reportsTo ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {allEmployees.find((candidate) => candidate.id === employee.reportsTo)?.name ?? employee.reportsTo ?? "—"}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${employee.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                         {employee.status}
@@ -398,6 +441,9 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                       <div className="flex flex-wrap gap-2">
                         <button onClick={() => onSelectEmployee?.(employee.id)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Profile">
                           <Eye size={15} />
+                        </button>
+                        <button onClick={() => void toggleReportingChain(employee)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Reporting Chain">
+                          <span className="text-xs font-semibold">{reportingChainEmployeeId === employee.id ? "Hide" : "Chain"}</span>
                         </button>
                         {canManageEmployee(currentUser, employee) && (
                           <>
@@ -421,6 +467,20 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                       </div>
                     </td>
                   </tr>
+                  {reportingChainEmployeeId === employee.id && (
+                    <tr key={`${employee.id}-chain`} className="border-t border-white/40 bg-white/10">
+                      <td colSpan={11} className="px-4 py-3 text-sm text-slate-600">
+                        <span className="font-semibold text-slate-700">Reporting chain:</span>{" "}
+                        {reportingChain?.map((member, index) => (
+                          <span key={member.id}>
+                            {index > 0 && " > "}
+                            {member.name} ({member.role})
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -455,6 +515,18 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <label className="md:col-span-2 text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Name</span>
                 <input required value={name} onChange={(event) => setName(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee Code</span>
+                <input required maxLength={50} value={employeeCode} onChange={(event) => setEmployeeCode(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Designation</span>
+                <input required maxLength={100} value={designation} onChange={(event) => setDesignation(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</span>
+                <input required min={1} step={1} type="number" value={hierarchyLevel} onChange={(event) => setHierarchyLevel(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span>
@@ -522,6 +594,18 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <label className="md:col-span-2 text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Name</span>
                 <input required value={name} onChange={(event) => setName(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee Code</span>
+                <input required maxLength={50} value={employeeCode} onChange={(event) => setEmployeeCode(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Designation</span>
+                <input required maxLength={100} value={designation} onChange={(event) => setDesignation(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</span>
+                <input required min={1} step={1} type="number" value={hierarchyLevel} onChange={(event) => setHierarchyLevel(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span>

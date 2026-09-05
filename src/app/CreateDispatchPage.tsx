@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, Send, Archive, Plus } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { ORDER_STATUS } from "../services/order-statuses";
+import { dispatchOrder } from "../services/orders.service";
 
 const B = {
   text: "#1C1C1E",
@@ -123,7 +124,7 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
     try {
       setLoading(true);
       const [ordersRes, vehiclesRes, driversRes] = await Promise.all([
-        supabase.from("orders").select("id, order_number, customer_id, total_amount").eq("status", ORDER_STATUS.Approved),
+        supabase.from("orders").select("*").eq("status", ORDER_STATUS.Approved).order("created_at", { ascending: false }),
         supabase.from("vehicles").select("id, vehicle_number"),
         supabase.from("drivers").select("id, name, phone, license_number, status"),
       ]);
@@ -247,10 +248,7 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
       if (deliveryError) throw deliveryError;
       if (typeof deliveryId !== "string") throw new Error("Failed to create delivery");
 
-      const { error: orderUpdateError } = await supabase.from("orders").update({ status: ORDER_STATUS.Created }).eq("id", selectedOrder);
-      if (orderUpdateError) {
-        console.error("Failed to update order status after dispatch creation", orderUpdateError);
-      }
+      await dispatchOrder(selectedOrder);
 
       alert("Dispatch created successfully!");
       onSubmit();

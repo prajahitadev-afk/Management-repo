@@ -1,4 +1,6 @@
 import { supabase } from "../lib/supabase";
+import { assignEmployeeRole } from "./role.service";
+import { isValidUUID } from "../utils/uuid";
 
 export interface ProfileRecord {
   id: string;
@@ -21,7 +23,6 @@ interface AuthUserLike {
 interface ProfileRow extends Record<string, unknown> {
   name?: string | null;
   department?: string | null;
-  dept?: string | null;
   avatar?: string | null;
 }
 
@@ -41,9 +42,9 @@ function buildProfileCompatibility(profileData: ProfileRow | null, authUser: Aut
   return {
     ...profileData,
     name,
-    dept: profileData.department || profileData.dept || "",
+    department: profileData.department || "",
     avatar,
-  } as ProfileRecord & { dept: string; avatar: string };
+  } as ProfileRecord & { avatar: string };
 }
 
 export async function getCurrentProfile(authUser: AuthUserLike | null) {
@@ -66,6 +67,7 @@ export async function getCurrentProfile(authUser: AuthUserLike | null) {
 }
 
 export async function getProfile(id: string) {
+  if (!isValidUUID(id)) throw new Error("A valid profile ID is required");
   const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single();
 
   if (error) {
@@ -76,11 +78,18 @@ export async function getProfile(id: string) {
 }
 
 export async function updateProfile(id: string, updates: Partial<ProfileRecord>) {
+  if (!isValidUUID(id)) throw new Error("A valid profile ID is required");
+  if (updates.role !== undefined) {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) throw authError ?? new Error("Authentication required");
+    await assignEmployeeRole(id, updates.role, authData.user.id);
+  }
+
   const allowedUpdates = {
     name: updates.name,
     email: updates.email,
     phone: updates.phone,
-    role: updates.role,
+    role: undefined,
     department: updates.department,
     status: updates.status,
     employee_id: updates.employee_id,

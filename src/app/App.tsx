@@ -10,9 +10,12 @@ import { EmployeeProfilePage } from "../pages/employees/EmployeeProfilePage";
 import { AttendancePage as EmployeeAttendancePage } from "../pages/employees/AttendancePage";
 import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage";
 import { ResetPasswordPage } from "../pages/ResetPasswordPage";
+import AuditLogPage from "../pages/AuditLogPage";
+import { LeavePage } from "../pages/leave/LeavePage";
+import DepartmentPage from "../pages/department/DepartmentPage";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
 import {
   AdminPage,
-  AttendancePage,
   BillsPage,
   DashboardPage,
   MarketingPage,
@@ -43,6 +46,18 @@ function getRecoverySearchParams() {
   }
 
   return params;
+}
+
+function getDepartmentRoute(routePath: string): { department?: string; tab?: string } | null {
+  const parts = routePath.split("/").filter(Boolean);
+  if (parts[0] !== "department" || parts.length > 3) return null;
+  const departments = new Set(["administration", "manufacturing", "marketing", "transportation", "transport", "research", "research-and-development", "rd"]);
+  if (parts[1] && !departments.has(parts[1].toLowerCase())) return null;
+  return { department: parts[1], tab: parts[2] };
+}
+
+function NotFoundPage() {
+  return <main className="flex min-h-full items-center justify-center p-6"><section className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm"><p className="text-sm font-semibold uppercase tracking-widest text-slate-500">404</p><h1 className="mt-2 text-2xl font-bold text-slate-800">Page not found</h1><p className="mt-2 text-sm text-slate-600">The requested page does not exist.</p><button type="button" onClick={() => { window.history.pushState({}, "", "/"); window.dispatchEvent(new PopStateEvent("popstate")); }} className="mt-5 rounded-lg bg-[#4e8050] px-4 py-2 text-sm font-medium text-white">Go to Dashboard</button></section></main>;
 }
 
 export default function App() {
@@ -91,8 +106,9 @@ export default function App() {
           setEmployeeRoute("attendance");
           setSelectedEmployeeId(null);
         } else if (parts[1] === "organization") {
-          setEmployeeRoute("organization");
+          setEmployeeRoute("directory");
           setSelectedEmployeeId(null);
+          setPage("organization");
         } else if (parts[1]) {
           setEmployeeRoute("profile");
           setSelectedEmployeeId(parts[1]);
@@ -109,14 +125,26 @@ export default function App() {
         attendance: "attendance",
         bills: "bills",
         marketing: "marketing",
+        orders: "orders",
         transport: "transport",
         admin: "admin",
         reports: "reports",
         notifications: "notifications",
+        organization: "organization",
+        audit: "audit",
         login: "login",
+        "leave": "leave",
+        "leave/dashboard": "leave",
+        "leave/apply": "leave",
+        "leave/requests": "leave",
+        "leave/approvals": "leave",
+        "leave/balance": "leave",
+        "department": "department",
       };
 
-      const nextPage = pageRoutes[parts[0] ?? ""] ?? "dashboard";
+      const departmentRoute = getDepartmentRoute(routePath);
+      const isDepartmentPath = parts[0] === "department";
+      const nextPage = isDepartmentPath ? (departmentRoute ? "department" : "not-found") : routePath === "" ? "dashboard" : pageRoutes[routePath] ?? pageRoutes[parts[0] ?? ""] ?? "not-found";
       setEmployeeRoute("directory");
       setSelectedEmployeeId(null);
       setPage(nextPage);
@@ -190,12 +218,17 @@ export default function App() {
       attendance: "/attendance",
       bills: "/bills",
       marketing: "/marketing",
+      orders: "/orders",
       transport: "/transport",
       admin: "/admin",
       reports: "/reports",
       notifications: "/notifications",
       employees: "/employees",
+      organization: "/employees/organization",
+      audit: "/audit",
       profile: "/profile",
+      leave: "/leave",
+      department: "/department",
     };
 
     window.history.pushState({}, "", routeMap[nextPage] ?? "/");
@@ -209,6 +242,7 @@ export default function App() {
     if (showCreateDispatch) {
       return <CreateDispatchPage onClose={() => setShowCreateDispatch(false)} onSubmit={() => setShowCreateDispatch(false)} />;
     }
+    if (page === "not-found") return <NotFoundPage />;
     if (!safeNavAccess(page)) {
       return (
         <div className="p-6 flex items-center justify-center min-h-64">
@@ -230,9 +264,12 @@ export default function App() {
     if (page === "employees") {
       if (employeeRoute === "profile") return <EmployeeProfilePage employeeId={selectedEmployeeId ?? ""} editable currentUserId={profile.id} currentUserRole={profile.role} />;
       if (employeeRoute === "attendance") {
-        return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.dept }} />;
+        return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.department }} />;
       }
-      if (employeeRoute === "organization") return <OrganizationChartPage currentUser={profile} />;
+      if (employeeRoute === "organization") return <OrganizationChartPage currentUser={profile} onSelectEmployee={(employeeId) => {
+        setSelectedEmployeeId(employeeId);
+        window.location.hash = `#/employees/${employeeId}`;
+      }} />;
       return <EmployeeDirectoryPage currentUser={profile} onSelectEmployee={(employeeId) => {
         setSelectedEmployeeId(employeeId);
         window.location.hash = `#/employees/${employeeId}`;
@@ -244,13 +281,21 @@ export default function App() {
 
     switch (page) {
       case "dashboard": return <DashboardPage user={profile} />;
-      case "attendance": return <AttendancePage user={profile} />;
+      case "attendance": return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.department }} />;
       case "bills": return <BillsPage user={profile} />;
       case "marketing": return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
+      case "orders": return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
       case "transport": return <TransportPage setShowCreateDispatch={setShowCreateDispatch} />;
       case "admin": return <AdminPage user={profile} />;
       case "reports": return <ReportsPage user={profile} />;
       case "notifications": return <NotificationsPage notifications={notifications} onMarkAllRead={handleMarkAllNotificationsRead} />;
+      case "audit": return <AuditLogPage />;
+      case "organization": return <OrganizationChartPage currentUser={profile} onSelectEmployee={(employeeId) => {
+        setSelectedEmployeeId(employeeId);
+        window.location.hash = `#/employees/${employeeId}`;
+      }} />;
+      case "leave": return <LeavePage employeeId={profile.id} role={profile.role} />;
+        case "department": { const route = getDepartmentRoute(getEmployeeRoutePath()); return <DepartmentPage profile={profile} routeDepartment={route?.department} routeTab={route?.tab} />; }
       default: return <DashboardPage user={profile} />;
     }
   }

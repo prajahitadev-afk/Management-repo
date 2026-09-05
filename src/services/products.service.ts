@@ -1,12 +1,18 @@
 import { supabase } from "../lib/supabase";
 
 export async function getProducts() {
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, name, price, stock_quantity")
-    .order("name", { ascending: true });
+  const { data, error } = await supabase.from("products").select("*").order("name", { ascending: true });
 
-  if (error) throw error;
+  console.log("PRODUCTS RAW", data);
+  console.log("PRODUCTS ERROR", error);
+  console.log("PRODUCT COUNT", data?.length);
 
-  return data ?? [];
+  if (error) {
+    console.error("QUERY FAILED", error);
+    throw error;
+  }
+
+  console.log("PRODUCTS SERVICE", data);
+  console.log("PRODUCTS SERVICE COUNT", data?.length);
+  return data;
 }

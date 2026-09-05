@@ -36,6 +36,7 @@ interface ReportQueryOptions {
   fromDate?: string | null;
   toDate?: string | null;
   department?: string | null;
+  userDepartment?: string | null;
 }
 
 function resolveDateRange(fromDate?: string | null, toDate?: string | null) {
@@ -65,7 +66,7 @@ function buildMetric(label: string, value: string, detail: string): ReportMetric
 
 export async function generateReport(type: ReportType, options: ReportQueryOptions = {}): Promise<GeneratedReport> {
   const { from, to } = resolveDateRange(options.fromDate, options.toDate);
-  const departmentFilter = options.department && options.department !== "All Departments" ? options.department : undefined;
+  const departmentFilter = options.userDepartment || (options.department && options.department !== "All Departments" ? options.department : undefined);
 
   if (type === "Attendance") {
     const { data: attendanceRows, error: attendanceError } = await supabase
@@ -187,32 +188,32 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
   if (type === "Marketing") {
     const { data: ordersRows, error: ordersError } = await supabase
       .from("orders")
-      .select(`
-        id,
-        order_number,
-        status,
-        order_date,
-        total_amount,
-        customer_id,
-        created_at,
-        customers (first_name, last_name),
-        order_items (quantity, unit_price, products (name))
-      `)
+      .select("id, order_number, status, order_date, total_amount, customer_id, created_at")
       .gte("order_date", from)
       .lte("order_date", to);
 
     if (ordersError) throw ordersError;
 
-    const filteredOrders = (ordersRows || []).filter((row) => !departmentFilter || row.customer_id === departmentFilter);
+    const orderRows = ordersRows || [];
+    const orderIds = orderRows.map((row) => row.id);
+    const { data: orderItems, error: itemsError } = orderIds.length ? await supabase.from("order_items").select("order_id, product_id, quantity, unit_price").in("order_id", orderIds) : { data: [], error: null };
+    if (itemsError) throw itemsError;
+    const productIds = Array.from(new Set((orderItems || []).map((item) => item.product_id).filter(Boolean))) as string[];
+    const { data: products, error: productsError } = productIds.length ? await supabase.from("products").select("id, name").in("id", productIds) : { data: [], error: null };
+    if (productsError) throw productsError;
+    const productMapById = new Map((products || []).map((product) => [String(product.id), String(product.name ?? "Unknown")]));
+    const itemsByOrder = new Map<string, typeof orderItems>();
+    (orderItems || []).forEach((item) => itemsByOrder.set(String(item.order_id), [...(itemsByOrder.get(String(item.order_id)) || []), item]));
+    const filteredOrders = orderRows.filter((row) => !departmentFilter || row.customer_id === departmentFilter);
     const totalOrders = filteredOrders.length;
     const revenue = filteredOrders.reduce((sum, row) => sum + Number(row.total_amount ?? 0), 0);
     const uniqueCustomers = new Set(filteredOrders.map((row) => row.customer_id).filter(Boolean)).size;
 
     const productMap = new Map<string, number>();
     filteredOrders.forEach((row) => {
-      const items = row.order_items ?? [];
+      const items = itemsByOrder.get(String(row.id)) ?? [];
       items.forEach((item) => {
-        const productName = item.products?.[0]?.name ?? "Unknown";
+        const productName = productMapById.get(String(item.product_id)) ?? "Unknown";
         const current = productMap.get(productName) ?? 0;
         productMap.set(productName, current + Number(item.unit_price ?? 0) * Number(item.quantity ?? 0));
       });

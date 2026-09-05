@@ -4,12 +4,84 @@ import { normalizeOrderStatus, isOrderStatus, OrderStatus, ORDER_STATUS } from "
 
 export interface CreateOrderItemInput {
   product_id: string;
+  product_name: string;
   quantity: number;
   unit_price: number;
+  total_price: number;
 }
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+export interface OrderDetailItem {
+  id: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface OrderDetails {
+  items: OrderDetailItem[];
+  grandTotal: number;
+}
+
+const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  Pending: [ORDER_STATUS.Approved, ORDER_STATUS.Rejected],
+  Approved: [ORDER_STATUS.Dispatched],
+  Dispatched: [ORDER_STATUS.Delivered],
+  Delivered: [],
+  Rejected: [],
+};
+
+export async function transitionOrderStatus(orderId: string, nextStatus: OrderStatus): Promise<void> {
+  const { data: current, error: currentError } = await supabase.from("orders").select("status").eq("id", orderId).single();
+  if (currentError) throw currentError;
+  const currentStatus = normalizeOrderStatus(current.status);
+  if (!ORDER_TRANSITIONS[currentStatus].includes(nextStatus)) {
+    throw new Error(`Invalid order transition from ${currentStatus} to ${nextStatus}.`);
+  }
+  const { data, error } = await supabase.from("orders").update({ status: nextStatus }).eq("id", orderId).select("id, status").single();
+  if (error) throw error;
+  if (!data?.id || data.status !== nextStatus) throw new Error("Order status update was not confirmed.");
+  window.dispatchEvent(new CustomEvent("order-workflow-changed"));
+}
+
+export async function dispatchOrder(orderId: string): Promise<void> {
+  await transitionOrderStatus(orderId, ORDER_STATUS.Dispatched);
+}
+
+export async function getOrderDetails(orderId: string): Promise<OrderDetails> {
+  const { data: orderItems, error: itemsError } = await supabase.from("order_items").select("*").eq("order_id", orderId);
+  console.log("ORDER_ITEMS RAW", orderItems);
+  console.log("ORDER_ITEMS ERROR", itemsError);
+  if (itemsError) {
+    console.error("QUERY FAILED", itemsError);
+    throw itemsError;
+  }
+  const rows = (orderItems ?? []) as Array<{ id: string; product_id: string | null; product_name: string | null; quantity: number | null; unit_price: number | string | null; total_price: number | string | null }>;
+  const needsProductLookup = rows.some((item) => !item.product_name);
+  let products: Array<{ id: string; name: string | null }> = [];
+  if (needsProductLookup) {
+    const { data, error: productsError } = await supabase.from("products").select("*");
+    console.log("PRODUCTS RAW", data);
+    console.log("PRODUCTS ERROR", productsError);
+    if (productsError) {
+      console.error("QUERY FAILED", productsError);
+      throw productsError;
+    }
+    products = (data ?? []) as Array<{ id: string; name: string | null }>;
+  }
+  const productMap = new Map(products.map((product) => [String(product.id), product]));
+  const items = rows.map((item) => {
+    const quantity = Number(item.quantity ?? 0);
+    const unitPrice = Number(item.unit_price ?? 0);
+    return {
+      id: item.id,
+      productName: item.product_name || productMap.get(String(item.product_id))?.name || "Unknown Product",
+      quantity,
+      unitPrice,
+      totalPrice: Number(item.total_price ?? unitPrice * quantity),
+    };
+  });
+  return { items, grandTotal: items.reduce((sum, item) => sum + item.totalPrice, 0) };
 }
 
 function normalizeItems(items: unknown): CreateOrderItemInput[] {
@@ -30,6 +102,9 @@ export async function getOrders() {
     .from("orders")
     .select("id, order_number, customer_id, order_date, expected_delivery, status, total_amount, created_by, created_at")
     .order("created_at", { ascending: false });
+
+  console.log("ORDERS RAW", data);
+  console.log("ORDERS ERROR", error);
 
   if (error) throw error;
 
@@ -58,57 +133,91 @@ export async function createOrderWithItems(input: {
   expected_delivery: string;
   status: OrderStatus;
   total_amount: number;
-  created_by: string;
+  payment_method: string;
   items: CreateOrderItemInput[] | string;
 }): Promise<string> {
-  if (!isUuid(input.customer_id)) {
-    throw new Error("Customer ID must be a valid UUID");
-  }
-
-  if (!isUuid(input.created_by)) {
-    throw new Error("Created by must be a valid UUID");
+  if (!input.customer_id.trim()) {
+    throw new Error("Customer ID is required");
   }
 
   if (!isOrderStatus(input.status)) {
     throw new Error(`Invalid order status: ${input.status}`);
   }
 
-  const payload = {
-    p_order_number: input.order_number,
-    p_customer_id: input.customer_id,
-    p_order_date: input.order_date,
-    p_expected_delivery: input.expected_delivery,
-    p_status: input.status,
-    p_total_amount: input.total_amount,
-    p_created_by: input.created_by,
-    p_items: normalizeItems(input.items),
+  if (input.status !== ORDER_STATUS.Pending) throw new Error("New orders must start in Pending status.");
+  const items = normalizeItems(input.items);
+  const orderId = crypto.randomUUID();
+  const orderPayload = {
+    id: orderId,
+    order_number: input.order_number,
+    customer_id: input.customer_id,
+    order_date: input.order_date,
+    expected_delivery: input.expected_delivery,
+    status: ORDER_STATUS.Pending,
+    total_amount: input.total_amount,
   };
-
-  console.log("RPC Payload", payload);
-
-  const { data, error } = await supabase.rpc("create_order_with_items", payload);
-  if (error) {
-    console.error("RPC ERROR", error);
-    console.error("RPC ERROR JSON", JSON.stringify(error, null, 2));
+  console.log("ORDER INSERT PAYLOAD", orderPayload);
+  console.log("ORDER INSERT TYPES", {
+    total_amount: typeof orderPayload.total_amount,
+    customer_id: typeof orderPayload.customer_id,
+  });
+  const { data: order, error: orderError } = await supabase.from("orders").insert(orderPayload).select("id").single();
+  console.log("ORDER INSERT ERROR", orderError);
+  if (orderError) {
+    console.error("ORDER INSERT FAILED", orderError);
+    throw orderError;
   }
-  if (typeof data !== "string") throw new Error("Order transaction did not return an order id");
-  return data;
+  if (!order?.id) throw new Error("Order insert did not return an id");
+
+  const itemPayload = items.map((item) => ({
+    id: crypto.randomUUID(),
+    order_id: orderId,
+    product_id: item.product_id,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    total_price: item.total_price,
+  }));
+  console.log("ORDER ITEMS INSERT PAYLOAD", itemPayload);
+  const { error: itemsError } = await supabase.from("order_items").insert(itemPayload);
+  console.log("ORDER ITEMS INSERT ERROR", itemsError);
+  if (itemsError) {
+    console.error("ORDER ITEMS INSERT FAILED", itemsError);
+    throw itemsError;
+  }
+
+  const paymentPayload = {
+    order_id: orderId,
+    amount: input.total_amount,
+    payment_method: input.payment_method,
+    status: "Pending",
+  };
+  console.log("PAYMENT INSERT PAYLOAD", paymentPayload);
+  const { error: paymentError } = await supabase.from("payments").insert(paymentPayload);
+  console.log("PAYMENT INSERT ERROR", paymentError);
+  if (paymentError) {
+    console.error("PAYMENT INSERT FAILED", paymentError);
+    throw paymentError;
+  }
+  return orderId;
 }
 
-export async function approveOrder(orderId: string, orderNumber: string): Promise<void> {
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: ORDER_STATUS.Approved })
-    .eq("id", orderId)
-    .select("id")
-    .single();
-  if (error) throw error;
-  if (!data || !data.id) throw new Error("Failed to update order status");
+export async function approveOrder(orderId: string, orderNumber: string, actorRole?: string): Promise<void> {
+  if (!canApproveOrderRole(actorRole)) {
+    throw new Error("You are not authorized to approve orders.");
+  }
+  await transitionOrderStatus(orderId, ORDER_STATUS.Approved);
   await notifyOrderApproved(orderId, orderNumber);
 }
 
-export async function rejectOrder(orderId: string, orderNumber: string, reason?: string): Promise<void> {
-  const { error } = await supabase.from("orders").update({ status: ORDER_STATUS.Returned }).eq("id", orderId);
-  if (error) throw error;
+export async function rejectOrder(orderId: string, orderNumber: string, reason?: string, actorRole?: string): Promise<void> {
+  if (!canApproveOrderRole(actorRole)) {
+    throw new Error("You are not authorized to reject orders.");
+  }
+  await transitionOrderStatus(orderId, ORDER_STATUS.Rejected);
   await notifyOrderRejected(orderId, orderNumber, reason);
+}
+
+function canApproveOrderRole(role?: string): boolean {
+  return ["Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "");
 }

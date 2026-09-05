@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
-import { getOrganizationChart } from "../services/employee.service";
-import type { OrganizationNode } from "../types/employee.types";
+import { getEmployeeHierarchyTree, getHierarchyEmployees } from "../services/employee-hierarchy.service";
+import type { EmployeeHierarchyNode, HierarchyEmployee } from "../types/employee-hierarchy.types";
 
 interface UseOrganizationChartOptions {
   userId?: string;
 }
 
 export function useOrganizationChart({ userId }: UseOrganizationChartOptions = {}) {
-  const [nodes, setNodes] = useState<OrganizationNode[]>([]);
+  const [nodes, setNodes] = useState<EmployeeHierarchyNode[]>([]);
+  const [employees, setEmployees] = useState<HierarchyEmployee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,8 +16,9 @@ export function useOrganizationChart({ userId }: UseOrganizationChartOptions = {
     try {
       setLoading(true);
       setError(null);
-      const nextNodes = await getOrganizationChart(userId);
+      const [nextNodes, nextEmployees] = await Promise.all([getEmployeeHierarchyTree(), getHierarchyEmployees()]);
       setNodes(nextNodes);
+      setEmployees(nextEmployees);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load organization chart");
     } finally {
@@ -28,5 +30,5 @@ export function useOrganizationChart({ userId }: UseOrganizationChartOptions = {
     void refresh();
   }, [refresh]);
 
-  return { nodes, loading, error, refresh };
+  return { nodes, employees, loading, error, refresh };
 }

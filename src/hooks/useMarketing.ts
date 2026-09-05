@@ -62,6 +62,9 @@ export function useMarketing() {
 
   useEffect(() => {
     void refreshData();
+    const handleWorkflowChange = () => void refreshData();
+    window.addEventListener("order-workflow-changed", handleWorkflowChange);
+    return () => window.removeEventListener("order-workflow-changed", handleWorkflowChange);
   }, []);
 
   return {
