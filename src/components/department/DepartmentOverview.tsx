@@ -1,0 +1,12 @@
+import { BarChart3, Building2, ClipboardList, Users } from "lucide-react";
+import type { DepartmentMetadata } from "../../services/department.service";
+
+export interface DepartmentMetric {
+  label: string;
+  value: string;
+}
+
+export function DepartmentOverview({ metadata, tabs, metrics = [], recentActivity = [] }: { metadata: DepartmentMetadata; tabs: string[]; metrics?: DepartmentMetric[]; recentActivity?: string[] }) {
+  const cards = [{ label: "Department", value: metadata.name, icon: Building2 }, ...metrics.slice(0, 2).map((metric) => ({ ...metric, icon: BarChart3 }))];
+  return <section className="space-y-4"><div className="grid gap-4 sm:grid-cols-3">{cards.map((card) => <div key={card.label} className="rounded-2xl border border-white/60 bg-white/45 p-5 shadow-sm"><card.icon className="h-5 w-5 text-[#4e8050]" /><p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</p><p className="mt-1 text-xl font-semibold text-slate-800">{card.value}</p></div>)}</div><div className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border border-white/60 bg-white/45 p-5 shadow-sm"><div className="flex items-center gap-2"><Users className="h-5 w-5 text-[#4e8050]" /><h2 className="font-semibold text-slate-800">Quick metrics</h2></div><div className="mt-3 space-y-2 text-sm text-slate-600">{metrics.length ? metrics.map((metric) => <div key={metric.label} className="flex justify-between gap-4 border-b border-black/5 py-2"><span>{metric.label}</span><strong className="text-slate-800">{metric.value}</strong></div>) : <p>Placeholder metrics are ready for this department.</p>}</div></div><div className="rounded-2xl border border-white/60 bg-white/45 p-5 shadow-sm"><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-[#4e8050]" /><h2 className="font-semibold text-slate-800">Recent activity</h2></div><div className="mt-3 space-y-2 text-sm text-slate-600">{recentActivity.length ? recentActivity.map((activity) => <p key={activity} className="border-b border-black/5 py-2">{activity}</p>) : <p>No recent activity available.</p>}</div></div></div><p className="text-sm text-slate-600">{tabs.length} role-specific workspace views are available above.</p></section>;
+}
