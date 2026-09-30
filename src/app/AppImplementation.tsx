@@ -61,7 +61,7 @@ type Role =
   | "Admin"
   | "External Collaborator" | "Collaborator Head";
 
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "collaboration" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "collaboration" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
 type EmployeeRoute = "directory" | "profile" | "attendance" | "organization";
 
 interface AppUser { id: string; name: string; role: Role; department: string; avatar: string; email: string; employeeId?: string; }
@@ -177,6 +177,7 @@ const ROLE_LEVEL: Record<Role, number> = {
   "MD-Manufacturing": 6, "MD-Marketing": 6, "MD-Transport": 6, "MD-RD": 6,
   "General Manager": 5, "Chief Manager": 4, "Manager": 3, "Supervisor": 2, "Worker": 1,
   "Admin": 9,
+  "External Collaborator": 1, "Collaborator Head": 2,
 };
 
 const isMD   = (r: Role) => r === "Managing Director" || r.startsWith("MD-");
@@ -242,7 +243,7 @@ function GlassCard({ children, className = "", hover = false, onClick, style = {
 
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 function KPICard({ icon: Icon, label, value, sub, accentColor = CG }: {
-  icon: ComponentType<{ size?: number; style?: React.CSSProperties }>; label: string; value: string; sub?: string; accentColor?: string;
+  icon: React.ElementType; label: string; value: string; sub?: string; accentColor?: string;
 }) {
   return (
     <div className="rounded-2xl overflow-hidden transition-all duration-200"
@@ -332,7 +333,7 @@ function RoleBadge({ role }: { role: Role }) {
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
 function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disabled = false, gold = false, danger = false }: {
-  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; size?: "sm" | "md" | "lg";
+  children: React.ReactNode; onClick?: () => void; icon?: React.ElementType; size?: "sm" | "md" | "lg";
   disabled?: boolean; gold?: boolean; danger?: boolean;
 }) {
   const sizes = { sm: "px-3 py-1.5 text-xs gap-1.5", md: "px-4 py-2 text-sm gap-2", lg: "px-5 py-2.5 text-sm gap-2" };
@@ -348,7 +349,7 @@ function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disable
 }
 
 function SecondaryButton({ children, onClick, icon: Icon, disabled = false }: {
-  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; disabled?: boolean;
+  children: React.ReactNode; onClick?: () => void; icon?: React.ElementType; disabled?: boolean;
 }) {
   return (
     <button onClick={onClick} disabled={disabled}
@@ -477,22 +478,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                   {loading ? "Authenticating…" : "Sign In to Portal"}
                 </PrimaryButton>
                 
-                <div className="mt-4 pt-4 border-t border-slate-200/60 text-center">
-                  <span className="block text-xs text-slate-500 font-semibold mb-2">Instant Demo Portal Access</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("vicechairman@prajahita.org");
-                      setPassword("demo123");
-                      void login("vicechairman@prajahita.org", "demo123");
-                    }}
-                    className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    <Sparkles size={14} /> Quick Demo Sign In (Explore Sidebar & Portal)
-                  </button>
-                </div>
-
-                <button onClick={() => setForgot(true)} className="block mt-3 text-xs text-center w-full hover:underline text-slate-500">
+                <button onClick={() => setForgot(true)} className="block mt-4 text-xs text-center w-full hover:underline text-slate-500">
                   Forgot password?
                 </button>
               </>
@@ -581,7 +567,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible !== false && navAccess(item, user));
+  const visibleNavItems = NAV_ITEMS.filter((item) => (item as any).visible !== false && navAccess(item, user));
 
   const content = (
     <div className="flex flex-col h-full relative overflow-hidden">
@@ -1035,7 +1021,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
 // ─── MD Dashboard ─────────────────────────────────────────────────────────────
 function MDDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) {
   const dept = MD_DEPT[user.role] ?? user.department;
-  const deptIcons: Record<string, ComponentType<{ size?: number }>> = {
+  const deptIcons: Record<string, React.ElementType> = {
     "Manufacturing": Building2, "Marketing": ShoppingCart,
     "Transport": Truck, "Research & Development": FlaskConical,
   };
@@ -2513,7 +2499,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{o.delivery}</td>
                     <td className="py-3.5 px-4"><StatusBadge status={o.status} /></td>
                     <td className="py-3.5 px-4">
-                      {console.log("ORDER STATUS", o.status, "BUTTON DISABLED", actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status))}
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={(event) => { event.stopPropagation(); void handleApproveOrder(o); }}
@@ -3062,7 +3047,7 @@ function AdminPage({ user }: { user: AppUser }) {
         <GlassCard className="p-5">
           <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Activity Audit Log</h3>
           {auditLogs.length > 0 ? auditLogs.map((log, i, arr) => {
-            const icons: Record<string, ComponentType<{ size?: number; style?: React.CSSProperties }>> = { approval: CheckCircle, create: Plus, admin: Shield, submit: Send, rejection: XCircle, export: Download, recruit: UserCheck };
+            const icons: Record<string, React.ElementType> = { approval: CheckCircle, create: Plus, admin: Shield, submit: Send, rejection: XCircle, export: Download, recruit: UserCheck };
             const colors: Record<string,string>= { approval: CG, create: CB, admin: CGo, submit: CB, rejection: CR, export: CG, recruit: B.purple };
             const actionType = log.action.includes("approve") || log.action.includes("approved") ? "approval" : log.action.includes("submit") || log.action.includes("submitted") ? "submit" : log.action.includes("reject") || log.action.includes("rejected") ? "rejection" : "admin";
             const Icon = icons[actionType];

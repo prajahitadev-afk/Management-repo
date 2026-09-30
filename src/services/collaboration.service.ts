@@ -566,7 +566,7 @@ export async function approveInternalStep(
       created_at: now,
     });
   } else if (user.role === "President") {
-    if (!app.vice_chairman_approved && user.role !== "Admin") {
+    if (!app.vice_chairman_approved && (user.role as string) !== "Admin") {
       throw new Error("Requires prior approval from Vice Chairman first.");
     }
     app.president_approved = true;
@@ -594,7 +594,7 @@ export async function approveInternalStep(
       created_at: now,
     });
   } else if (user.role === "MD-Marketing" || user.role === "Managing Director") {
-    if (!app.president_approved && user.role !== "Admin") {
+    if (!app.president_approved && (user.role as string) !== "Admin") {
       throw new Error("Requires prior approval from President first.");
     }
     app.marketing_md_approved = true;

@@ -33,7 +33,7 @@ export function ExecutiveAnalyticsDashboard({ role, department, userId }: Props)
   if (!analytics || !analytics.departments.length) return <div className="p-6 text-sm text-slate-600">No accessible department analytics found.</div>;
 
   const average = (key: keyof typeof analytics.departments[number]) => analytics.departments.reduce((sum, item) => sum + Number(item[key]), 0) / analytics.departments.length;
-  const metrics = [
+  const metrics: Array<[string, number]> = [
     ["Total Employees", analytics.departments.reduce((sum, item) => sum + item.employees, 0)], ["Active Employees", analytics.departments.reduce((sum, item) => sum + item.activeEmployees, 0)], ["Performance Index", average("completionRate")], ["Target Achievement", average("targetAchievement")], ["Productivity", average("productivity")], ["Efficiency", average("efficiency")], ["Growth", average("growth")], ["Risk Score", average("riskScore")],
   ];
   const ranking = [...analytics.departments].sort((left, right) => right.completionRate - left.completionRate);

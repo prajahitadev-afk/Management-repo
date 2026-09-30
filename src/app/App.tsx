@@ -26,7 +26,7 @@ import {
   LoginPage,
 } from "./AppImplementation";
 import { B, GlassCard, Sidebar, TopBar, NAV_ITEMS, navAccess } from "../components/portal";
-import type { AppUser, EmployeeRoute, Page } from "../components/portal";
+import type { AppUser, EmployeeRoute } from "../components/portal";
 
 function getEmployeeRoutePath() {
   if (typeof window === "undefined") return "";
@@ -233,6 +233,7 @@ export default function App() {
       profile: "/profile",
       leave: "/leave",
       department: "/department",
+      "not-found": "/",
     };
 
     window.history.pushState({}, "", routeMap[nextPage] ?? "/");

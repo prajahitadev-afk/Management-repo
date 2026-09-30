@@ -1,13 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2021",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "moduleResolution": "Bundler",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": false,
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -17,8 +17,7 @@
     "noUnusedParameters": false,
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "ignoreDeprecations": "6.0"
+    }
   },
   "include": ["src"],
   "references": []
