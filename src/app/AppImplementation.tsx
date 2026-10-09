@@ -50,18 +50,15 @@ import { LeavePage } from "../pages/leave/LeavePage";
 import { ExecutiveAnalyticsDashboard } from "../components/ExecutiveAnalyticsDashboard";
 import { canAccessDepartmentModule } from "../services/hierarchy.service";
 
-import CollaborationModule from "../pages/marketing/CollaborationModule";
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Role =
   | "Vice Chairman" | "President" | "Vice President"
   | "Managing Director"
   | "MD-Manufacturing" | "MD-Marketing" | "MD-Transport" | "MD-RD"
   | "General Manager" | "Chief Manager" | "Manager" | "Supervisor" | "Worker"
-  | "Admin"
-  | "External Collaborator" | "Collaborator Head";
+  | "Admin";
 
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "collaboration" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department";
 type EmployeeRoute = "directory" | "profile" | "attendance" | "organization";
 
 interface AppUser { id: string; name: string; role: Role; department: string; avatar: string; email: string; employeeId?: string; }
@@ -177,7 +174,6 @@ const ROLE_LEVEL: Record<Role, number> = {
   "MD-Manufacturing": 6, "MD-Marketing": 6, "MD-Transport": 6, "MD-RD": 6,
   "General Manager": 5, "Chief Manager": 4, "Manager": 3, "Supervisor": 2, "Worker": 1,
   "Admin": 9,
-  "External Collaborator": 1, "Collaborator Head": 2,
 };
 
 const isMD   = (r: Role) => r === "Managing Director" || r.startsWith("MD-");
@@ -243,7 +239,7 @@ function GlassCard({ children, className = "", hover = false, onClick, style = {
 
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 function KPICard({ icon: Icon, label, value, sub, accentColor = CG }: {
-  icon: React.ElementType; label: string; value: string; sub?: string; accentColor?: string;
+  icon: ComponentType<{ size?: number; style?: React.CSSProperties }>; label: string; value: string; sub?: string; accentColor?: string;
 }) {
   return (
     <div className="rounded-2xl overflow-hidden transition-all duration-200"
@@ -333,7 +329,7 @@ function RoleBadge({ role }: { role: Role }) {
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
 function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disabled = false, gold = false, danger = false }: {
-  children: React.ReactNode; onClick?: () => void; icon?: React.ElementType; size?: "sm" | "md" | "lg";
+  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; size?: "sm" | "md" | "lg";
   disabled?: boolean; gold?: boolean; danger?: boolean;
 }) {
   const sizes = { sm: "px-3 py-1.5 text-xs gap-1.5", md: "px-4 py-2 text-sm gap-2", lg: "px-5 py-2.5 text-sm gap-2" };
@@ -349,7 +345,7 @@ function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disable
 }
 
 function SecondaryButton({ children, onClick, icon: Icon, disabled = false }: {
-  children: React.ReactNode; onClick?: () => void; icon?: React.ElementType; disabled?: boolean;
+  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; disabled?: boolean;
 }) {
   return (
     <button onClick={onClick} disabled={disabled}
@@ -419,6 +415,9 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
           <h1 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "Inter, sans-serif" }}>Prajahita Charitable Trust</h1>
           <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.60)" }}>Management Portal</p>
           <p className="text-xs tracking-widest mb-8 font-semibold" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.15em" }}>FAITH · SERVICE · HOPE</p>
+          <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.50)" }}>
+            Empowering communities through sustainable soap manufacturing, economic inclusion, and serving families across Maharashtra.
+          </p>
         </div>
         <div className="relative z-10">
           {[
@@ -475,10 +474,9 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                     style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
                 </div>
                 <PrimaryButton onClick={doLogin} size="lg" icon={loading ? RefreshCw : ArrowRight}>
-                  {loading ? "Authenticating…" : "Sign In to Portal"}
+                  {loading ? "Authenticating…" : "Sign In"}
                 </PrimaryButton>
-                
-                <button onClick={() => setForgot(true)} className="block mt-4 text-xs text-center w-full hover:underline text-slate-500">
+                <button onClick={() => setForgot(true)} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
                   Forgot password?
                 </button>
               </>
@@ -545,19 +543,17 @@ const NAV_ITEMS = [
   { id: "profile",       label: "My Profile",        icon: User,            minLevel: 1 },
   { id: "bills",         label: "Bill Management",  icon: FileText,        minLevel: 3, allowedRoles: MANAGEMENT_NAV_ROLES },
   { id: "orders",        label: "Orders",            icon: ShoppingCart,    minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Marketing" },
-  { id: "collaboration", label: "Collaboration",     icon: Handshake,       minLevel: 1 },
   { id: "transport",     label: "Transport",        icon: Truck,           minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Transport" },
   { id: "admin",         label: "Admin / RBAC",     icon: Shield,          adminOnly: true },
 ];
 
 function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
   if (item.adminOnly) return canViewAdmin(user.role);
-  if (item.id === "collaboration") return true; // Always visible in sidebar; access control enforced inside module per PDF Section 4
   if (item.allowedRoles && !item.allowedRoles.includes(user.role)) return false;
   if (item.id === "reports" && !canViewReports(user.role)) return false;
   const requiredDepartment = (item as { requiredDepartment?: string }).requiredDepartment;
   if (requiredDepartment && !canAccessDepartmentModule(user.department, requiredDepartment)) return false;
-  const lvl = ROLE_LEVEL[user.role] ?? 1;
+  const lvl = ROLE_LEVEL[user.role];
   return lvl >= (item.minLevel ?? 1);
 }
 
@@ -567,7 +563,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
-  const visibleNavItems = NAV_ITEMS.filter((item) => (item as any).visible !== false && navAccess(item, user));
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible !== false && navAccess(item, user));
 
   const content = (
     <div className="flex flex-col h-full relative overflow-hidden">
@@ -1021,7 +1017,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
 // ─── MD Dashboard ─────────────────────────────────────────────────────────────
 function MDDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) {
   const dept = MD_DEPT[user.role] ?? user.department;
-  const deptIcons: Record<string, React.ElementType> = {
+  const deptIcons: Record<string, ComponentType<{ size?: number }>> = {
     "Manufacturing": Building2, "Marketing": ShoppingCart,
     "Transport": Truck, "Research & Development": FlaskConical,
   };
@@ -2268,7 +2264,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const { profile } = useAuth();
   const userRole = profile?.role as Role | undefined;
   const { metrics, orders, customers, revenue, performance, loading, error, refreshData } = useMarketing();
-  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments"|"collaboration">("orders");
+  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments">("orders");
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [actionLoadingOrderId, setActionLoadingOrderId] = useState<string | null>(null);
@@ -2353,32 +2349,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
           </>
         } />
 
-      {/* ─── COLLABORATION MODULE BANNER SECTION ─── */}
-      <div className="rounded-2xl p-5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 font-bold flex-shrink-0">
-            <Handshake size={24} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2 py-0.5 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 font-bold text-[10px] uppercase tracking-wider">
-                Marketing Sector Exclusive
-              </span>
-              <span className="text-xs text-slate-300">Hierarchy: Vice Chairman → President → Marketing MD</span>
-            </div>
-            <h3 className="text-lg font-bold text-white">Collaboration Module & External Handshake Hub</h3>
-            <p className="text-xs text-emerald-100/80">Manage collaborator profiles, Apply Bill applications, 3-tier internal approval routing, and generated bills.</p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setActiveTab("collaboration")}
-          className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 whitespace-nowrap transition-all"
-        >
-          <Handshake size={16} /> Open Collaboration Section <ArrowRight size={14} />
-        </button>
-      </div>
-
       {loading && (
         <div className="p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.25)" }}>
           Loading marketing data…
@@ -2443,22 +2413,18 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       {/* Tabs */}
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
-        {(["orders","customers","payments","collaboration"] as const).map(t => (
+        {(["orders","customers","payments"] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium capitalize transition-all"
             style={{
               background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
               color: activeTab === t ? B.nav : B.textMuted, fontWeight: activeTab === t ? 600 : 400,
-              borderRight: t !== "collaboration" ? "1px solid rgba(255,255,255,0.40)" : "none",
+              borderRight: t !== "payments" ? "1px solid rgba(255,255,255,0.40)" : "none",
             }}>
-            {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : t === "payments" ? "Payments" : "Collaboration Section"}
+            {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : "Payments"}
           </button>
         ))}
       </div>
-
-      {activeTab === "collaboration" && (
-        <CollaborationModule currentUser={profile ?? { id: user.id, name: user.name, role: user.role, department: user.department }} />
-      )}
 
       {activeTab === "payments" && <PaymentsPage />}
 
@@ -2499,6 +2465,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{o.delivery}</td>
                     <td className="py-3.5 px-4"><StatusBadge status={o.status} /></td>
                     <td className="py-3.5 px-4">
+                      {console.log("ORDER STATUS", o.status, "BUTTON DISABLED", actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status))}
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={(event) => { event.stopPropagation(); void handleApproveOrder(o); }}
@@ -3047,7 +3014,7 @@ function AdminPage({ user }: { user: AppUser }) {
         <GlassCard className="p-5">
           <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Activity Audit Log</h3>
           {auditLogs.length > 0 ? auditLogs.map((log, i, arr) => {
-            const icons: Record<string, React.ElementType> = { approval: CheckCircle, create: Plus, admin: Shield, submit: Send, rejection: XCircle, export: Download, recruit: UserCheck };
+            const icons: Record<string, ComponentType<{ size?: number; style?: React.CSSProperties }>> = { approval: CheckCircle, create: Plus, admin: Shield, submit: Send, rejection: XCircle, export: Download, recruit: UserCheck };
             const colors: Record<string,string>= { approval: CG, create: CB, admin: CGo, submit: CB, rejection: CR, export: CG, recruit: B.purple };
             const actionType = log.action.includes("approve") || log.action.includes("approved") ? "approval" : log.action.includes("submit") || log.action.includes("submitted") ? "submit" : log.action.includes("reject") || log.action.includes("rejected") ? "rejection" : "admin";
             const Icon = icons[actionType];

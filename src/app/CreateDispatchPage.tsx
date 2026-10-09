@@ -77,7 +77,7 @@ function SecondaryButton({
 }: {
   children: React.ReactNode;
   onClick?: () => void;
-  icon?: React.ElementType;
+  icon?: React.ComponentType<IconProps>;
 }) {
   return (
     <button
