@@ -18,6 +18,9 @@ interface AppUser {
 
 export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
   const activeUser = currentUser;
+  const [formNotice, setFormNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
   const isExternalCollaborator = activeUser.role === "External Collaborator" || activeUser.role === "Collaborator Head";
   
   const {
@@ -36,6 +39,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
     toggleCompany,
     addCompany,
   } = useCollaboration(activeUser);
+  const activeCompanies = companies.filter((company) => company.status === "active");
 
   // UI state
   const [activeTab, setActiveTab] = useState<"applications" | "bills" | "audit" | "admin">("applications");
@@ -63,7 +67,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
   // Apply Bill form state
   const [applyForm, setApplyForm] = useState({
-    collaborator_company_id: "comp-001",
+    collaborator_company_id: "",
     customer_name: "",
     product_name: "Prajahita Herbal Soap Bulk Pack",
     quantity: 100,
@@ -78,39 +82,83 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
   const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const comp = companies.find((c) => c.id === applyForm.collaborator_company_id) || companies[0];
-    await createApplication({
-      collaborator_company_id: comp.id,
-      collaborator_company_name: comp.company_name,
-      customer_name: applyForm.customer_name,
-      product_name: applyForm.product_name,
-      quantity: Number(applyForm.quantity),
-      unit_price: Number(applyForm.unit_price),
-      currency: applyForm.currency,
-      shipping_transport: applyForm.shipping_transport,
-      delivery_location: applyForm.delivery_location,
-      payment_terms: applyForm.payment_terms,
-      required_date: applyForm.required_date,
-      notes: applyForm.notes,
-      supporting_document_name: "Collaboration_Agreement_Doc.pdf",
-    });
-    setShowApplyModal(false);
+    setFormNotice(null);
+
+    if (!activeCompanies.length) {
+      setFormNotice({ type: "error", text: "No partner companies are available yet. Add one in the admin panel first." });
+      return;
+    }
+
+    const comp = activeCompanies.find((company) => company.id === applyForm.collaborator_company_id) || activeCompanies[0];
+
+    try {
+      await createApplication({
+        collaborator_company_id: comp.id,
+        collaborator_company_name: comp.company_name,
+        customer_name: applyForm.customer_name,
+        product_name: applyForm.product_name,
+        quantity: Number(applyForm.quantity),
+        unit_price: Number(applyForm.unit_price),
+        currency: applyForm.currency,
+        shipping_transport: applyForm.shipping_transport,
+        delivery_location: applyForm.delivery_location,
+        payment_terms: applyForm.payment_terms,
+        required_date: applyForm.required_date,
+        notes: applyForm.notes,
+        supporting_document_name: "Collaboration_Agreement_Doc.pdf",
+      });
+
+      setShowApplyModal(false);
+      setActiveTab("applications");
+      setFormNotice({ type: "success", text: "Application submitted successfully and routed for approval." });
+    } catch (error) {
+      setFormNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "The application could not be submitted. Please try again.",
+      });
+    }
+  };
+
+  const runSelectedAction = async (action: () => Promise<unknown>) => {
+    setActionError(null);
+    setActionPending(true);
+    try {
+      await action();
+      setSelectedApp(null);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The action could not be saved.");
+      await refresh();
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleApproveSelected = () => {
+    if (!selectedApp) return;
+    return runSelectedAction(() => approveStep(selectedApp.id));
+  };
+
+  const handleAcceptSelected = () => {
+    if (!selectedApp) return;
+    return runSelectedAction(() => collaboratorRespond(selectedApp.id, "ACCEPTED"));
   };
 
   const handleRejectConfirm = async () => {
     if (!selectedApp || !rejectReason) return;
-    await rejectApplication(selectedApp.id, rejectReason);
-    setShowRejectModal(false);
-    setSelectedApp(null);
-    setRejectReason("");
+    await runSelectedAction(async () => {
+      await rejectApplication(selectedApp.id, rejectReason);
+      setShowRejectModal(false);
+      setRejectReason("");
+    });
   };
 
   const handleDeclineConfirm = async () => {
     if (!selectedApp || !declineReason) return;
-    await collaboratorRespond(selectedApp.id, "DECLINED", declineReason);
-    setShowDeclineModal(false);
-    setSelectedApp(null);
-    setDeclineReason("");
+    await runSelectedAction(async () => {
+      await collaboratorRespond(selectedApp.id, "DECLINED", declineReason);
+      setShowDeclineModal(false);
+      setDeclineReason("");
+    });
   };
 
   const handleAddCompanySubmit = async (e: React.FormEvent) => {
@@ -176,9 +224,25 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto text-slate-800">
       
+      {formNotice && (
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-medium ${formNotice.type === "success"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-red-200 bg-red-50 text-red-700"}`}>
+          {formNotice.text}
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span className="flex items-center gap-2"><AlertCircle size={16} /> {error}</span>
+          <button onClick={() => void refresh()} className="inline-flex shrink-0 items-center gap-2 font-semibold hover:underline">
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      )}
+      {loading && <div className="text-sm text-slate-500">Loading collaboration data...</div>}
       {/* ─── STATS SUMMARY BAR ─── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-white/80 p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all backdrop-blur-sm">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Total Applications</span>
             <FileText size={18} className="text-slate-400" />
@@ -186,7 +250,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           <span className="text-2xl font-black text-slate-800">{applications.length}</span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-amber-50/80 p-5 rounded-2xl border border-amber-200 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-amber-700 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Pending Internal</span>
             <Clock size={18} className="text-amber-500" />
@@ -196,7 +260,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-indigo-200 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-indigo-50/80 p-5 rounded-2xl border border-indigo-200 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-indigo-700 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Awaiting Collaborator</span>
             <Send size={18} className="text-indigo-500" />
@@ -206,7 +270,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-200 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-emerald-700 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Collaboration Accepted</span>
             <CheckCircle2 size={18} className="text-emerald-500" />
@@ -216,7 +280,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Generated Bills</span>
             <DollarSign size={18} className="text-emerald-600" />
@@ -226,7 +290,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
       </div>
 
       {/* ─── CONTROLS & NAVIGATION TABS ─── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4 bg-white/60 rounded-2xl px-3 py-2">
         <div className="flex items-center gap-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab("applications")}
@@ -281,7 +345,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
         {!isExternalCollaborator && (
           <button
             onClick={() => setShowApplyModal(true)}
-            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all"
+            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:via-emerald-800 hover:to-teal-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all"
           >
             <Plus size={18} /> Apply Bill (New Application)
           </button>
@@ -635,12 +699,15 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Partner Company</label>
                   <select
-                    value={applyForm.collaborator_company_id}
+                    value={activeCompanies.some((company) => company.id === applyForm.collaborator_company_id)
+                      ? applyForm.collaborator_company_id
+                      : activeCompanies[0]?.id ?? ""}
                     onChange={(e) => setApplyForm({ ...applyForm, collaborator_company_id: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500"
                     required
+                    disabled={loading || activeCompanies.length === 0}
                   >
-                    {companies.map((c) => (
+                    {activeCompanies.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.company_name} ({c.company_code})
                       </option>
@@ -775,6 +842,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 </button>
                 <button
                   type="submit"
+                  disabled={loading || activeCompanies.length === 0}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg"
                 >
                   Submit Application
@@ -932,6 +1000,11 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 <p>{selectedApp.rejection_reason || selectedApp.collaborator_decline_reason}</p>
               </div>
             )}
+            {actionError && (
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {actionError}
+              </div>
+            )}
 
             {/* Dynamic Approval / Action Buttons */}
             <div className="pt-4 border-t flex flex-wrap items-center justify-between gap-3">
@@ -940,55 +1013,38 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               </span>
 
               <div className="flex items-center gap-2">
-                {/* INTERNAL APPROVAL BUTTONS */}
+                {/* INTERNAL APPROVAL BUTTON */}
                 {selectedApp.status === "PENDING INTERNAL APPROVAL" && (
                   <>
-                    {/* Vice Chairman Action */}
-                    {activeUser.role === "Vice Chairman" && selectedApp.current_approver_role === "Vice Chairman" && (
+                    {(activeUser.role === "Admin"
+                      || activeUser.role === selectedApp.current_approver_role
+                      || (selectedApp.current_approver_role === "MD-Marketing"
+                        && activeUser.role === "Managing Director"
+                        && activeUser.department === "Marketing")) && (
                       <button
-                        onClick={async () => {
-                          await approveStep(selectedApp.id);
-                          setSelectedApp(null);
-                        }}
-                        className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
+                        onClick={() => void handleApproveSelected()}
+                        disabled={actionPending}
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
                       >
-                        <CheckCircle2 size={16} /> Vice Chairman Approve (Step 1/3)
+                        <CheckCircle2 size={16} /> {actionPending ? "Saving Approval..." : selectedApp.current_approver_role === "Vice Chairman"
+                          ? "Approve Step 1/3 & Send to President"
+                          : selectedApp.current_approver_role === "President"
+                            ? "Approve Step 2/3 & Send to Marketing MD"
+                            : "Final Approve & Send to Collaborator"}
                       </button>
                     )}
 
-                    {/* President Action */}
-                    {activeUser.role === "President" && selectedApp.current_approver_role === "President" && (
-                      <button
-                        onClick={async () => {
-                          await approveStep(selectedApp.id);
-                          setSelectedApp(null);
-                        }}
-                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
-                      >
-                        <CheckCircle2 size={16} /> President Approve (Step 2/3)
-                      </button>
-                    )}
-
-                    {/* Marketing MD Action */}
-                    {(activeUser.role === "MD-Marketing" || activeUser.role === "Managing Director") && selectedApp.current_approver_role === "MD-Marketing" && (
-                      <button
-                        onClick={async () => {
-                          await approveStep(selectedApp.id);
-                          setSelectedApp(null);
-                        }}
-                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
-                      >
-                        <Send size={16} /> Final MD Approve & Route to Collaborator
-                      </button>
-                    )}
-
-                    {/* Reject Button for any approver */}
-                    {["Vice Chairman", "President", "MD-Marketing", "Managing Director"].includes(activeUser.role) && (
+                    {(activeUser.role === "Admin"
+                      || activeUser.role === selectedApp.current_approver_role
+                      || (selectedApp.current_approver_role === "MD-Marketing"
+                        && activeUser.role === "Managing Director"
+                        && activeUser.department === "Marketing")) && (
                       <button
                         onClick={() => setShowRejectModal(true)}
+                        disabled={actionPending}
                         className="px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1"
                       >
-                        <XCircle size={16} /> Reject Application
+                        <XCircle size={16} /> Reject Current Step
                       </button>
                     )}
                   </>
@@ -998,13 +1054,11 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 {selectedApp.status === "AWAITING COLLABORATOR ACCEPTANCE" && isExternalCollaborator && (
                   <>
                     <button
-                      onClick={async () => {
-                        await collaboratorRespond(selectedApp.id, "ACCEPTED");
-                        setSelectedApp(null);
-                      }}
+                      onClick={() => void handleAcceptSelected()}
+                      disabled={actionPending}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
                     >
-                      <CheckCircle2 size={16} /> ACCEPT OFFER & GENERATE BILL
+                      <CheckCircle2 size={16} /> {actionPending ? "Saving Decision..." : "Approve Offer & Generate Bill"}
                     </button>
                     <button
                       onClick={() => setShowDeclineModal(true)}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   CollaborationApplication,
   CollaborationAuditLogEntry,
@@ -25,7 +25,12 @@ export function useCollaboration(user: { id: string; role: string; department: s
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const hasAccess = canUserAccessCollaborationModule(user);
+  const userKey = useMemo(
+    () => `${user.id}|${user.role}|${user.department}|${user.name}|${user.company_name ?? ""}`,
+    [user.id, user.role, user.department, user.name, user.company_name]
+  );
+
+  const hasAccess = useMemo(() => canUserAccessCollaborationModule(user), [user.id, user.role, user.department]);
 
   const loadAllData = useCallback(async () => {
     if (!hasAccess) {
@@ -51,11 +56,11 @@ export function useCollaboration(user: { id: string; role: string; department: s
     } finally {
       setLoading(false);
     }
-  }, [user, hasAccess]);
+  }, [hasAccess, user]);
 
   useEffect(() => {
-    loadAllData();
-  }, [loadAllData]);
+    void loadAllData();
+  }, [userKey, hasAccess]);
 
   const handleCreateApplication = async (params: {
     collaborator_company_id: string;

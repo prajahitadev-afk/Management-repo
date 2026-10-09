@@ -112,10 +112,14 @@ export interface CollaborationBill {
   generated_at: string;
 }
 
+function createCollaborationId(): string {
+  return crypto.randomUUID();
+}
+
 // Initial Seed Collaborator Companies
 export const INITIAL_COLLABORATORS: CollaboratorCompany[] = [
   {
-    id: "comp-001",
+    id: "00000000-0000-4000-8000-000000000001",
     company_name: "ABC TRADING COMPANY",
     company_code: "ABC-001",
     collaborator_head_name: "Rajesh Sharma",
@@ -126,7 +130,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCompany[] = [
     created_at: "2026-01-10T10:00:00Z",
   },
   {
-    id: "comp-002",
+    id: "00000000-0000-4000-8000-000000000002",
     company_name: "GLOBAL SOAP DISTRIBUTORS",
     company_code: "GSD-002",
     collaborator_head_name: "Anita Kulkarni",
@@ -137,7 +141,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCompany[] = [
     created_at: "2026-01-15T11:30:00Z",
   },
   {
-    id: "comp-003",
+    id: "00000000-0000-4000-8000-000000000003",
     company_name: "WESTERN MAHARASHTRA LOGISTICS",
     company_code: "WML-003",
     collaborator_head_name: "Vikram Patel",
@@ -154,7 +158,7 @@ export const INITIAL_APPLICATIONS: CollaborationApplication[] = [
   {
     id: "app-101",
     application_number: "PRJ-COL-2026-000124",
-    collaborator_company_id: "comp-001",
+    collaborator_company_id: "00000000-0000-4000-8000-000000000001",
     collaborator_company_name: "ABC TRADING COMPANY",
     customer_name: "Reliance Retail Maharashtra",
     product_name: "Prajahita Herbal Organic Soap (500 Units Pack)",
@@ -193,7 +197,7 @@ export const INITIAL_APPLICATIONS: CollaborationApplication[] = [
   {
     id: "app-102",
     application_number: "PRJ-COL-2026-000125",
-    collaborator_company_id: "comp-002",
+    collaborator_company_id: "00000000-0000-4000-8000-000000000002",
     collaborator_company_name: "GLOBAL SOAP DISTRIBUTORS",
     customer_name: "D-Mart Mega Outlets",
     product_name: "Prajahita Anti-Bacterial Hygiene Soap (200g Box)",
@@ -224,7 +228,7 @@ export const INITIAL_APPLICATIONS: CollaborationApplication[] = [
   {
     id: "app-103",
     application_number: "PRJ-COL-2026-000120",
-    collaborator_company_id: "comp-001",
+    collaborator_company_id: "00000000-0000-4000-8000-000000000001",
     collaborator_company_name: "ABC TRADING COMPANY",
     customer_name: "Star Bazaar Outlets",
     product_name: "Prajahita Neem Active Skin Care Soap",
@@ -374,16 +378,178 @@ let auditLogsStore = [...INITIAL_AUDIT_LOGS];
 let companiesStore = [...INITIAL_COLLABORATORS];
 let billsStore = [...INITIAL_BILLS];
 
+const collaborationSupabaseEnabled =
+  Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) &&
+  String(import.meta.env.VITE_ENABLE_COLLABORATION_SUPABASE ?? "true").toLowerCase() !== "false";
+
+let collaborationSupabaseReady: boolean | null = null;
+let collaborationSupabaseCheckPromise: Promise<boolean> | null = null;
+
+async function ensureCollaborationSupabaseReady(): Promise<boolean> {
+  if (!collaborationSupabaseEnabled) {
+    collaborationSupabaseReady = false;
+    return false;
+  }
+
+  if (collaborationSupabaseReady === true) return true;
+  if (!collaborationSupabaseCheckPromise) {
+    collaborationSupabaseCheckPromise = (async () => {
+      const requiredTables = [
+        "collaboration_companies",
+        "collaboration_applications",
+        "collaboration_audit_logs",
+        "collaboration_bills",
+      ];
+      try {
+        const results = await Promise.all(
+          requiredTables.map(async (tableName) => {
+            const { error } = await supabase.from(tableName).select("id").limit(1);
+            return { tableName, error };
+          })
+        );
+
+        const failed = results.filter((result) => result.error);
+        if (failed.length > 0) {
+          throw new Error(
+            `Collaboration database is not ready. Check the collaboration tables and permissions in Supabase: ${failed
+              .map((item) => `${item.tableName}: ${item.error?.message ?? "query failed"}`)
+              .join("; ")}`
+          );
+        }
+
+        collaborationSupabaseReady = true;
+        return true;
+      } catch (error) {
+        collaborationSupabaseReady = null;
+        throw error;
+      } finally {
+        collaborationSupabaseCheckPromise = null;
+      }
+    })();
+  }
+
+  return await collaborationSupabaseCheckPromise;
+}
+
+export async function fetchCollaborationAuditLogs(applicationId?: string): Promise<CollaborationAuditLogEntry[]> {
+  if (await ensureCollaborationSupabaseReady()) {
+    const { data, error } = await supabase
+      .from("collaboration_audit_logs")
+      .select("id, application_id, user_name, user_role, user_sector, company_name, action, previous_status, new_status, details, created_at, collaboration_applications(application_number)")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(`Could not load collaboration audit logs: ${error.message}`);
+    if (data) {
+      const rows = data as Array<
+        Omit<CollaborationAuditLog, "application_number" | "ip_address" | "device_info"> & {
+          collaboration_applications: { application_number: string } | null;
+        }
+      >;
+      auditLogsStore = rows.map(({ collaboration_applications, ...log }) => ({
+        ...log,
+        application_number: collaboration_applications?.application_number ?? "",
+      }));
+    }
+  }
+
+  const logs = applicationId
+    ? auditLogsStore.filter((log) => log.application_id === applicationId)
+    : auditLogsStore;
+  return logs.map(({ ip_address: _ipAddress, device_info: _deviceInfo, ...log }) => log);
+}
+
+async function persistApplicationState(app: CollaborationApplication) {
+  if (!(await ensureCollaborationSupabaseReady())) return;
+
+  const { error } = await supabase
+    .from("collaboration_applications")
+    .upsert(app, { onConflict: "id" });
+  if (error) throw new Error(`Could not save collaboration application: ${error.message}`);
+}
+
+async function persistAuditLog(log: CollaborationAuditLog) {
+  if (!(await ensureCollaborationSupabaseReady())) return;
+
+  const { error } = await supabase.from("collaboration_audit_logs").insert(log);
+  if (error) throw new Error(`Could not save collaboration audit log: ${error.message}`);
+}
+
+async function getApplicationForAction(applicationId: string): Promise<CollaborationApplication> {
+  if (await ensureCollaborationSupabaseReady()) {
+    const { data, error } = await supabase
+      .from("collaboration_applications")
+      .select("*")
+      .eq("id", applicationId)
+      .maybeSingle();
+    if (error) throw new Error(`Could not load application for approval: ${error.message}`);
+    if (!data) throw new Error("Application not found.");
+
+    const app = data as CollaborationApplication;
+    applicationsStore = applicationsStore.map((item) => item.id === app.id ? app : item);
+    return app;
+  }
+
+  const app = applicationsStore.find((item) => item.id === applicationId);
+  if (!app) throw new Error("Application not found.");
+  return app;
+}
+
+async function persistApplicationTransition(
+  app: CollaborationApplication,
+  expectedStatus: CollaborationStatus,
+  expectedApprover: ApproverRole
+): Promise<CollaborationApplication> {
+  if (!(await ensureCollaborationSupabaseReady())) {
+    applicationsStore = applicationsStore.map((item) => item.id === app.id ? app : item);
+    return app;
+  }
+
+  const { data, error } = await supabase
+    .from("collaboration_applications")
+    .update(app)
+    .eq("id", app.id)
+    .eq("status", expectedStatus)
+    .eq("current_approver_role", expectedApprover)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw new Error(`Could not save approval decision: ${error.message}`);
+  if (!data) throw new Error("This application was already processed. Refresh and review its current status.");
+
+  const savedApp = data as CollaborationApplication;
+  applicationsStore = applicationsStore.map((item) => item.id === savedApp.id ? savedApp : item);
+  return savedApp;
+}
+
+function assertCurrentApprover(
+  app: CollaborationApplication,
+  user: { role: string; department: string }
+): ApproverRole {
+  if (app.status !== "PENDING INTERNAL APPROVAL") {
+    throw new Error("This application is not waiting for internal approval.");
+  }
+  if (!["Vice Chairman", "President", "MD-Marketing"].includes(app.current_approver_role)) {
+    throw new Error("This application has no pending internal approval step.");
+  }
+
+  const isMarketingManagingDirector = app.current_approver_role === "MD-Marketing"
+    && user.role === "Managing Director"
+    && user.department === "Marketing";
+  if (user.role !== app.current_approver_role && user.role !== "Admin" && !isMarketingManagingDirector) {
+    throw new Error(`Only the current approver (${app.current_approver_role}) can take action on this application.`);
+  }
+  return app.current_approver_role;
+}
+
 // Service functions
 export async function fetchCollaborationApplications(user: { id: string; role: string; department: string; company_name?: string }): Promise<CollaborationApplication[]> {
-  // Try to fetch from Supabase if connected
-  try {
-    const { data, error } = await supabase.from("collaboration_applications").select("*").order("created_at", { ascending: false });
-    if (!error && data && data.length > 0) {
-      applicationsStore = data as CollaborationApplication[];
+  if (await ensureCollaborationSupabaseReady()) {
+    try {
+      const { data, error } = await supabase.from("collaboration_applications").select("*").order("created_at", { ascending: false });
+      if (error) throw new Error(`Could not load collaboration applications: ${error.message}`);
+      if (data) applicationsStore = data as CollaborationApplication[];
+    } catch (e) {
+      throw e;
     }
-  } catch (e) {
-    // Fallback to memory store
   }
 
   // Filter by company if External Collaborator
@@ -395,53 +561,28 @@ export async function fetchCollaborationApplications(user: { id: string; role: s
   return [...applicationsStore];
 }
 
-export async function fetchCollaborationAuditLogs(applicationId?: string): Promise<CollaborationAuditLogEntry[]> {
-  try {
-    const { data, error } = await supabase
-      .from("collaboration_audit_logs")
-      .select("id, application_id, user_name, user_role, user_sector, company_name, action, previous_status, new_status, details, created_at, collaboration_applications(application_number)")
-      .order("created_at", { ascending: false });
-    if (!error && data && data.length > 0) {
-      const rows = data as Array<
-        Omit<CollaborationAuditLog, "application_number" | "ip_address" | "device_info"> & {
-          collaboration_applications: { application_number: string } | null;
-        }
-      >;
-      auditLogsStore = rows.map(({ collaboration_applications, ...log }) => ({
-        ...log,
-        application_number: collaboration_applications?.application_number ?? "",
-      }));
-    }
-  } catch (e) {
-    // Fallback
-  }
-
-  const logs = applicationId
-    ? auditLogsStore.filter((log) => log.application_id === applicationId)
-    : auditLogsStore;
-  return logs.map(({ ip_address: _ipAddress, device_info: _deviceInfo, ...log }) => log);
-}
-
 export async function fetchCollaboratorCompanies(): Promise<CollaboratorCompany[]> {
-  try {
-    const { data, error } = await supabase.from("collaboration_companies").select("*").order("company_name", { ascending: true });
-    if (!error && data && data.length > 0) {
-      companiesStore = data as CollaboratorCompany[];
+  if (await ensureCollaborationSupabaseReady()) {
+    try {
+      const { data, error } = await supabase.from("collaboration_companies").select("*").order("company_name", { ascending: true });
+      if (error) throw new Error(`Could not load collaborator companies: ${error.message}`);
+      if (data) companiesStore = data as CollaboratorCompany[];
+    } catch (e) {
+      throw e;
     }
-  } catch (e) {
-    // Fallback
   }
   return [...companiesStore];
 }
 
 export async function fetchCollaborationBills(): Promise<CollaborationBill[]> {
-  try {
-    const { data, error } = await supabase.from("collaboration_bills").select("*").order("generated_at", { ascending: false });
-    if (!error && data && data.length > 0) {
-      billsStore = data as CollaborationBill[];
+  if (await ensureCollaborationSupabaseReady()) {
+    try {
+      const { data, error } = await supabase.from("collaboration_bills").select("*").order("generated_at", { ascending: false });
+      if (error) throw new Error(`Could not load collaboration bills: ${error.message}`);
+      if (data) billsStore = data as CollaborationBill[];
+    } catch (e) {
+      throw e;
     }
-  } catch (e) {
-    // Fallback
   }
   return [...billsStore];
 }
@@ -466,12 +607,12 @@ export async function createCollaborationApplication(
   user: { id: string; name: string; role: string; department: string }
 ): Promise<CollaborationApplication> {
   const nextNumber = Math.floor(100000 + Math.random() * 900000);
-  const appNumber = `PRJ-COL-2026-${nextNumber}`;
+  const appNumber = `PRJ-COL-${new Date().getFullYear()}-${nextNumber}`;
   const totalAmount = params.quantity * params.unit_price;
   const now = new Date().toISOString();
 
   const newApp: CollaborationApplication = {
-    id: `app-${Date.now()}`,
+    id: createCollaborationId(),
     application_number: appNumber,
     collaborator_company_id: params.collaborator_company_id,
     collaborator_company_name: params.collaborator_company_name,
@@ -502,11 +643,9 @@ export async function createCollaborationApplication(
     updated_at: now,
   };
 
-  applicationsStore.unshift(newApp);
-
   // Create Audit Log Entry
   const auditLog: CollaborationAuditLog = {
-    id: `log-${Date.now()}`,
+    id: createCollaborationId(),
     application_id: newApp.id,
     application_number: appNumber,
     user_name: user.name,
@@ -519,16 +658,22 @@ export async function createCollaborationApplication(
     details: `Applied Bill for ${params.customer_name} via ${params.collaborator_company_name}. Total Value: ${params.currency} ${totalAmount.toLocaleString()}`,
     created_at: now,
   };
-  auditLogsStore.unshift(auditLog);
+  if (await ensureCollaborationSupabaseReady()) {
+    const { error: applicationError } = await supabase
+      .from("collaboration_applications")
+      .insert(newApp);
+    if (applicationError) {
+      throw new Error(`Could not submit collaboration application: ${applicationError.message}`);
+    }
 
-  // Attempt Supabase sync
-  try {
-    await supabase.from("collaboration_applications").insert(newApp);
-    await supabase.from("collaboration_audit_logs").insert(auditLog);
-  } catch (e) {
-    // Ignore
+    const { error: auditError } = await supabase.from("collaboration_audit_logs").insert(auditLog);
+    if (auditError) {
+      throw new Error(`Application was saved, but its audit log could not be saved: ${auditError.message}`);
+    }
   }
 
+  applicationsStore.unshift(newApp);
+  auditLogsStore.unshift(auditLog);
   return newApp;
 }
 
@@ -537,93 +682,59 @@ export async function approveInternalStep(
   applicationId: string,
   user: { id: string; name: string; role: string; department: string }
 ): Promise<CollaborationApplication> {
-  const app = applicationsStore.find((a) => a.id === applicationId);
-  if (!app) throw new Error("Application not found");
+  const app = await getApplicationForAction(applicationId);
+  const expectedRole = assertCurrentApprover(app, user);
 
   const now = new Date().toISOString();
   const prevStatus = app.status;
+  const nextApprover: ApproverRole = expectedRole === "Vice Chairman"
+    ? "President"
+    : expectedRole === "President"
+      ? "MD-Marketing"
+      : "COMPLETED";
+  const updatedApp: CollaborationApplication = {
+    ...app,
+    ...(expectedRole === "Vice Chairman" ? {
+      vice_chairman_approved: true,
+      vice_chairman_approved_at: now,
+      vice_chairman_approver_name: user.name,
+    } : {}),
+    ...(expectedRole === "President" ? {
+      president_approved: true,
+      president_approved_at: now,
+      president_approver_name: user.name,
+    } : {}),
+    ...(expectedRole === "MD-Marketing" ? {
+      marketing_md_approved: true,
+      marketing_md_approved_at: now,
+      marketing_md_approver_name: user.name,
+      status: "AWAITING COLLABORATOR ACCEPTANCE" as const,
+    } : {}),
+    current_approver_role: nextApprover,
+    updated_at: now,
+  };
+  const stepNumber = expectedRole === "Vice Chairman" ? 1 : expectedRole === "President" ? 2 : 3;
+  const approvalLog: CollaborationAuditLog = {
+    id: createCollaborationId(),
+    application_id: app.id,
+    application_number: app.application_number,
+    user_name: user.name,
+    user_role: user.role,
+    user_sector: user.department || "Executive Board",
+    company_name: "Prajahita Charitable Trust",
+    action: `INTERNAL APPROVAL (STEP ${stepNumber}/3 - ${expectedRole.toUpperCase()})`,
+    previous_status: prevStatus,
+    new_status: updatedApp.status,
+    details: expectedRole === "MD-Marketing"
+      ? "Internal approval complete. Routed to the collaborator for acceptance."
+      : `Approved by ${expectedRole}. Advanced to ${nextApprover}.`,
+    created_at: now,
+  };
 
-  if (user.role === "Vice Chairman" || user.role === "Admin") {
-    app.vice_chairman_approved = true;
-    app.vice_chairman_approved_at = now;
-    app.vice_chairman_approver_name = user.name;
-    
-    // Advance to Step 2: President
-    app.current_approver_role = "President";
-    app.updated_at = now;
-
-    auditLogsStore.unshift({
-      id: `log-${Date.now()}`,
-      application_id: app.id,
-      application_number: app.application_number,
-      user_name: user.name,
-      user_role: user.role,
-      user_sector: "Executive Board",
-      company_name: "Prajahita Charitable Trust",
-      action: "INTERNAL APPROVAL (STEP 1/3 - VICE CHAIRMAN)",
-      previous_status: prevStatus,
-      new_status: app.status,
-      details: "Approved by Vice Chairman (Highest Authority). Advanced to Step 2 (President).",
-      created_at: now,
-    });
-  } else if (user.role === "President") {
-    if (!app.vice_chairman_approved && (user.role as string) !== "Admin") {
-      throw new Error("Requires prior approval from Vice Chairman first.");
-    }
-    app.president_approved = true;
-    app.president_approved_at = now;
-    app.president_approver_name = user.name;
-    
-    // Advance to Step 3: Marketing MD
-    app.current_approver_role = "MD-Marketing";
-    app.updated_at = now;
-
-    auditLogsStore.unshift({
-      id: `log-${Date.now()}`,
-      application_id: app.id,
-      application_number: app.application_number,
-      user_name: user.name,
-      user_role: user.role,
-      user_sector: "Executive Board",
-      company_name: "Prajahita Charitable Trust",
-      action: "INTERNAL APPROVAL (STEP 2/3 - PRESIDENT)",
-      previous_status: prevStatus,
-      new_status: app.status,
-      details: "Approved by President (2nd Authority). Advanced to Step 3 (Marketing MD).",
-      created_at: now,
-    });
-  } else if (user.role === "MD-Marketing" || user.role === "Managing Director") {
-    if (!app.president_approved && (user.role as string) !== "Admin") {
-      throw new Error("Requires prior approval from President first.");
-    }
-    app.marketing_md_approved = true;
-    app.marketing_md_approved_at = now;
-    app.marketing_md_approver_name = user.name;
-    
-    // Final internal approval completed! Now route to Collaborator
-    app.status = "AWAITING COLLABORATOR ACCEPTANCE";
-    app.current_approver_role = "COMPLETED";
-    app.updated_at = now;
-
-    auditLogsStore.unshift({
-      id: `log-${Date.now()}`,
-      application_id: app.id,
-      application_number: app.application_number,
-      user_name: user.name,
-      user_role: user.role,
-      user_sector: "Marketing",
-      company_name: "Prajahita Charitable Trust",
-      action: "INTERNAL APPROVAL COMPLETED (STEP 3/3 - MARKETING MD)",
-      previous_status: prevStatus,
-      new_status: "AWAITING COLLABORATOR ACCEPTANCE",
-      details: "Internal Prajahita approval complete. Automatically routed to Collaborator Head for acceptance/decline.",
-      created_at: now,
-    });
-  } else {
-    throw new Error("Unauthorized role for internal collaboration approval.");
-  }
-
-  return { ...app };
+  const savedApp = await persistApplicationTransition(updatedApp, prevStatus, expectedRole);
+  await persistAuditLog(approvalLog);
+  auditLogsStore.unshift(approvalLog);
+  return savedApp;
 }
 
 // Reject Internal Application
@@ -632,20 +743,23 @@ export async function rejectInternalApplication(
   reason: string,
   user: { id: string; name: string; role: string; department: string }
 ): Promise<CollaborationApplication> {
-  const app = applicationsStore.find((a) => a.id === applicationId);
-  if (!app) throw new Error("Application not found");
+  const app = await getApplicationForAction(applicationId);
+  const expectedRole = assertCurrentApprover(app, user);
+  if (!reason.trim()) throw new Error("A rejection reason is required.");
 
   const now = new Date().toISOString();
   const prevStatus = app.status;
+  const updatedApp: CollaborationApplication = {
+    ...app,
+    status: "DECLINED - ORDER CANCELLED",
+    rejection_reason: reason.trim(),
+    rejected_by_name: `${user.name} (${user.role})`,
+    rejected_at: now,
+    updated_at: now,
+  };
 
-  app.status = "DECLINED - ORDER CANCELLED";
-  app.rejection_reason = reason;
-  app.rejected_by_name = `${user.name} (${user.role})`;
-  app.rejected_at = now;
-  app.updated_at = now;
-
-  auditLogsStore.unshift({
-    id: `log-${Date.now()}`,
+  const log: CollaborationAuditLog = {
+    id: createCollaborationId(),
     application_id: app.id,
     application_number: app.application_number,
     user_name: user.name,
@@ -655,11 +769,15 @@ export async function rejectInternalApplication(
     action: "INTERNAL APPROVAL REJECTED",
     previous_status: prevStatus,
     new_status: "DECLINED - ORDER CANCELLED",
-    details: `Application rejected during internal approval. Reason: ${reason}`,
+    details: `Application rejected during internal approval by ${expectedRole}. Reason: ${reason.trim()}`,
     created_at: now,
-  });
+  };
 
-  return { ...app };
+  const savedApp = await persistApplicationTransition(updatedApp, prevStatus, expectedRole);
+  await persistAuditLog(log);
+  auditLogsStore.unshift(log);
+
+  return savedApp;
 }
 
 // Collaborator Decision (ACCEPT or DECLINE)
@@ -667,84 +785,106 @@ export async function respondByCollaborator(
   applicationId: string,
   decision: "ACCEPTED" | "DECLINED",
   declineReason: string | undefined,
-  user: { name: string; company_name?: string }
+  user: { name: string; role: string; company_name?: string }
 ): Promise<CollaborationApplication> {
-  const app = applicationsStore.find((a) => a.id === applicationId);
-  if (!app) throw new Error("Application not found");
+  const app = await getApplicationForAction(applicationId);
+  if (app.status !== "AWAITING COLLABORATOR ACCEPTANCE" || app.current_approver_role !== "COMPLETED") {
+    throw new Error("This offer is not ready for collaborator acceptance.");
+  }
+  if (user.role !== "External Collaborator" && user.role !== "Collaborator Head") {
+    throw new Error("Only the assigned collaborator can accept or decline this offer.");
+  }
+  if (user.company_name && user.company_name.toLowerCase() !== app.collaborator_company_name.toLowerCase()) {
+    throw new Error("This offer belongs to a different collaborator company.");
+  }
+  if (decision === "DECLINED" && !declineReason?.trim()) {
+    throw new Error("A reason is required to decline this offer.");
+  }
 
   const now = new Date().toISOString();
   const prevStatus = app.status;
+  const isAccepted = decision === "ACCEPTED";
+  const billNumber = isAccepted
+    ? `PRJ-BILL-${new Date().getFullYear()}-${Math.floor(10000000 + Math.random() * 90000000)}`
+    : undefined;
+  const updatedApp: CollaborationApplication = {
+    ...app,
+    status: isAccepted ? "COLLABORATION ACCEPTED" : "DECLINED - ORDER CANCELLED",
+    collaborator_decision: decision,
+    collaborator_decision_at: now,
+    collaborator_accepted_by: user.name,
+    collaborator_decline_reason: isAccepted ? undefined : declineReason?.trim(),
+    generated_bill_number: billNumber,
+    generated_bill_at: billNumber ? now : undefined,
+    updated_at: now,
+  };
+  const log: CollaborationAuditLog = {
+    id: createCollaborationId(),
+    application_id: app.id,
+    application_number: app.application_number,
+    user_name: user.name,
+    user_role: user.role,
+    user_sector: "External Collaborator",
+    company_name: app.collaborator_company_name,
+    action: isAccepted ? "COLLABORATOR ACCEPTED" : "COLLABORATOR DECLINED",
+    previous_status: prevStatus,
+    new_status: updatedApp.status,
+    details: isAccepted
+      ? `Collaborator accepted the offer. Generated Bill Number: ${billNumber}`
+      : `Collaborator declined the offer. Reason: ${declineReason?.trim()}`,
+    created_at: now,
+  };
+  const newBill: CollaborationBill | null = billNumber ? {
+    id: createCollaborationId(),
+    bill_number: billNumber,
+    application_id: app.id,
+    collaborator_company_name: app.collaborator_company_name,
+    customer_name: app.customer_name,
+    product_name: app.product_name,
+    total_amount: app.total_amount,
+    currency: app.currency,
+    status: "ISSUED & VERIFIED",
+    generated_at: now,
+  } : null;
 
-  app.collaborator_decision = decision;
-  app.collaborator_decision_at = now;
-  app.collaborator_accepted_by = user.name;
-  app.updated_at = now;
-
-  if (decision === "ACCEPTED") {
-    app.status = "COLLABORATION ACCEPTED";
-    
-    // Generate Final Bill / Order Number e.g. PRJ-BILL-2026-00452
-    const billNum = `PRJ-BILL-2026-${Math.floor(10000 + Math.random() * 90000)}`;
-    app.generated_bill_number = billNum;
-    app.generated_bill_at = now;
-
-    // Add to Bills store
-    const newBill: CollaborationBill = {
-      id: `bill-${Date.now()}`,
-      bill_number: billNum,
-      application_id: app.id,
-      collaborator_company_name: app.collaborator_company_name,
-      customer_name: app.customer_name,
-      product_name: app.product_name,
-      total_amount: app.total_amount,
-      currency: app.currency,
-      status: "ISSUED & VERIFIED",
-      generated_at: now,
+  const savedApp = await persistApplicationTransition(updatedApp, prevStatus, "COMPLETED");
+  try {
+    if (newBill && await ensureCollaborationSupabaseReady()) {
+      const { error } = await supabase.from("collaboration_bills").insert(newBill);
+      if (error) throw new Error(`Could not save generated collaboration bill: ${error.message}`);
+    }
+    await persistAuditLog(log);
+  } catch (error) {
+    if (newBill && await ensureCollaborationSupabaseReady()) {
+      await supabase.from("collaboration_bills").delete().eq("id", newBill.id);
+    }
+    const rollbackApp: CollaborationApplication = {
+      ...app,
+      updated_at: new Date().toISOString(),
     };
-    billsStore.unshift(newBill);
-
-    auditLogsStore.unshift({
-      id: `log-${Date.now()}`,
-      application_id: app.id,
-      application_number: app.application_number,
-      user_name: user.name,
-      user_role: "Collaborator Head",
-      user_sector: "External Collaborator",
-      company_name: app.collaborator_company_name,
-      action: "COLLABORATOR ACCEPTED",
-      previous_status: prevStatus,
-      new_status: "COLLABORATION ACCEPTED",
-      details: `Collaborator Head accepted the application. Generated Bill Number: ${billNum}`,
-      created_at: now,
-    });
-  } else {
-    app.status = "DECLINED - ORDER CANCELLED";
-    app.collaborator_decline_reason = declineReason || "Declined by collaborator head.";
-
-    auditLogsStore.unshift({
-      id: `log-${Date.now()}`,
-      application_id: app.id,
-      application_number: app.application_number,
-      user_name: user.name,
-      user_role: "Collaborator Head",
-      user_sector: "External Collaborator",
-      company_name: app.collaborator_company_name,
-      action: "COLLABORATOR DECLINED",
-      previous_status: prevStatus,
-      new_status: "DECLINED - ORDER CANCELLED",
-      details: `Collaborator Head declined the application. Reason: ${app.collaborator_decline_reason}`,
-      created_at: now,
-    });
+    await persistApplicationTransition(rollbackApp, updatedApp.status, "COMPLETED");
+    throw error;
   }
 
-  return { ...app };
+  if (newBill) billsStore.unshift(newBill);
+  auditLogsStore.unshift(log);
+  return savedApp;
 }
 
 // Admin: Toggle Collaborator Company Status
 export async function toggleCollaboratorCompanyStatus(companyId: string): Promise<CollaboratorCompany[]> {
   const company = companiesStore.find((c) => c.id === companyId);
   if (company) {
-    company.status = company.status === "active" ? "suspended" : "active";
+    const nextStatus = company.status === "active" ? "suspended" : "active";
+    company.status = nextStatus;
+
+    if (await ensureCollaborationSupabaseReady()) {
+      const { error } = await supabase
+        .from("collaboration_companies")
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq("id", companyId);
+      if (error) throw new Error(`Could not update collaborator company: ${error.message}`);
+    }
   }
   return [...companiesStore];
 }
@@ -759,7 +899,7 @@ export async function addCollaboratorCompany(data: {
   address?: string;
 }): Promise<CollaboratorCompany[]> {
   const newComp: CollaboratorCompany = {
-    id: `comp-${Date.now()}`,
+    id: createCollaborationId(),
     company_name: data.company_name,
     company_code: data.company_code,
     collaborator_head_name: data.collaborator_head_name,
@@ -769,6 +909,15 @@ export async function addCollaboratorCompany(data: {
     status: "active",
     created_at: new Date().toISOString(),
   };
+  if (await ensureCollaborationSupabaseReady()) {
+    const { error } = await supabase.from("collaboration_companies").insert({
+      ...newComp,
+      created_at: newComp.created_at,
+      updated_at: newComp.created_at,
+    });
+    if (error) throw new Error(`Could not add collaborator company: ${error.message}`);
+  }
+
   companiesStore.push(newComp);
   return [...companiesStore];
 }

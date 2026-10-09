@@ -2457,7 +2457,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       </div>
 
       {activeTab === "collaboration" && (
-        <CollaborationModule currentUser={profile ?? { id: "u-mkt", name: "Marketing Lead", role: "Manager", department: "Marketing" }} />
+        <CollaborationModule currentUser={profile ?? { id: user.id, name: user.name, role: user.role, department: user.department }} />
       )}
 
       {activeTab === "payments" && <PaymentsPage />}
