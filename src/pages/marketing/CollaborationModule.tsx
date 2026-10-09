@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   Handshake, Building2, ShieldAlert, CheckCircle2, XCircle, Clock, FileText,
   Plus, Search, Filter, ShieldCheck, ArrowRight, UserCheck, ChevronRight,
-  Download, Eye, Lock, RefreshCw, AlertCircle, Sparkles, Building, Layers,
+  Download, Eye, Lock, RefreshCw, AlertCircle, Building, Layers,
   Send, FileCheck, DollarSign, Tag, Calendar, MapPin, Truck, Check, X
 } from "lucide-react";
 import { useCollaboration } from "../../hooks/useCollaboration";
@@ -17,30 +17,7 @@ interface AppUser {
 }
 
 export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
-  // Interactive Test Sandbox Persona Switcher (Section 18 requirement)
-  const [activePersona, setActivePersona] = useState<string>("vc");
-  
-  // Compute current working user based on selected test persona
-  const getPersonaUser = (): AppUser => {
-    switch (activePersona) {
-      case "vc":
-        return { id: "u-vc", name: "Vice Chairman (Executive Board)", role: "Vice Chairman", department: "Executive" };
-      case "pres":
-        return { id: "u-pres", name: "President (Prajahita Trust)", role: "President", department: "Executive" };
-      case "md":
-        return { id: "u-md", name: "MD-Marketing (Prajahita Sector Head)", role: "MD-Marketing", department: "Marketing" };
-      case "mkt":
-        return { id: "u-mkt", name: "Suresh Deshmukh (Marketing Lead)", role: "Manager", department: "Marketing" };
-      case "collab":
-        return { id: "u-collab", name: "Rajesh Sharma (ABC Trading Head)", role: "External Collaborator", department: "External", company_name: "ABC TRADING COMPANY" };
-      case "transport":
-        return { id: "u-trans", name: "Ramesh Pawar (Transport Logistics)", role: "Worker", department: "Transport" };
-      default:
-        return currentUser;
-    }
-  };
-
-  const activeUser = getPersonaUser();
+  const activeUser = currentUser;
   const isExternalCollaborator = activeUser.role === "External Collaborator" || activeUser.role === "Collaborator Head";
   
   const {
@@ -191,23 +168,6 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               <strong className="text-emerald-700">Marketing & Executive Hierarchy Only</strong>
             </div>
           </div>
-          <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs text-left max-w-xl mx-auto mb-6">
-            <strong>Testing Note:</strong> Use the interactive persona sandbox bar at the top of the screen to switch to a Marketing user, Vice Chairman, President, or Marketing MD to test this module.
-          </div>
-          <div className="flex justify-center gap-3">
-            <button
-              onClick={() => setActivePersona("mkt")}
-              className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 shadow-lg transition-all"
-            >
-              Switch to Marketing Lead
-            </button>
-            <button
-              onClick={() => setActivePersona("vc")}
-              className="px-5 py-2.5 bg-slate-800 text-white rounded-xl font-semibold text-sm hover:bg-slate-900 shadow-lg transition-all"
-            >
-              Switch to Vice Chairman
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -216,146 +176,6 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto text-slate-800">
       
-      {/* ─── PERSONA TEST SANDBOX BANNER (Section 18 requirement) ─── */}
-      <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-4 text-white shadow-xl border border-slate-700">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-500/20 border border-amber-400/40 rounded-xl text-amber-300">
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-                  Acceptance Test Sandbox
-                </span>
-                <span className="text-xs text-slate-400">PDF Section 18 Compliance</span>
-              </div>
-              <h3 className="text-sm font-bold text-slate-100">
-                Active Persona: <span className="text-emerald-400 font-semibold">{activeUser.name}</span> ({activeUser.role} - Sector: {activeUser.department})
-              </h3>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 text-xs">
-            <span className="text-slate-400 px-2 font-medium">Switch Role:</span>
-            <button
-              onClick={() => setActivePersona("vc")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                activePersona === "vc" ? "bg-amber-500 text-slate-950 shadow" : "hover:bg-slate-700 text-slate-300"
-              }`}
-            >
-              1. Vice Chairman
-            </button>
-            <button
-              onClick={() => setActivePersona("pres")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                activePersona === "pres" ? "bg-amber-500 text-slate-950 shadow" : "hover:bg-slate-700 text-slate-300"
-              }`}
-            >
-              2. President
-            </button>
-            <button
-              onClick={() => setActivePersona("md")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                activePersona === "md" ? "bg-amber-500 text-slate-950 shadow" : "hover:bg-slate-700 text-slate-300"
-              }`}
-            >
-              3. Marketing MD
-            </button>
-            <button
-              onClick={() => setActivePersona("mkt")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                activePersona === "mkt" ? "bg-emerald-500 text-slate-950 shadow" : "hover:bg-slate-700 text-slate-300"
-              }`}
-            >
-              4. Marketing Team
-            </button>
-            <button
-              onClick={() => setActivePersona("collab")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                activePersona === "collab" ? "bg-indigo-500 text-white shadow" : "hover:bg-slate-700 text-slate-300"
-              }`}
-            >
-              5. External Collaborator
-            </button>
-            <button
-              onClick={() => setActivePersona("transport")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                activePersona === "transport" ? "bg-red-500 text-white shadow" : "hover:bg-slate-700 text-slate-300"
-              }`}
-            >
-              6. Unauthorized Sector
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── HEADER BAR (SECTION 5: EXTERNAL COLLABORATOR WORKSPACE HEADER `# THEIR COMPANY NAME`) ─── */}
-      {isExternalCollaborator ? (
-        <div className="rounded-3xl bg-gradient-to-r from-indigo-900 via-blue-900 to-slate-900 p-8 text-white shadow-2xl relative overflow-hidden">
-          <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-3">
-                <Lock size={12} /> Restricted External Workspace Portal
-              </div>
-              {/* PDF REQUIREMENT: Display header as # THEIR COMPANY NAME */}
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight font-mono">
-                # {activeUser.company_name || "ABC TRADING COMPANY"}
-              </h1>
-              <p className="mt-2 text-indigo-200 text-sm max-w-2xl leading-relaxed">
-                External Collaborator Workspace. View your collaboration applications, review internal Prajahita approvals, accept or decline offers, and access generated bills.
-              </p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center min-w-44">
-              <span className="block text-xs uppercase tracking-wider text-indigo-300 font-semibold">Active Collaborator Head</span>
-              <span className="block text-base font-bold text-white mt-1">{activeUser.name}</span>
-              <span className="inline-block mt-2 px-2.5 py-0.5 bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold rounded-full">
-                VERIFIED ACCREDITED
-              </span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Internal Prajahita EMS Header */
-        <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950 to-teal-900 p-8 text-white shadow-2xl relative overflow-hidden">
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">
-                <span>EMS</span> <ChevronRight size={14} /> <span>Marketing</span> <ChevronRight size={14} /> <span className="text-white bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30">Collaboration Module</span>
-              </div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">
-                Marketing Collaboration & Approval Engine
-              </h1>
-              <p className="mt-2 text-emerald-100/80 text-sm max-w-2xl">
-                Integrated sector collaboration hub for Prajahita Charitable Trust. Enforces strict 3-tier internal approval hierarchy and external collaborator handshake.
-              </p>
-            </div>
-
-            {/* Approval Hierarchy Badge (PDF Section 2) */}
-            <div className="bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 min-w-80 shadow-lg">
-              <span className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <ShieldCheck size={14} /> Strict Approval Hierarchy:
-              </span>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between p-1.5 bg-slate-900/60 rounded border border-slate-700">
-                  <span className="text-slate-300">1st (Highest):</span>
-                  <span className="font-bold text-amber-300">Vice Chairman</span>
-                </div>
-                <div className="flex items-center justify-between p-1.5 bg-slate-900/60 rounded border border-slate-700">
-                  <span className="text-slate-300">2nd Authority:</span>
-                  <span className="font-bold text-emerald-300">President</span>
-                </div>
-                <div className="flex items-center justify-between p-1.5 bg-slate-900/60 rounded border border-slate-700">
-                  <span className="text-slate-300">3rd Authority:</span>
-                  <span className="font-bold text-indigo-300">Marketing MD</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ─── STATS SUMMARY BAR ─── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all">
@@ -430,16 +250,18 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             <FileCheck size={16} /> Generated Bills ({bills.length})
           </button>
 
-          <button
-            onClick={() => setActiveTab("audit")}
-            className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "audit"
-                ? "bg-slate-900 text-white shadow-md"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            <ShieldCheck size={16} /> Audit Trail Log
-          </button>
+          {!isExternalCollaborator && (
+            <button
+              onClick={() => setActiveTab("audit")}
+              className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === "audit"
+                  ? "bg-slate-900 text-white shadow-md"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              <ShieldCheck size={16} /> Audit Trail Log
+            </button>
+          )}
 
           {!isExternalCollaborator && (
             <button
@@ -695,13 +517,12 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
         </div>
       )}
 
-      {/* ─── TAB 3: AUDIT TRAIL LOG (SECTION 13 REQUIREMENT) ─── */}
-      {activeTab === "audit" && (
+      {activeTab === "audit" && !isExternalCollaborator && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Immutable Audit Trail Log</h2>
-              <p className="text-xs text-slate-500">Every approval, rejection, and decision is cryptographically logged with IP and device stamps.</p>
+              <h2 className="text-lg font-bold text-slate-800">Collaboration Audit Trail</h2>
+              <p className="text-xs text-slate-500">Approval, rejection, and collaborator decisions.</p>
             </div>
             <span className="px-3 py-1 bg-slate-100 text-slate-700 font-mono font-bold text-xs rounded-full">
               {auditLogs.length} Log Entries
@@ -710,9 +531,9 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
           <div className="space-y-3">
             {auditLogs.map((log) => (
-              <div key={log.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-2">
+              <div key={log.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-bold text-slate-800 bg-slate-200 px-2 py-0.5 rounded">
                       {log.application_number}
                     </span>
@@ -727,12 +548,16 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
                 <p className="text-xs text-slate-700 font-medium">{log.details}</p>
 
-                <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1 font-mono">
-                  <span>User: <strong className="text-slate-600">{log.user_name}</strong> ({log.user_role} - Sector: {log.user_sector})</span>
-                  <span>IP: {log.ip_address} | {log.device_info}</span>
+                <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400 pt-1 font-mono">
+                  <span>User: <strong className="text-slate-600">{log.user_name}</strong></span>
+                  <span>({log.user_role} - Sector: {log.user_sector})</span>
+                  <span>Company: {log.company_name}</span>
                 </div>
               </div>
             ))}
+            {auditLogs.length === 0 && (
+              <p className="py-8 text-center text-sm text-slate-500">No collaboration audit entries found.</p>
+            )}
           </div>
         </div>
       )}

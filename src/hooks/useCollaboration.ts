@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   CollaborationApplication,
-  CollaborationAuditLog,
+  CollaborationAuditLogEntry,
   CollaborationBill,
   CollaboratorCompany,
   fetchCollaborationApplications,
@@ -19,7 +19,7 @@ import {
 
 export function useCollaboration(user: { id: string; role: string; department: string; name: string; company_name?: string }) {
   const [applications, setApplications] = useState<CollaborationApplication[]>([]);
-  const [auditLogs, setAuditLogs] = useState<CollaborationAuditLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<CollaborationAuditLogEntry[]>([]);
   const [companies, setCompanies] = useState<CollaboratorCompany[]>([]);
   const [bills, setBills] = useState<CollaborationBill[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -35,9 +35,10 @@ export function useCollaboration(user: { id: string; role: string; department: s
     setLoading(true);
     setError(null);
     try {
+      const isExternalCollaborator = user.role === "External Collaborator" || user.role === "Collaborator Head";
       const [appsData, logsData, compsData, billsData] = await Promise.all([
         fetchCollaborationApplications(user),
-        fetchCollaborationAuditLogs(),
+        isExternalCollaborator ? Promise.resolve([]) : fetchCollaborationAuditLogs(),
         fetchCollaboratorCompanies(),
         fetchCollaborationBills(),
       ]);

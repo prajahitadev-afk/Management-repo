@@ -92,10 +92,12 @@ export interface CollaborationAuditLog {
   previous_status: CollaborationStatus | "N/A";
   new_status: CollaborationStatus;
   details: string;
-  ip_address: string;
-  device_info: string;
+  ip_address?: string;
+  device_info?: string;
   created_at: string;
 }
+
+export type CollaborationAuditLogEntry = Omit<CollaborationAuditLog, "ip_address" | "device_info">;
 
 export interface CollaborationBill {
   id: string;
@@ -277,8 +279,6 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "DRAFT",
     new_status: "PENDING INTERNAL APPROVAL",
     details: "Created Collaboration Application PRJ-COL-2026-000124 for ABC TRADING COMPANY (Valued: ₹3,00,000)",
-    ip_address: "192.168.1.45",
-    device_info: "Windows 11 Workstation / Edge Browser",
     created_at: "2026-09-20T09:00:00Z",
   },
   {
@@ -293,8 +293,6 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "PENDING INTERNAL APPROVAL",
     new_status: "PENDING INTERNAL APPROVAL",
     details: "Approved by Vice Chairman (Highest Authority). Routed to President for Step 2.",
-    ip_address: "10.0.0.12",
-    device_info: "iPad Pro / Safari",
     created_at: "2026-09-21T11:00:00Z",
   },
   {
@@ -309,8 +307,6 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "PENDING INTERNAL APPROVAL",
     new_status: "PENDING INTERNAL APPROVAL",
     details: "Approved by President. Routed to Marketing MD for Step 3.",
-    ip_address: "10.0.0.14",
-    device_info: "MacBook Pro / Chrome",
     created_at: "2026-09-22T14:30:00Z",
   },
   {
@@ -325,8 +321,6 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "PENDING INTERNAL APPROVAL",
     new_status: "AWAITING COLLABORATOR ACCEPTANCE",
     details: "Final internal approval granted by Marketing MD. Sent to Collaborator Head (Rajesh Sharma @ ABC TRADING COMPANY).",
-    ip_address: "192.168.1.18",
-    device_info: "Windows 11 Workstation / Firefox",
     created_at: "2026-09-23T10:15:00Z",
   },
 ];
@@ -401,20 +395,31 @@ export async function fetchCollaborationApplications(user: { id: string; role: s
   return [...applicationsStore];
 }
 
-export async function fetchCollaborationAuditLogs(applicationId?: string): Promise<CollaborationAuditLog[]> {
+export async function fetchCollaborationAuditLogs(applicationId?: string): Promise<CollaborationAuditLogEntry[]> {
   try {
-    const { data, error } = await supabase.from("collaboration_audit_logs").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("collaboration_audit_logs")
+      .select("id, application_id, user_name, user_role, user_sector, company_name, action, previous_status, new_status, details, created_at, collaboration_applications(application_number)")
+      .order("created_at", { ascending: false });
     if (!error && data && data.length > 0) {
-      auditLogsStore = data as CollaborationAuditLog[];
+      const rows = data as Array<
+        Omit<CollaborationAuditLog, "application_number" | "ip_address" | "device_info"> & {
+          collaboration_applications: { application_number: string } | null;
+        }
+      >;
+      auditLogsStore = rows.map(({ collaboration_applications, ...log }) => ({
+        ...log,
+        application_number: collaboration_applications?.application_number ?? "",
+      }));
     }
   } catch (e) {
     // Fallback
   }
 
-  if (applicationId) {
-    return auditLogsStore.filter((log) => log.application_id === applicationId);
-  }
-  return [...auditLogsStore];
+  const logs = applicationId
+    ? auditLogsStore.filter((log) => log.application_id === applicationId)
+    : auditLogsStore;
+  return logs.map(({ ip_address: _ipAddress, device_info: _deviceInfo, ...log }) => log);
 }
 
 export async function fetchCollaboratorCompanies(): Promise<CollaboratorCompany[]> {
@@ -512,8 +517,6 @@ export async function createCollaborationApplication(
     previous_status: "DRAFT",
     new_status: "PENDING INTERNAL APPROVAL",
     details: `Applied Bill for ${params.customer_name} via ${params.collaborator_company_name}. Total Value: ${params.currency} ${totalAmount.toLocaleString()}`,
-    ip_address: "127.0.0.1",
-    device_info: "Prajahita EMS Portal",
     created_at: now,
   };
   auditLogsStore.unshift(auditLog);
@@ -561,8 +564,6 @@ export async function approveInternalStep(
       previous_status: prevStatus,
       new_status: app.status,
       details: "Approved by Vice Chairman (Highest Authority). Advanced to Step 2 (President).",
-      ip_address: "127.0.0.1",
-      device_info: "Prajahita EMS Portal",
       created_at: now,
     });
   } else if (user.role === "President") {
@@ -589,8 +590,6 @@ export async function approveInternalStep(
       previous_status: prevStatus,
       new_status: app.status,
       details: "Approved by President (2nd Authority). Advanced to Step 3 (Marketing MD).",
-      ip_address: "127.0.0.1",
-      device_info: "Prajahita EMS Portal",
       created_at: now,
     });
   } else if (user.role === "MD-Marketing" || user.role === "Managing Director") {
@@ -618,8 +617,6 @@ export async function approveInternalStep(
       previous_status: prevStatus,
       new_status: "AWAITING COLLABORATOR ACCEPTANCE",
       details: "Internal Prajahita approval complete. Automatically routed to Collaborator Head for acceptance/decline.",
-      ip_address: "127.0.0.1",
-      device_info: "Prajahita EMS Portal",
       created_at: now,
     });
   } else {
@@ -659,8 +656,6 @@ export async function rejectInternalApplication(
     previous_status: prevStatus,
     new_status: "DECLINED - ORDER CANCELLED",
     details: `Application rejected during internal approval. Reason: ${reason}`,
-    ip_address: "127.0.0.1",
-    device_info: "Prajahita EMS Portal",
     created_at: now,
   });
 
@@ -720,8 +715,6 @@ export async function respondByCollaborator(
       previous_status: prevStatus,
       new_status: "COLLABORATION ACCEPTED",
       details: `Collaborator Head accepted the application. Generated Bill Number: ${billNum}`,
-      ip_address: "127.0.0.1",
-      device_info: "External Collaborator Portal",
       created_at: now,
     });
   } else {
@@ -740,8 +733,6 @@ export async function respondByCollaborator(
       previous_status: prevStatus,
       new_status: "DECLINED - ORDER CANCELLED",
       details: `Collaborator Head declined the application. Reason: ${app.collaborator_decline_reason}`,
-      ip_address: "127.0.0.1",
-      device_info: "External Collaborator Portal",
       created_at: now,
     });
   }
