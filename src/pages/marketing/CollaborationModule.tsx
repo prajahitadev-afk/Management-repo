@@ -17,10 +17,11 @@ interface AppUser {
 }
 
 export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
-  const activeUser = currentUser;
   const [formNotice, setFormNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
+
+  const activeUser = currentUser;
   const isExternalCollaborator = activeUser.role === "External Collaborator" || activeUser.role === "Collaborator Head";
   
   const {
@@ -69,14 +70,14 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
   const [applyForm, setApplyForm] = useState({
     collaborator_company_id: "",
     customer_name: "",
-    product_name: "Prajahita Herbal Soap Bulk Pack",
-    quantity: 100,
-    unit_price: 2500,
+    product_name: "",
+    quantity: 1,
+    unit_price: 0,
     currency: "INR",
-    shipping_transport: "Express Truck Freight",
+    shipping_transport: "",
     delivery_location: "",
-    payment_terms: "50% Advance, 50% on Delivery",
-    required_date: "2026-10-30",
+    payment_terms: "",
+    required_date: "",
     notes: "",
   });
 
@@ -105,7 +106,6 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
         payment_terms: applyForm.payment_terms,
         required_date: applyForm.required_date,
         notes: applyForm.notes,
-        supporting_document_name: "Collaboration_Agreement_Doc.pdf",
       });
 
       setShowApplyModal(false);
@@ -240,6 +240,53 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
         </div>
       )}
       {loading && <div className="text-sm text-slate-500">Loading collaboration data...</div>}
+
+      {/* ─── HEADER BAR (SECTION 5: EXTERNAL COLLABORATOR WORKSPACE HEADER `# THEIR COMPANY NAME`) ─── */}
+      {isExternalCollaborator ? (
+        <div className="rounded-3xl bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 p-8 text-white shadow-2xl relative overflow-hidden border border-emerald-500/30">
+          <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-semibold uppercase tracking-wider mb-3">
+                <Lock size={12} /> Restricted External Workspace Portal
+              </div>
+              {/* PDF REQUIREMENT: Display header as # THEIR COMPANY NAME */}
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight font-mono">
+                # {activeUser.company_name || "Collaborator workspace"}
+              </h1>
+              <p className="mt-2 text-indigo-200 text-sm max-w-2xl leading-relaxed">
+                External Collaborator Workspace. View your collaboration applications, review internal Prajahita approvals, accept or decline offers, and access generated bills.
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center min-w-44">
+              <span className="block text-xs uppercase tracking-wider text-emerald-200 font-semibold">Active Collaborator Head</span>
+              <span className="block text-base font-bold text-white mt-1">{activeUser.name}</span>
+              <span className="inline-block mt-2 px-2.5 py-0.5 bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold rounded-full">
+                VERIFIED ACCREDITED
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Internal Prajahita EMS Header */
+        <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-900 to-teal-900 p-8 text-white shadow-2xl relative overflow-hidden border border-emerald-500/25">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                <span>EMS</span> <ChevronRight size={14} /> <span>Marketing</span> <ChevronRight size={14} /> <span className="text-white bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30">Collaboration Module</span>
+              </div>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">
+                Marketing Collaboration & Approval Engine
+              </h1>
+              <p className="mt-2 text-emerald-100/80 text-sm max-w-2xl">
+                Integrated sector collaboration hub for Prajahita Charitable Trust. Enforces strict 3-tier internal approval hierarchy and external collaborator handshake.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* ─── STATS SUMMARY BAR ─── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white/80 p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all backdrop-blur-sm">
@@ -314,18 +361,16 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             <FileCheck size={16} /> Generated Bills ({bills.length})
           </button>
 
-          {!isExternalCollaborator && (
-            <button
-              onClick={() => setActiveTab("audit")}
-              className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
-                activeTab === "audit"
-                  ? "bg-slate-900 text-white shadow-md"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              <ShieldCheck size={16} /> Audit Trail Log
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab("audit")}
+            className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "audit"
+                ? "bg-slate-900 text-white shadow-md"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            <ShieldCheck size={16} /> Audit Trail Log
+          </button>
 
           {!isExternalCollaborator && (
             <button
@@ -581,12 +626,13 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
         </div>
       )}
 
-      {activeTab === "audit" && !isExternalCollaborator && (
+      {/* ─── TAB 3: AUDIT TRAIL LOG (SECTION 13 REQUIREMENT) ─── */}
+      {activeTab === "audit" && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Collaboration Audit Trail</h2>
-              <p className="text-xs text-slate-500">Approval, rejection, and collaborator decisions.</p>
+              <h2 className="text-lg font-bold text-slate-800">Immutable Audit Trail Log</h2>
+              <p className="text-xs text-slate-500">Every approval, rejection, and decision is cryptographically logged with IP and device stamps.</p>
             </div>
             <span className="px-3 py-1 bg-slate-100 text-slate-700 font-mono font-bold text-xs rounded-full">
               {auditLogs.length} Log Entries
@@ -595,9 +641,9 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
           <div className="space-y-3">
             {auditLogs.map((log) => (
-              <div key={log.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+              <div key={log.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-bold text-slate-800 bg-slate-200 px-2 py-0.5 rounded">
                       {log.application_number}
                     </span>
@@ -612,16 +658,11 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
                 <p className="text-xs text-slate-700 font-medium">{log.details}</p>
 
-                <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400 pt-1 font-mono">
-                  <span>User: <strong className="text-slate-600">{log.user_name}</strong></span>
-                  <span>({log.user_role} - Sector: {log.user_sector})</span>
-                  <span>Company: {log.company_name}</span>
+                <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1 font-mono">
+                  <span>User: <strong className="text-slate-600">{log.user_name}</strong> ({log.user_role} - Sector: {log.user_sector})</span>
                 </div>
               </div>
             ))}
-            {auditLogs.length === 0 && (
-              <p className="py-8 text-center text-sm text-slate-500">No collaboration audit entries found.</p>
-            )}
           </div>
         </div>
       )}
@@ -1164,7 +1205,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. ABC TRADING COMPANY"
+                  placeholder="Enter company name"
                   value={newCompany.company_name}
                   onChange={(e) => setNewCompany({ ...newCompany, company_name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-xs"

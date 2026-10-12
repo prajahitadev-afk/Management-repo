@@ -87,10 +87,12 @@ CREATE TABLE IF NOT EXISTS collaboration_audit_logs (
   previous_status TEXT,
   new_status TEXT,
   details TEXT,
-  ip_address TEXT DEFAULT '127.0.0.1',
-  device_info TEXT DEFAULT 'Prajahita EMS Workstation',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE collaboration_audit_logs
+  DROP COLUMN IF EXISTS ip_address,
+  DROP COLUMN IF EXISTS device_info;
 
 -- 4. Generated Collaboration Bills Table
 CREATE TABLE IF NOT EXISTS collaboration_bills (
@@ -106,12 +108,5 @@ CREATE TABLE IF NOT EXISTS collaboration_bills (
   generated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed data for initial UI state
-INSERT INTO collaboration_companies (
-  id, company_name, company_code, collaborator_head_name, collaborator_head_email, contact_phone, address, status, created_at, updated_at
-)
-VALUES
-  ('00000000-0000-4000-8000-000000000001', 'ABC TRADING COMPANY', 'ABC-001', 'Rajesh Sharma', 'head@abctrading.com', '+91 98200 11223', 'Mumbai, Maharashtra', 'active', NOW(), NOW()),
-  ('00000000-0000-4000-8000-000000000002', 'GLOBAL SOAP DISTRIBUTORS', 'GSD-002', 'Anita Kulkarni', 'head@globalsoap.com', '+91 98333 44556', 'Pune, Maharashtra', 'active', NOW(), NOW()),
-  ('00000000-0000-4000-8000-000000000003', 'WESTERN MAHARASHTRA LOGISTICS', 'WML-003', 'Vikram Patel', 'head@wmlogistics.com', '+91 98444 77889', 'Nagpur, Maharashtra', 'active', NOW(), NOW())
-ON CONFLICT (company_code) DO NOTHING;
+-- Demo rows are intentionally not seeded.
+

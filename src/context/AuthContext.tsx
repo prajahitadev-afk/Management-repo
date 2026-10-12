@@ -180,39 +180,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (error || !data?.user) {
-        // Local Demo fallback when placeholder credentials or offline mode is used
-        const demoUser = {
-          id: "usr-demo-001",
-          email: email || "vicechairman@prajahita.org",
-        };
-        const demoProfile = {
-          id: "usr-demo-001",
-          name: email?.includes("marketing") ? "MD-Marketing (Sector Head)" : "Vice Chairman (Executive Board)",
-          role: email?.includes("marketing") ? "MD-Marketing" : "Vice Chairman",
-          department: email?.includes("marketing") ? "Marketing" : "Executive",
-          avatar: email?.includes("marketing") ? "MM" : "VC",
-          email: email || "vicechairman@prajahita.org",
-        };
-        setUser(demoUser);
-        setProfile(demoProfile);
-        return;
-      }
+      if (error) throw error;
+      if (!data?.user) throw new Error("Unable to sign in with those credentials.");
 
       await syncProfile(data.user);
-    } catch (err) {
-      // Local Demo fallback
-      const demoUser = { id: "usr-demo-001", email: "vicechairman@prajahita.org" };
-      const demoProfile = {
-        id: "usr-demo-001",
-        name: "Vice Chairman (Executive Board)",
-        role: "Vice Chairman",
-        department: "Executive",
-        avatar: "VC",
-        email: "vicechairman@prajahita.org",
-      };
-      setUser(demoUser);
-      setProfile(demoProfile);
     } finally {
       setLoading(false);
     }

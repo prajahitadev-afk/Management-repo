@@ -420,20 +420,6 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
           <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.60)" }}>Management Portal</p>
           <p className="text-xs tracking-widest mb-8 font-semibold" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.15em" }}>FAITH · SERVICE · HOPE</p>
         </div>
-        <div className="relative z-10">
-          {[
-            { label: "Communities Served",     value: "240+" },
-            { label: "Beneficiaries in 2025",  value: "14,800" },
-            { label: "Active Programs",         value: "14" },
-            { label: "Staff Across 4 Divisions",value: "252" },
-          ].map((s, i, arr) => (
-            <div key={s.label} className="flex items-center justify-between py-3"
-              style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.10)" : "none" }}>
-              <span className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>{s.label}</span>
-              <span className="text-sm font-bold text-white">{s.value}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Right — form */}
@@ -459,7 +445,6 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     type="email"
-                    placeholder="admin@company.com"
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                     style={{
                       background: "rgba(255,255,255,0.50)",
@@ -470,7 +455,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                 </div>
                 <div className="mb-4">
                   <label className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Password</label>
-                  <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••"
+                  <input value={password} onChange={e => setPassword(e.target.value)} type="password"
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                     style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
                 </div>
@@ -526,7 +511,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
               </>
             )}
           </div>
-          <p className="text-center mt-4 text-xs" style={{ color: "rgba(0,0,0,0.30)" }}>© 2025 Prajahita Charitable Trust</p>
+          <p className="text-center mt-4 text-xs" style={{ color: "rgba(0,0,0,0.30)" }}>© {new Date().getFullYear()} Prajahita Charitable Trust</p>
         </div>
       </div>
     </div>
@@ -2364,7 +2349,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
               <span className="px-2 py-0.5 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 font-bold text-[10px] uppercase tracking-wider">
                 Marketing Sector Exclusive
               </span>
-              <span className="text-xs text-slate-300">Hierarchy: Vice Chairman → President → Marketing MD</span>
             </div>
             <h3 className="text-lg font-bold text-white">Collaboration Module & External Handshake Hub</h3>
             <p className="text-xs text-emerald-100/80">Manage collaborator profiles, Apply Bill applications, 3-tier internal approval routing, and generated bills.</p>
@@ -2457,7 +2441,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       </div>
 
       {activeTab === "collaboration" && (
-        <CollaborationModule currentUser={profile ?? { id: user.id, name: user.name, role: user.role, department: user.department }} />
+        <CollaborationModule currentUser={profile} />
       )}
 
       {activeTab === "payments" && <PaymentsPage />}

@@ -92,8 +92,8 @@ export interface CollaborationAuditLog {
   previous_status: CollaborationStatus | "N/A";
   new_status: CollaborationStatus;
   details: string;
-  ip_address?: string;
-  device_info?: string;
+  ip_address: string;
+  device_info: string;
   created_at: string;
 }
 
@@ -283,6 +283,8 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "DRAFT",
     new_status: "PENDING INTERNAL APPROVAL",
     details: "Created Collaboration Application PRJ-COL-2026-000124 for ABC TRADING COMPANY (Valued: ₹3,00,000)",
+    ip_address: "192.168.1.45",
+    device_info: "Windows 11 Workstation / Edge Browser",
     created_at: "2026-09-20T09:00:00Z",
   },
   {
@@ -297,6 +299,8 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "PENDING INTERNAL APPROVAL",
     new_status: "PENDING INTERNAL APPROVAL",
     details: "Approved by Vice Chairman (Highest Authority). Routed to President for Step 2.",
+    ip_address: "10.0.0.12",
+    device_info: "iPad Pro / Safari",
     created_at: "2026-09-21T11:00:00Z",
   },
   {
@@ -311,6 +315,8 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "PENDING INTERNAL APPROVAL",
     new_status: "PENDING INTERNAL APPROVAL",
     details: "Approved by President. Routed to Marketing MD for Step 3.",
+    ip_address: "10.0.0.14",
+    device_info: "MacBook Pro / Chrome",
     created_at: "2026-09-22T14:30:00Z",
   },
   {
@@ -325,6 +331,8 @@ export const INITIAL_AUDIT_LOGS: CollaborationAuditLog[] = [
     previous_status: "PENDING INTERNAL APPROVAL",
     new_status: "AWAITING COLLABORATOR ACCEPTANCE",
     details: "Final internal approval granted by Marketing MD. Sent to Collaborator Head (Rajesh Sharma @ ABC TRADING COMPANY).",
+    ip_address: "192.168.1.18",
+    device_info: "Windows 11 Workstation / Firefox",
     created_at: "2026-09-23T10:15:00Z",
   },
 ];
@@ -373,10 +381,10 @@ export function canUserAccessCollaborationModule(user: { role: string; departmen
 }
 
 // In-Memory Store for reactive client updates
-let applicationsStore = [...INITIAL_APPLICATIONS];
-let auditLogsStore = [...INITIAL_AUDIT_LOGS];
-let companiesStore = [...INITIAL_COLLABORATORS];
-let billsStore = [...INITIAL_BILLS];
+let applicationsStore: CollaborationApplication[] = [];
+let auditLogsStore: CollaborationAuditLog[] = [];
+let companiesStore: CollaboratorCompany[] = [];
+let billsStore: CollaborationBill[] = [];
 
 const collaborationSupabaseEnabled =
   Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) &&
@@ -554,7 +562,8 @@ export async function fetchCollaborationApplications(user: { id: string; role: s
 
   // Filter by company if External Collaborator
   if (user.role === "External Collaborator" || user.role === "Collaborator Head") {
-    const company = user.company_name || "ABC TRADING COMPANY";
+    const company = user.company_name?.trim();
+    if (!company) return [];
     return applicationsStore.filter((app) => app.collaborator_company_name.toLowerCase() === company.toLowerCase());
   }
 
