@@ -174,9 +174,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
+<<<<<<< HEAD
+      if (error) throw error;
+      if (!data?.user) throw new Error("Unable to sign in with those credentials.");
+=======
       if (error) {
         throw error;
       }
+>>>>>>> main
 
       await syncProfile(data.user);
     } finally {
