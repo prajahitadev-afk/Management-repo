@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { DepartmentHeader } from "../../components/department/DepartmentHeader";
 import { DepartmentOverview } from "../../components/department/DepartmentOverview";
 import { DepartmentTabs } from "../../components/department/DepartmentTabs";
@@ -199,7 +199,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             if (!active) return;
             setMetrics([
               { label: "Worker output", value: String((outputs.data ?? []).reduce((sum, row) => sum + Number(row.quantity_produced || 0), 0)) },
-              { label: "Worker defects", value: (defects.data ?? []).length ? String((defects.data ?? []).length) : "No defect tracking data available" },
+              { label: "Worker defects", value: (defects.data ?? []).length ? String(defects.data.length) : "No defect tracking data available" },
               { label: "Worker hours", value: String((hours.data ?? []).reduce((sum, row) => sum + Number(row.hours_worked || 0), 0)) },
               { label: "Team output", value: String(supervisor.data?.team_output ?? 0) },
               { label: "Target achievement", value: `${(manager.data?.achievement_percentage ?? 0).toFixed(1)}%` },

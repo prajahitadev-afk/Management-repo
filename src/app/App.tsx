@@ -13,8 +13,7 @@ import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import AuditLogPage from "../pages/AuditLogPage";
 import { LeavePage } from "../pages/leave/LeavePage";
 import DepartmentPage from "../pages/department/DepartmentPage";
-import { CollaborationModule } from "../pages/marketing/CollaborationModule";
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "collaboration" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
 import {
   AdminPage,
   BillsPage,
@@ -26,7 +25,7 @@ import {
   LoginPage,
 } from "./AppImplementation";
 import { B, GlassCard, Sidebar, TopBar, NAV_ITEMS, navAccess } from "../components/portal";
-import type { AppUser, EmployeeRoute } from "../components/portal";
+import type { AppUser, EmployeeRoute, Page } from "../components/portal";
 
 function getEmployeeRoutePath() {
   if (typeof window === "undefined") return "";
@@ -127,8 +126,6 @@ export default function App() {
         bills: "bills",
         marketing: "marketing",
         orders: "orders",
-        collaboration: "collaboration",
-        "marketing/collaboration": "collaboration",
         transport: "transport",
         admin: "admin",
         reports: "reports",
@@ -222,7 +219,6 @@ export default function App() {
       bills: "/bills",
       marketing: "/marketing",
       orders: "/orders",
-      collaboration: "/marketing/collaboration",
       transport: "/transport",
       admin: "/admin",
       reports: "/reports",
@@ -233,7 +229,6 @@ export default function App() {
       profile: "/profile",
       leave: "/leave",
       department: "/department",
-      "not-found": "/",
     };
 
     window.history.pushState({}, "", routeMap[nextPage] ?? "/");
@@ -290,7 +285,6 @@ export default function App() {
       case "bills": return <BillsPage user={profile} />;
       case "marketing": return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
       case "orders": return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
-      case "collaboration": return <CollaborationModule currentUser={profile} />;
       case "transport": return <TransportPage setShowCreateDispatch={setShowCreateDispatch} />;
       case "admin": return <AdminPage user={profile} />;
       case "reports": return <ReportsPage user={profile} />;
@@ -301,7 +295,7 @@ export default function App() {
         window.location.hash = `#/employees/${employeeId}`;
       }} />;
       case "leave": return <LeavePage employeeId={profile.id} role={profile.role} />;
-      case "department": { const route = getDepartmentRoute(getEmployeeRoutePath()); return <DepartmentPage profile={profile} routeDepartment={route?.department} routeTab={route?.tab} />; }
+        case "department": { const route = getDepartmentRoute(getEmployeeRoutePath()); return <DepartmentPage profile={profile} routeDepartment={route?.department} routeTab={route?.tab} />; }
       default: return <DashboardPage user={profile} />;
     }
   }

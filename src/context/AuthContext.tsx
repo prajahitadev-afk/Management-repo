@@ -131,24 +131,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-        if (session?.user) {
-          await syncProfile(session.user);
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
-      } catch (err) {
-        console.warn("Failed to load session:", err);
+      if (session?.user) {
+        await syncProfile(session.user);
+      } else {
         setUser(null);
         setProfile(null);
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     }
 
     loadSession();
@@ -180,8 +174,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
+<<<<<<< HEAD
       if (error) throw error;
       if (!data?.user) throw new Error("Unable to sign in with those credentials.");
+=======
+      if (error) {
+        throw error;
+      }
+>>>>>>> main
 
       await syncProfile(data.user);
     } finally {

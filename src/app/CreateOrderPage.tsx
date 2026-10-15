@@ -54,7 +54,7 @@ function PrimaryButton({
 }: {
   children: React.ReactNode;
   onClick?: () => void;
-  icon?: React.ElementType;
+  icon?: React.ComponentType<{ size?: number }>;
   disabled?: boolean;
 }) {
   return (
@@ -82,7 +82,7 @@ function SecondaryButton({
 }: {
   children: React.ReactNode;
   onClick?: () => void;
-  icon?: React.ElementType;
+  icon?: React.ComponentType<{ size?: number }>;
 }) {
   return (
     <button
