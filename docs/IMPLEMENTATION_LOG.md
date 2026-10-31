@@ -2,7 +2,7 @@
 
 **Base branch:** `main`  
 **Working branch:** `premain`  
-**Branch relationship at last check:** 43 commits ahead of `main`, 0 commits behind.  
+**Branch relationship at last check:** 55 commits ahead of `main`, 0 commits behind.  
 **Database target:** Management Supabase project only.
 
 This log groups the branch commits by the implementation headings used in their commit messages.
@@ -85,7 +85,7 @@ The separate delivery/vehicle/driver workflow still needs a planned integration 
 ## Verification
 
 - The six new migration files were submitted together to the connected Management database inside a transaction that was explicitly rolled back. After correcting dollar-quoting in the target-update functions, the DDL/function definitions completed without SQL errors; no schema changes from that validation transaction were retained.
-- Vercel preview checks reported success for the main manufacturing, transportation, report, payment, and component-refactor code commits. The latest commit status should be checked again before merge.
+- Vercel preview checks reported success for the latest relevant manufacturing, transportation, report, payment, and component-refactor commits. GitHub Actions typecheck/build has not yet been triggered for this branch because no pull request has been opened.
 - The repository's CI workflow runs TypeScript and production-build checks on its configured triggers. No comprehensive unit, integration, or browser E2E suite exists yet.
 - No new migration has been applied to the live Supabase database, and no live workflow rows were created during this branch work.
 
