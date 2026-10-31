@@ -282,11 +282,11 @@ export async function getDelayLogs(): Promise<TransportationResult<TransportDela
 
 export async function getDelayLogsByDriver(driverId: string): Promise<TransportationResult<TransportDelayLog[]>> {
   const { data: trips, error: tripsError } = await supabase.from("transport_trips").select("id").eq("driver_id", driverId);
-  if (tripsError) return { data: null, error: asError(tripsError) };
+  if (tripsError) return { data: null, error: transportationError(tripsError) };
   const tripIds = (trips ?? []).map((row) => String(row.id));
   if (!tripIds.length) return { data: [], error: null };
   const { data, error: delayError } = await supabase.from("transport_delay_logs").select("*").in("trip_id", tripIds);
-  return delayError ? { data: null, error: asError(delayError) } : { data: (data ?? []) as TransportDelayLog[], error: null };
+  return delayError ? { data: null, error: transportationError(delayError) } : { data: (data ?? []) as TransportDelayLog[], error: null };
 }
 
 export async function recordDelay(data: CreateDelayInput): Promise<TransportationResult<TransportDelayLog>> {
