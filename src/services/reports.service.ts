@@ -39,15 +39,25 @@ interface ReportQueryOptions {
   userDepartment?: string | null;
 }
 
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function resolveDateRange(fromDate?: string | null, toDate?: string | null) {
-  const end = toDate && toDate.trim() ? new Date(`${toDate}T23:59:59`) : new Date();
-  const start = fromDate && fromDate.trim() ? new Date(`${fromDate}T00:00:00`) : new Date(end);
+  const requestedFrom = fromDate?.trim();
+  const requestedTo = toDate?.trim();
+  const end = requestedTo ? new Date(`${requestedTo}T12:00:00`) : new Date();
+  const start = requestedFrom ? new Date(`${requestedFrom}T12:00:00`) : new Date(end);
 
-  if (!fromDate || !fromDate.trim()) {
-    start.setDate(end.getDate() - 30);
-  }
+  if (!requestedFrom) start.setDate(end.getDate() - 30);
 
-  return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) };
+  return {
+    from: requestedFrom || formatLocalDate(start),
+    to: requestedTo || formatLocalDate(end),
+  };
 }
 
 function toMonthLabel(dateValue: string) {
@@ -148,10 +158,10 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
     if (historyError) throw historyError;
 
     const filteredBills = (billsRows || []).filter((row) => !departmentFilter || normalizeDepartmentName(row.department) === normalizeDepartmentName(departmentFilter));
-    const submitted = filteredBills.filter((row) => row.status === "Pending Approval").length;
-    const approved = filteredBills.filter((row) => row.status === "Approved" || row.status === "Reviewed").length;
+    const submitted = filteredBills.filter((row) => row.status === "Pending" || row.status === "Pending Approval").length;
+    const approved = filteredBills.filter((row) => row.status === "Approved").length;
     const rejected = filteredBills.filter((row) => row.status === "Rejected" || row.status === "Returned for Correction").length;
-    const paid = filteredBills.filter((row) => row.status === "Approved").length;
+    const paid = filteredBills.filter((row) => row.status === "Paid").length;
 
     const spendByDepartment = new Map<string, number>();
     filteredBills.forEach((row) => {
@@ -174,7 +184,7 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
         buildMetric("Submitted Bills", String(submitted), "Bills submitted within range"),
         buildMetric("Approved Bills", String(approved), "Bills approved or passed"),
         buildMetric("Rejected Bills", String(rejected), "Bills rejected or returned"),
-        buildMetric("Paid Bills", String(paid), "Bills fully paid"),
+        buildMetric("Paid Bills", String(paid), "Bills explicitly marked paid"),
       ],
       chartData: Array.from(spendByDepartment.entries()).map(([label, value]) => ({ label, value })),
       tableRows: [
@@ -189,8 +199,8 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
     const { data: ordersRows, error: ordersError } = await supabase
       .from("orders")
       .select("id, order_number, status, order_date, total_amount, customer_id, created_by, created_at")
-      .gte("order_date", from)
-      .lte("order_date", to);
+      .gte("order_date", `${from}T00:00:00`)
+      .lte("order_date", `${to}T23:59:59.999`);
 
     if (ordersError) throw ordersError;
 
