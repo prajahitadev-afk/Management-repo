@@ -9,6 +9,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dark {
+  color-scheme: dark;
+}
+
 html {
   min-width: 320px;
   min-height: 100%;
