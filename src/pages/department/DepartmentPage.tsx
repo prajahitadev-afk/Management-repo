@@ -70,6 +70,7 @@ import {
   createBatch,
   createTarget as createManufacturingTarget,
   recordDefect,
+  reviewDefect,
   recordOutput,
   recordWorkingHours,
   type CMDashboard,
