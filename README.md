@@ -57,7 +57,11 @@ GitHub Actions runs these checks for pushes and pull requests targeting `main`.
 
 ## Database migrations
 
-Incremental Management Supabase changes are recorded under `supabase/migrations/`. These migrations capture the security and order-workflow changes made in this maintenance pass. They are **not** a complete initial schema for a brand-new Supabase project; use the existing live Management project as the schema baseline until a full ordered schema export is prepared. Review each migration and apply it to the Management project only.
+Incremental Management Supabase changes are recorded under `supabase/migrations/`. The repository contains both earlier security/order migrations and the current `premain` workflow migrations for manufacturing, leave balances, payments, and transportation.
+
+These files are **not** a complete initial schema for a brand-new Supabase project. The live Management project also has migration-history entries that were not represented by matching SQL files in the repository during the October 2026 audit. Reconcile that history before using an automated migration push; do not assume the repository migration folder is a clean baseline.
+
+The six new `premain` migrations are committed but have **not yet been applied** to the live Management database. Review them in timestamp order and apply them to the Management project only. Never apply these changes to the separate Shop Supabase project. After applying, verify the RPC signatures, grants, RLS behavior, and advisors before enabling the workflows in production.
 
 ## Security
 

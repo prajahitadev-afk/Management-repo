@@ -1,3 +1,5 @@
+> **Superseded historical audit (September 2026).** This file records an earlier static review and contains claims that are no longer current. Use [COMPLETE_SYSTEM_AUDIT_REPORT.md](./COMPLETE_SYSTEM_AUDIT_REPORT.md) for the 31 October 2026 repository/database audit and current implementation status.
+
 # ERP Functionality Audit
 
 ## Audit Basis

@@ -474,12 +474,14 @@ export async function updateEmployee(actorId: string, employeeId: string, update
   if (error) throw error;
   const auditValues = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
   if (Object.keys(auditValues).length > 0) {
+    // Match the deployed audit_logs schema: user_id/action/entity_type/entity_id/created_at.
+    // The previous actor_id/new_values fields do not exist in this database and caused
+    // the profile update to be reported as failed after the profile row had already changed.
     const { error: auditError } = await supabase.from("audit_logs").insert({
-      actor_id: actorId,
+      user_id: actorId,
       action: "employee_updated",
       entity_type: "profile",
       entity_id: employeeId,
-      new_values: auditValues,
     });
     if (auditError) throw auditError;
   }

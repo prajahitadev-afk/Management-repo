@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Truck, Shield,
   BarChart2, Bell, Search, ChevronLeft, ChevronRight, LogOut,
   Menu, X, CheckCircle, Clock, XCircle, AlertTriangle, Eye,
-  Download, Upload, Plus, Filter, MoreHorizontal, Calendar,
+  Download, Upload, Plus, Calendar,
   Package, MapPin, User, ChevronDown, ArrowRight,
   Lock, RefreshCw, Heart, Activity, DollarSign, MessageSquare,
   FileCheck, FileX, Send, Printer, CheckSquare, Archive, Zap,
@@ -25,7 +25,7 @@ import { useTransport } from "../hooks/useTransport";
 import { useNotifications } from "../hooks/useNotifications";
 import { markAllAsRead } from "../services/notification.service";
 import type { NotificationEventType, NotificationRecord } from "../services/notification.service";
-import type { MarketingOrder } from "../services/marketing.service";
+import type { MarketingCustomer, MarketingOrder } from "../services/marketing.service";
 import { getBillAttachments, getBillHistory, viewBillAttachment, downloadBillAttachment, type BillAttachment, type BillHistory, type BillRecord, exportBillToPDF, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
 import logoSrc from "../assets/images/Prajahita.jpeg";
 import { getMonthlyRevenueData, getCommunityImpactData, getWeeklyAttendanceData, getAttendanceBreakdownData, type MonthData, type CommunityData, type AttendanceDay, type AttendanceBreakdown } from "../services/dashboard.service";
@@ -48,6 +48,7 @@ import { AttendancePage as EmployeeAttendancePage } from "../pages/employees/Att
 import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage";
 import { EmployeeKpiWidget } from "../components/EmployeeKpiWidget";
 import { LeavePage } from "../pages/leave/LeavePage";
+import AuditLogPage from "../pages/AuditLogPage";
 import { ExecutiveAnalyticsDashboard } from "../components/ExecutiveAnalyticsDashboard";
 import { canAccessDepartmentModule } from "../services/hierarchy.service";
 
@@ -381,7 +382,7 @@ const TT = {
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginPage({ onLogin }: { onLogin?: () => void }) {
-  const { login } = useAuth();
+  const { login, logout, profileError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -433,6 +434,14 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
               <>
                 <h2 className="text-xl font-bold mb-1" style={{ color: B.text }}>Welcome back</h2>
                 <p className="text-sm mb-5" style={{ color: B.textMuted }}>Sign in with your Prajahita Trust account</p>
+                {profileError && (
+                  <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                    <p>{profileError}</p>
+                    <button type="button" onClick={() => { void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }} className="mt-2 font-semibold underline">
+                      Sign out and try another account
+                    </button>
+                  </div>
+                )}
                 <div className="mb-4">
                   <label
                     className="block text-xs font-bold mb-1.5 uppercase tracking-widest"
@@ -882,7 +891,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
               <h3 className="font-semibold text-base" style={{ color: B.text }}>Orders & Deliveries</h3>
               <p className="text-xs mt-0.5" style={{ color: B.textMuted }}>Jan – Jul 2025</p>
             </div>
-            <SecondaryButton icon={Filter}>Filter</SecondaryButton>
+            
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={stats.revenueTrend}>
@@ -970,7 +979,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
                 <div className="text-sm font-bold" style={{ color: B.text }}>₹{bill.amount.toLocaleString()}</div>
                 <div className="text-xs" style={{ color: B.textMuted }}>{bill.status}</div>
               </div>
-              <PrimaryButton size="sm" icon={CheckCircle}>Approve</PrimaryButton>
+              <PrimaryButton size="sm" icon={FileText} onClick={() => navigateDashboardAction("/bills")}>Review</PrimaryButton>
             </div>
           ))}
         </GlassCard>
@@ -1633,12 +1642,7 @@ function AttendancePage({ user }: { user: AppUser }) {
 
         <div className="flex items-center justify-between px-5 py-4" style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
           <span className="text-xs" style={{ color: B.textMuted }}>Showing {filtered.length} employees</span>
-          <div className="flex gap-1">
-            {[1,2,3].map(p => (
-              <button key={p} className="w-8 h-8 rounded-lg text-xs font-semibold"
-                style={{ background: p===1 ? B.nav : "rgba(255,255,255,0.30)", color: p===1 ? "white" : B.textMuted, border: "1px solid rgba(255,255,255,0.45)" }}>{p}</button>
-            ))}
-          </div>
+          <span className="text-xs" style={{ color: B.textMuted }}>Page controls are not available in this view.</span>
         </div>
       </GlassCard>
     </div>
@@ -2233,7 +2237,7 @@ function BillsPage({ user }: { user: AppUser }) {
                   <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{bill.date}</td>
                   <td className="py-3.5 px-4"><StatusBadge status={bill.status} /></td>
                   <td className="py-3.5 px-4">
-                    <button className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedBill(bill); setTab("detail"); }} aria-label="View bill details" className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
                   </td>
                 </tr>
               ))}
@@ -2255,6 +2259,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const [customerSearch, setCustomerSearch] = useState("");
   const [actionLoadingOrderId, setActionLoadingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<MarketingOrder | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<MarketingCustomer | null>(null);
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
 
@@ -2268,15 +2273,8 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const canApproveOrders = (role?: Role) => ["Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "Worker");
   const canApproveCurrentUser = canApproveOrders(userRole);
 
-  useEffect(() => {
-    console.log("ORDERS", orders);
-    console.log("CUSTOMERS", customers);
-    console.log("ORDERS COMPONENT STATE", orders.length);
-    console.log("CUSTOMERS COMPONENT STATE", customers.length);
-  }, [orders, customers]);
 
   async function handleApproveOrder(order: MarketingOrder) {
-    console.log("APPROVE CLICK", order.id, order.status, userRole);
     if (!canApproveOrders(userRole)) return;
     setActionLoadingOrderId(order.id);
     try {
@@ -2291,7 +2289,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   }
 
   async function handleRejectOrder(order: MarketingOrder) {
-    console.log("REJECT CLICK", order.id, order.status, userRole);
     if (!canApproveOrders(userRole)) return;
     const reason = window.prompt(`Provide a reason for rejecting order ${order.ref}:`);
     if (!reason) return;
@@ -2331,9 +2328,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
     void exportMarketingWorkbook(filteredOrders, filteredCustomers, metrics, revenue, performance);
   };
 
-  console.log("ORDERS TABLE ROWS", filteredOrders.length);
-  console.log("CUSTOMERS TABLE ROWS", filteredCustomers.length);
-  console.log("APPROVAL ROLE", userRole, "AUTHORIZED", canApproveCurrentUser);
 
   return (
     <div className="p-6 space-y-5">
@@ -2566,7 +2560,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4 text-sm font-semibold" style={{ color: CG }}>{c.value}</td>
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{c.since}</td>
                     <td className="py-3.5 px-4">
-                      <button className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
+                      <button type="button" onClick={() => setSelectedCustomer(c)} aria-label="View customer details" className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
                     </td>
                   </tr>
                 ))}
@@ -2613,6 +2607,35 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                 <div className="flex justify-end gap-3 mt-4 font-bold" style={{ color: B.text }}>Grand Total: ₹{orderDetails.grandTotal.toLocaleString()}</div>
               </>
             )}
+          </GlassCard>
+        </div>
+      )}
+
+      {selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.28)" }}>
+          <GlassCard className="w-full max-w-lg p-6">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: B.text }}>Customer Details</h2>
+                <p className="text-xs mt-1" style={{ color: B.textMuted }}>{selectedCustomer.id}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedCustomer(null)} aria-label="Close customer details" className="p-2 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><X size={18} /></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Name</p><p className="font-semibold" style={{ color: B.text }}>{selectedCustomer.name}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Contact Person</p><p style={{ color: B.text }}>{selectedCustomer.contactPerson || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Email</p><p style={{ color: B.text }}>{selectedCustomer.email || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Phone</p><p style={{ color: B.text }}>{selectedCustomer.phone || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Location</p><p style={{ color: B.text }}>{selectedCustomer.location || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>State</p><p style={{ color: B.text }}>{selectedCustomer.state || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Total Orders</p><p style={{ color: B.text }}>{selectedCustomer.orders}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Lifetime Value</p><p style={{ color: B.text }}>{selectedCustomer.value}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Customer Since</p><p style={{ color: B.text }}>{selectedCustomer.since}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Status</p><p style={{ color: B.text }}>{selectedCustomer.status}</p></div>
+            </div>
+            <div className="flex justify-end mt-6">
+              <SecondaryButton onClick={() => setSelectedCustomer(null)}>Close</SecondaryButton>
+            </div>
           </GlassCard>
         </div>
       )}
@@ -2749,7 +2772,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
               <option value="All">All Status</option>
               <option value="Approved">Approved</option>
             </select>
-            <SecondaryButton icon={Filter}>Filter</SecondaryButton>
+            
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -2908,6 +2931,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
 function AdminPage({ user }: { user: AppUser }) {
   const isVC = user.role === "Vice Chairman";
   const isVicePresident = user.role === "Vice President";
+  const [activeTab, setActiveTab] = useState<"roles"|"audit">("roles");
 
   if (!canViewAdmin(user.role)) {
     return (
@@ -2922,45 +2946,6 @@ function AdminPage({ user }: { user: AppUser }) {
     );
   }
 
-  const [activeTab, setActiveTab] = useState<"roles"|"audit">("roles");
-  const [roles, setRoles] = useState<Array<{ id: string; role_name: string; hierarchy_level?: number }>>([]);
-  const [auditLogs, setAuditLogs] = useState<Array<{ id: string; action: string; comments: string | null; performed_by: string | null; performed_role: string | null; created_at: string | null }>>([]);
-
-  useEffect(() => {
-    loadRoles();
-    void loadAuditLogs();
-  }, []);
-
-  async function loadRoles() {
-    const { data } = await supabase
-      .from("roles")
-      .select("*")
-      // fallback to role_name ordering if hierarchy_level is not present
-      .order("role_name");
-
-    if (data) {
-      setRoles(data as Array<{ id: string; role_name: string; hierarchy_level?: number }>);
-    }
-  }
-
-  async function loadAuditLogs() {
-    try {
-      const { data, error } = await supabase
-        .from("bill_history")
-        .select("id, action, comments, performed_by, performed_role, created_at")
-        .order("created_at", { ascending: false })
-        .limit(25);
-
-      if (error) {
-        throw error;
-      }
-
-      setAuditLogs((data ?? []) as Array<{ id: string; action: string; comments: string | null; performed_by: string | null; performed_role: string | null; created_at: string | null }>);
-    } catch (err) {
-      console.error("Failed to load audit log", err);
-      setAuditLogs([]);
-    }
-  }
 
   return (
     <div className="p-6 space-y-5">
@@ -3034,34 +3019,7 @@ function AdminPage({ user }: { user: AppUser }) {
         </GlassCard>
       )}
 
-      {activeTab === "audit" && (
-        <GlassCard className="p-5">
-          <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Activity Audit Log</h3>
-          {auditLogs.length > 0 ? auditLogs.map((log, i, arr) => {
-            const icons: Record<string, ComponentType<{ size?: number; style?: React.CSSProperties }>> = { approval: CheckCircle, create: Plus, admin: Shield, submit: Send, rejection: XCircle, export: Download, recruit: UserCheck };
-            const colors: Record<string,string>= { approval: CG, create: CB, admin: CGo, submit: CB, rejection: CR, export: CG, recruit: B.purple };
-            const actionType = log.action.includes("approve") || log.action.includes("approved") ? "approval" : log.action.includes("submit") || log.action.includes("submitted") ? "submit" : log.action.includes("reject") || log.action.includes("rejected") ? "rejection" : "admin";
-            const Icon = icons[actionType];
-            const color = colors[actionType];
-            return (
-              <div key={log.id ?? i} className="flex items-start gap-3 py-3.5"
-                style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: `${color}18` }}>
-                  <Icon size={14} style={{ color }} />
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold" style={{ color: B.text }}>{log.performed_role || log.performed_by || "System"}</span>
-                  <span className="text-sm" style={{ color: B.textSub }}> — {log.action.replace(/_/g, " ")}</span>
-                  <div className="text-xs mt-0.5" style={{ color: B.textFaint }}>{log.comments || (log.created_at ? new Date(log.created_at).toLocaleString("en-IN") : "No note")}</div>
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="text-xs" style={{ color: B.textMuted }}>No audit activity available yet.</div>
-          )}
-        </GlassCard>
-      )}
+      {activeTab === "audit" && <AuditLogPage />}
     </div>
   );
 }
@@ -3231,9 +3189,11 @@ function ReportsPage({ user }: { user: AppUser }) {
 function NotificationsPage({
   notifications,
   onMarkAllRead,
+  onMarkRead,
 }: {
   notifications: NotificationRecord[];
   onMarkAllRead: () => void;
+  onMarkRead?: (notificationId: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState("all");
 
@@ -3296,7 +3256,7 @@ function NotificationsPage({
                 <span className="text-xs" style={{ color: B.textFaint }}>
                   {n.created_at ? new Date(n.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Just now"}
                 </span>
-                <button className="p-1 rounded-md hover:bg-white/20" style={{ color: B.textFaint }}><MoreHorizontal size={15} /></button>
+                {!n.read && <button type="button" title="Mark as read" aria-label="Mark notification as read" disabled={!onMarkRead} onClick={() => { void onMarkRead?.(n.id).catch((err) => alert(err instanceof Error ? err.message : "Unable to mark notification as read")); }} className="p-1 rounded-md hover:bg-white/20 disabled:opacity-40" style={{ color: B.textFaint }}><CheckCircle size={15} /></button>}
               </div>
             </div>
           );

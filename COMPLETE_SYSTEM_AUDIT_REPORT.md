@@ -1,259 +1,105 @@
-# Prajahita Employee Management System
-# Complete System Audit Report
+# Prajahita Management Portal — Current Engineering Audit
 
-**Audit date:** 2026-09-03  
-**Method:** Static inspection of the repository's SQL, React/TypeScript source, routes, services, hooks, and package scripts. `npm run build` was executed successfully. No live Supabase project, production schema, credentials, seeded data, or end-to-end browser session was available; therefore live connectivity, deployed foreign keys, indexes, RLS behavior, and external Shop Database synchronization are **not proven**.
+**Audit date:** 31 October 2026  
+**Audited branch:** `premain`  
+**Baseline:** `main` at `a2503a84b597d8c335e01721a154630a65319ad8`  
+**Scope:** React/Vite application, Supabase schema and policies, workflow services, department forms, and current branch changes.
 
-## SYSTEM HEALTH SCORE
+> This report supersedes the September 2026 audit. That document incorrectly described Leave, Manufacturing, Marketing, Transportation, and R&D as absent. These modules now have code and database objects; the remaining question is whether each workflow is secure, connected to the deployed schema, and verified end to end.
 
-**Overall: 42%**
+## Executive summary
 
-This is an evidence-weighted delivery score, not a code-coverage percentage. Core employee, attendance, KPI, billing, internal order, notification, reporting, and transport surfaces exist. The score is reduced by the absence of complete leave, manufacturing, R&D, payment, and external shop-sync implementations; split workflows; and unverified database authorization.
+The repository is a functioning ERP-style portal with authentication, role-aware navigation, employee administration, attendance, leave, bills, orders, marketing, manufacturing, transportation, R&D, collaboration, notifications, reporting, and audit-log surfaces.
 
-## WORKING FEATURES
+The latest maintenance pass on `main` stabilized the portal and added Supabase hardening plus CI checks. The new `premain` branch is addressing specific gaps found by comparing TypeScript services against the live database contract.
 
-- Supabase email/password authentication, session loading, logout, auth-state subscription, and password reset UI exist in `src/context/AuthContext.tsx` and `src/pages/ResetPasswordPage.tsx`.
-- Employee directory, profile editing, employee status changes, hierarchy view, supervisor assignment, department assignment, and employee attendance summaries exist in `src/pages/employees/` and `src/services/employee*.service.ts`.
-- Roles and hierarchy levels are represented in `src/app/AppImplementation.tsx`, with role assignment RPC support in `supabase_role_assignment.sql`.
-- Attendance records can be read, entered, summarized, and exported from `src/services/attendance.service.ts`, `src/pages/employees/AttendancePage.tsx`, and the live app.
-- Employee KPI assignment, progress updates, reviews, scoping, and dashboard display exist in `src/services/employee-kpi.service.ts`, `supabase_employee_kpis.sql`, and `src/components/EmployeeKpiWidget.tsx`.
-- Bills support list, create/update, status changes, history, attachments, signed URLs, approvals, and exports through `src/services/bills.service.ts` and the Bills screen.
-- Internal customer lookup/creation, product lookup, order/item display, order approval/rejection, stock decrement, and order reporting exist in `src/app/CreateOrderPage.tsx`, `src/services/orders.service.ts`, and `src/services/marketing.service.ts`.
-- Transport supports delivery creation, driver/vehicle selection, assignment, tracking, status updates, confirmation, OTP generation/verification, fleet summaries, exports, and delivery notifications in `src/app/CreateDispatchPage.tsx` and `src/services/transport.service.ts`.
-- Notifications support read/unread state, realtime subscription, forwarding, escalation lookup, and event helper functions in `src/services/notification.service.ts` and `src/hooks/useNotifications.ts`.
-- Reports exist for attendance, bills, marketing/order metrics, transport, and community impact in `src/services/reports.service.ts`.
-- Audit-log viewing and selected employee/KPI/attendance/role audit writes exist in `src/pages/AuditLogPage.tsx`, `src/services/audit-log.service.ts`, and the employee/RBAC SQL scripts.
-- The production bundle compiles with Vite. Current build warning: duplicate `Managing Director` object key in `src/services/employee.service.ts`.
+**Important deployment distinction:** the new SQL migration files listed below are committed to `premain`, but they have **not** been applied to the live Supabase project. Until they are reviewed and applied, the corresponding new RPC calls will fail against the live database. Do not merge or deploy the branch as a fully operational release before that database step and role-based testing are complete.
 
-## PARTIALLY WORKING FEATURES
+## Work completed on `premain`
 
-### Core master modules
-
-| Module | Database tables | Backend APIs | Frontend | Widgets/reports | Permissions | Notifications/audit | Data flow |
-|---|---|---|---|---|---|---|---|
-| Users / Employees | `profiles` assumed and heavily used; base schema absent | Employee/profile services and Supabase queries exist | Directory, profile, organization pages exist | Dashboard employee cards and KPI widget exist | Client role gates plus incomplete/unverified RLS | Selected mutations audit; no universal trigger coverage | Mostly working, but auth/profile rollback and direct-ID writes are risks |
-| Roles | `profiles.role`, `roles` read path; role table write path absent | `assign_employee_role` RPC exists | Admin RBAC surface exists | Role-aware dashboard/navigation exists | Role list omits department-specific MD roles in SQL RPC | Role changes audit through RPC | Partially working; UI and SQL role vocabularies drift |
-| Departments | Hardcoded `src/constants/departments.ts`; history table exists | `assign_employee_department` RPC exists | Department selectors/history exist; no standalone department master page | Department-scoped cards exist | Department checks vary by raw string | Assignment audit exists; no department CRUD audit | Incomplete; no canonical department table/master flow |
-| Notifications | `notifications` plus Phase 2.6 columns/index | Notification service/helpers/realtime exist | Header and Notifications page exist | Notification count exists | Owner select policy exists; insert policies are permissive | Leave event types exist but no leave producer | Partially working; `read` vs `is_read` realtime mismatch |
-| Audit Logs | `audit_logs` with some indexes/policies | Read service plus selected inserts/RPC writes | Audit page exists | No audit dashboard | Select policy is broad; complete actor authorization unverified | Not comprehensive; direct table mutations can bypass it | Partially working |
-| Attendance | `attendance` | Direct update/insert path | Main attendance and employee attendance pages exist | Summary/cards and CSV exist | Profile-first merge with direct attendance persistence | Database-backed attendance path | Implemented |
-| Employee Hierarchy | `employee_hierarchy`, department history | Supervisor assignment RPC and service exist | Organization chart exists | KPI/subordinate scoping uses hierarchy | RLS is authenticated/broad in places | Assignment audit exists | Mostly working, subject to deployed RLS |
-| Employee KPI | `employee_kpis` with indexes | Assignment/progress/review RPCs | KPI widget and employee workflows exist | KPI widget exists; no standalone report | Hierarchy and role checks are split | Review path is auditable through RPC | Mostly working |
-
-### Shop / order integration
-
-The repository implements an **internal order workflow**, not a demonstrated database-to-database Shop sync.
-
-- **Orders:** partially working. `orders` is queried and created through `create_order_with_items`; approval and status updates exist. The service sends `p_created_by`, while `supabase_phase2_setup.sql` declares no matching RPC parameter, so creation can fail with an RPC signature error.
-- **Order items:** partially working. Created transactionally from JSON and displayed through joins. No standalone edit/delete flow.
-- **Customers:** partially working. Read and inline create exist; no standalone customer CRUD/master page. Customer RLS insert/select policies use `true`.
-- **Payments:** **missing**. No `payments` table definition, payment service, payment API, payment UI, payment status flow, or payment report was found. Bill payment-like statuses are not a payments integration.
-- **Notifications:** order approval/rejection and inventory shortage helpers exist; delivery notification helpers exist.
-- **Sync timestamps:** **missing/not proven**. `created_at`/`updated_at` fields are used for internal records, but no external source ID, `synced_at`, sync job, webhook, cursor, retry state, or Shop Database connector was found.
-- **Foreign keys/indexes:** some relationships are required by PostgREST joins and some indexes are declared in feature SQL, but no canonical schema exists to verify that all deployed keys/indexes are present. No broken live FK could be tested.
-- **Dispatch consistency:** the delivery RPC sets the order to `Dispatched`, while `CreateDispatchPage.tsx` separately updates the order to `Created`; this can leave an incorrect status and is not atomic.
-
-### Marketing
-
-Partially working under the repository rule. Order/customer/product metrics, approvals, exports, and a Marketing page exist. The required Marketing module is **not complete** because there are no campaign, lead, conversion, opportunity, promotion, budget, or campaign-analytics tables/APIs/UI. Query failures in `marketing.service.ts` become empty/zero metrics, masking outages. Department filtering in `reports.service.ts` compares `customer_id` to a department value.
-
-### Transportation
-
-Partially working, but not fully accepted as a complete transportation management module. Deliveries, tracking, assignments, vehicles, drivers, OTP, status changes, fleet summaries, and reports exist. Fuel usage, distance travelled, route planning, maintenance, compliance, and dedicated driver/delay analytics are missing. The code alternates between `drivers` and `drivers:profiles` relationships, and OTP SMS delivery is not implemented; OTP is only handled in-app.
-
-### Community/programs
-
-Read-only program and impact data is referenced by dashboard/report code, but no complete CRUD surface exists. `programs` is modeled with `title` in `outreach.service.ts` while reports select `name`, creating schema/query drift.
-
-## MISSING FEATURES
-
-### Leave management
-
-**Status: NOT IMPLEMENTED under the requested acceptance rule.**
-
-- No `leave_requests` table or leave balance transaction table.
-- No leave submission service/API/RPC.
-- No complete Supervisor -> Manager -> CM -> GM -> MD approval chain.
-- No leave request page or approval queue. “Apply Leave” is a dashboard label only.
-- Leave notification event type constants exist, but no request workflow creates them.
-- No complete leave audit trail. The `Leave` attendance status and profile balance fields are not leave management.
-
-### Manufacturing
-
-**Status: NOT IMPLEMENTED under the requested acceptance rule.**
-
-- No production, soap batch, work order, defect, quality metric, working-hour, target, or output tables.
-- No manufacturing service/API/RPC or production mutation workflow.
-- No manufacturing worker, supervisor, manager, CM, GM, or MD UI screens.
-- No production widgets, production-vs-target reports, notifications, or complete audit flow.
-- Department names, product stock, role labels, and marketing text do not constitute this module.
-
-### R&D
-
-**Status: NOT IMPLEMENTED under the requested acceptance rule.**
-
-- No experiment, sample, project, milestone, research-progress, innovation-report, or product-development tables.
-- No R&D service/API/RPC or mutation workflow.
-- No worker, supervisor, manager, CM, GM, or MD R&D screens/widgets/reports.
-- `MD-RD` and “Research & Development” labels are organizational metadata only.
-
-### Other missing or incomplete capabilities
-
-- External Shop Database sync, sync monitoring, retry/reconciliation, source IDs, and sync timestamps.
-- Payments and payment reconciliation.
-- Standalone master-data administration for customers, products, vehicles, drivers, programs, and departments.
-- Database-authoritative permission coverage for all writes.
-- Comprehensive database-trigger audit logging.
-- Automated tests, linting, typecheck, migration runner, and CI validation. `package.json` contains only `dev` and `build` scripts.
-
-## CRITICAL ISSUES
-
-1. **Leave is absent end-to-end.** The requested multi-level submission, approval, notification, and audit workflow cannot be performed.
-2. **Manufacturing and R&D are absent operational modules.** No corresponding tables, APIs, and UI screens exist.
-3. **Payments and external Shop synchronization are absent.** Orders are internal records, not proof of cross-database sync.
-4. **Order creation RPC mismatch:** `src/services/orders.service.ts` supplies `p_created_by`, but `supabase_phase2_setup.sql` declares/grants a function without that parameter.
-5. **Dispatch is non-atomic and can overwrite status:** the RPC sets `Dispatched`, then the page separately writes `Created`.
-6. **Attendance has two conflicting write paths:** direct attendance upsert can bypass the approval/audit path.
-7. **Security depends heavily on client navigation and permissive policies:** several SQL policies use `true`; security-definer RPCs do not consistently validate role, ownership, driver, vehicle, or order authority.
-8. **Role vocabulary drift:** TypeScript supports `MD-Manufacturing`, `MD-Marketing`, `MD-Transport`, and `MD-RD`, while `assign_employee_role` rejects them.
-9. **Potential query contract breaks:** driver relationship aliases differ, and `programs.name` conflicts with the `title` model.
-10. **Audit completeness is not guaranteed:** direct updates to core tables are not covered by universal database triggers.
-11. **Build warning:** duplicate `Managing Director` key in `src/services/employee.service.ts` silently overwrites one value.
-12. **Failure masking:** marketing/community data loaders convert query errors to empty or zero results; users can see a false healthy dashboard.
-
-## DATABASE REVIEW
-
-### Tables Existing or Referenced
-
-`profiles`, `roles`, `attendance`, `bills`, `bill_history`, `orders`, `order_items`, `customers`, `products`, `deliveries`, `delivery_assignments`, `delivery_tracking`, `vehicles`, `drivers`, `notifications`, `programs`, `program_impact`, `employee_hierarchy`, `employee_department_history`, `employee_kpis`, and `audit_logs` are referenced by source or feature SQL. Feature SQL explicitly creates or alters only a subset; a base schema is not included.
-
-### Tables Missing
-
-`payments`, `leave_requests`, `leave_approvals` or equivalent workflow history, `leave_balance_transactions`, `production_batches`, `production_work_orders`, `production_outputs`, `production_defects`, `production_quality_metrics`, `production_targets`, `manufacturing_working_hours`, `marketing_campaigns`, `marketing_leads`, `marketing_conversions`, `marketing_opportunities`, `marketing_budgets`, `rd_projects`, `rd_experiments`, `rd_samples`, `rd_milestones`, `rd_progress`, `shop_sync_runs`, and external-record mapping/sync tables.
-
-### Incomplete or unverified
-
-- No canonical migration/schema file proves all required columns, foreign keys, unique constraints, or indexes.
-- Required joins include orders-customers, orders-order_items, order_items-products, deliveries-orders, deliveries-vehicles, deliveries-drivers/profiles, assignment-delivery, bill-history, hierarchy-profiles, and program-impact-programs.
-- Known index declarations cover selected audit, hierarchy, KPI, approval, and notification lookups; full production index coverage is unverified.
-- RLS exists on selected tables but has permissive policies and is not comprehensive across all referenced tables.
-
-## API REVIEW
-
-### Working or substantially implemented APIs
-
-- Authentication/profile: `src/context/AuthContext.tsx`, `src/services/auth.service.ts`, `profile.service.ts`.
-- Employees, hierarchy, department assignment, roles, and KPIs: corresponding services plus RPCs in `supabase_*` SQL.
-- Attendance reads/direct writes and attendance approval RPC calls.
-- Bills: read/create/update/status/history/attachments.
-- Orders/customers/products: reads, inline customer create, order RPC, approval/rejection.
-- Transport: delivery/assignment/tracking/status/confirmation/OTP/report services.
-- Notifications and audit-log reads/writes.
-- Attendance, bills, marketing, transport, and community reports.
-
-### Missing APIs
-
-Leave submission/approval/escalation APIs; manufacturing production/defect/quality/target APIs; R&D experiment/sample/milestone APIs; payment APIs; Shop sync/webhook/reconciliation APIs; campaign/lead/conversion APIs; standalone master-data CRUD APIs; complete audit-trigger APIs.
-
-### Broken or risky APIs
-
-`create_order_with_items` call/signature mismatch; non-atomic dispatch/order update; conflicting attendance save paths; inconsistent transport relationship names; permissive security-definer/RLS contracts; caller-supplied actor IDs; silent error-to-empty fallbacks.
-
-## FRONTEND REVIEW
-
-### Working pages
-
-Dashboard, login, password reset, attendance, employee directory, employee profile, employee attendance, organization chart, bills, marketing/orders, transport/delivery, notifications, reports, admin/RBAC, audit log, create order, and create dispatch pages are represented in the live app or its imported page components.
-
-### Missing pages
-
-Leave submission, leave approval queue/history; manufacturing worker production, supervisor quality/team output, manager targets, CM/GM analytics, and MD strategy pages; R&D worker experiments/samples, supervisor progress, manager milestones, CM/GM reports, and MD oversight pages; payment management/reconciliation; Shop sync monitoring; campaign/lead management; standalone department/customer/product/fleet master pages.
-
-### Dashboard widgets
-
-Existing: employee counts, attendance summaries, bills, orders/revenue, deliveries, notifications, community impact, role/department cards, and employee KPI widget. Missing: leave pipeline/balance transactions, production output/defects/targets, marketing campaign funnel/conversions, transport fuel/distance/route efficiency, R&D progress/milestones, payments, and sync health.
-
-## ROLE PERMISSION REVIEW
-
-This matrix reflects observable UI/service intent, not verified database authorization. A feature is marked working only where a usable surface exists; it does not mean the entire requested module is complete.
-
-### Worker
-
-- ✓ Working: login, own profile, attendance entry/read, notifications, dashboard, limited employee visibility.
-- ✗ Missing: leave submission workflow, manufacturing worker workflow, marketing leads/conversions, transport fuel/distance workflow, R&D experiments/samples, payments.
-
-### Supervisor
-
-- ✓ Working: subordinate visibility where hierarchy exists, attendance approval path, KPI review path, notifications, reports access as routed.
-- ✗ Missing: leave approval chain, manufacturing team output/quality, marketing team performance, transport driver/delay analytics, R&D team progress.
-
-### Manager
-
-- ✓ Working: bills, orders/marketing metrics, dispatch/transport surfaces, employee/hierarchy/KPI scope, reports.
-- ✗ Missing: leave approval, manufacturing targets vs actual, campaign analytics, fleet operations, R&D milestones, payments/sync administration.
-
-### CM
-
-- ✓ Working: role labels and some dashboard/report access; shared order/bill/transport surfaces are present according to route rules.
-- ✗ Missing: leave approval, manufacturing manager performance, marketing efficiency, route efficiency, research progress, complete CM-specific widgets/reports.
-
-### GM
-
-- ✓ Working: broad employee/dashboard/report access and selected order/bill/notification paths.
-- ✗ Missing: leave approval, department production analytics, marketing department analytics, logistics analytics, innovation reports, payment reconciliation, sync oversight.
-
-### MD
-
-- ✓ Working: department-specific MD labels/navigation for Manufacturing, Marketing, Transport, and R&D; shared dashboard/report surfaces.
-- ✗ Missing: every requested department MD operational dashboard/workflow, final leave approval, production strategy dashboard, revenue/growth analytics, transportation oversight, and product-development oversight.
-- ✗ Risk: department-specific MD role names are not accepted by the role-assignment SQL RPC.
-
-## NOTIFICATION, REPORT, AND AUDIT COVERAGE
-
-| Area | Existing | Missing / risk |
+| Area | Change | Verification status |
 |---|---|---|
-| Notifications | Bills, orders, deliveries, attendance escalation, employee events, inventory shortage, realtime/read state | Leave producers, manufacturing/R&D/payment/sync events; realtime payload normalization; SMS OTP delivery |
-| Reports | Attendance, bills, marketing/order, transport, community impact; CSV/XLSX/PDF exports | Leave, manufacturing, R&D, payments, sync, campaign funnel, fuel/distance; some filters/query columns are inconsistent |
-| Audit logs | Viewer, actor filters, selected employee/KPI/attendance/role writes | Universal triggers, leave/production/R&D/payment/sync trail, guaranteed atomic history, complete server authorization |
+| Manufacturing defects | Replaced empty-result stubs with database reads and authenticated reporting/review RPC calls; maps the deployed `defect_quantity` and `reported_at` columns | Code committed; migration not applied |
+| Manufacturing writes | Added RPC-backed batch creation, output logging, working-hours logging, target create/update, and batch status updates; aligned service models to actual column names | Code committed; migration not applied |
+| Manufacturing UI | Added supervisor review action and batch selectors for output/defect/hours forms | Vercel preview check passed for the UI commit |
+| Leave | Final approver now deducts the matching leave balance in the same transaction and writes a balance-ledger record | Migration committed; not applied or live-tested |
+| Payments | Added authorized Pending → Paid/Failed settlement, atomic order payment-status update, and payment history; removed raw payment/customer debug logging and narrowed lookup queries | Code committed; migration not applied |
+| Transportation | Aligned trip, distance, fuel, delay, and target services to the deployed schema; added RPC-backed writes and trip selectors for log forms | Code committed; migration not applied |
+| Marketing reports | Department filtering now uses the order creator's profile department instead of incorrectly comparing `customer_id` with a department name | Code committed; Vercel preview check passed for the report commit |
 
-## DATA FLOW AND DATABASE SYNC VERDICT
+### New migrations committed on this branch
 
-- **Core HR:** mostly connected to Supabase, with split attendance workflow and unverified RLS.
-- **Orders:** customer -> order -> order items -> stock decrement -> approval notification -> dispatch is represented, but RPC mismatch and non-atomic dispatch make the flow unreliable.
-- **Payments:** no flow exists.
-- **External Shop sync:** no connector, inbound/outbound job, source key, `synced_at`, retry, reconciliation, or sync-status UI exists. Verdict: **not implemented**.
-- **Manufacturing, Marketing domain, Transport domain, R&D:** only transport has a partial operational flow; manufacturing and R&D are not implemented; marketing is an order analytics surface rather than the requested CRM/campaign module.
-- **Leave:** no end-to-end flow exists.
+- `supabase/migrations/20261031230000_manufacturing_defect_workflow.sql`
+- `supabase/migrations/20261031230100_manufacturing_write_workflows.sql`
+- `supabase/migrations/20261031230200_manufacturing_batch_options.sql`
+- `supabase/migrations/20261031230300_leave_balance_debit_ledger.sql`
+- `supabase/migrations/20261031230400_payment_status_workflow.sql`
+- `supabase/migrations/20261031230500_transport_trip_and_log_workflows.sql`
 
-## FINAL IMPLEMENTATION ROADMAP
+The RPCs derive the acting user from `auth.uid()`, validate role/hierarchy/department scope, and are granted to `authenticated` rather than `anon`/PUBLIC. The six migration files were also checked together in a transaction against the connected Management database and explicitly rolled back; the DDL/function definitions completed without SQL errors and no persistent schema changes were made. The SQL still requires review and execution against the intended Management Supabase project.
 
-### Priority 1 (Critical)
+## Current module assessment
 
-1. Add canonical migrations and verify the deployed schema: `payments`, leave tables/workflow history, manufacturing tables, marketing campaign/lead tables, R&D tables, Shop sync tables, all required foreign keys, unique constraints, and indexes.
-2. Implement leave end to end: `leave_requests` and approval-history tables; service/RPCs for submit, Supervisor/Manager/CM/GM/MD decisions; `LeavePage` and approval queue; notifications; atomic balance updates; audit logs.
-3. Implement manufacturing end to end: production batches/work orders/outputs/defects/quality/working-hours/targets tables; `manufacturing.service.ts`; role-scoped worker/supervisor/manager/CM/GM/MD pages; widgets, reports, notifications, and audit trail.
-4. Implement R&D end to end: projects/experiments/samples/milestones/progress tables; `research.service.ts`; role-scoped screens/widgets/reports, notifications, and audit trail.
-5. Implement payments and Shop sync: `payments`, external IDs, `shop_sync_runs`, `synced_at`, retry/error state; server webhook/job/RPC APIs; reconciliation and sync-monitoring UI.
-6. Fix order/dispatch contracts: align `create_order_with_items` with `src/services/orders.service.ts`, and make delivery, assignment, tracking, order status, and notifications one transaction/RPC.
-7. Make authorization server authoritative: replace permissive policies, derive actor from `auth.uid()`, validate hierarchy/department/ownership in RPCs, and add RLS tests.
+| Module | Current implementation | Remaining verification / work |
+|---|---|---|
+| Authentication & profiles | Supabase email/password auth, session persistence, profile loading, password recovery | Test expired sessions, disabled users, recovery links, and profile/auth rollback with real accounts |
+| Employee administration | Directory, profile, hierarchy, role/department assignment, employee KPI workflows | Test uniqueness, hierarchy-cycle prevention, rollback, and every role/department combination |
+| Attendance | Database-backed attendance pages, employee summaries, CSV export | Consolidate direct attendance writes with any approval path; verify timezone and duplicate-day behavior |
+| Leave | Submission, update/cancel, approval chain, history, notifications, balances | Apply balance-ledger migration; test all approval levels, insufficient balances, rejection, cancellation, and concurrent approvals |
+| Bills / Finance | Bill submission, approval, history, attachment upload/view, exports | Separate bill approval from actual payment settlement; add reconciliation, receipts, partial payments, and finance reporting if required |
+| Orders | Transactional order/item/pending-payment creation and status-transition RPC | Test stock validation, duplicate submissions, customer ownership, and all status transitions |
+| Payments | Listing plus new manual settlement RPC/UI | Apply migration; test permissions, order/payment atomicity, failure path, and history. This is manual settlement, not a payment-gateway integration |
+| Manufacturing | Batch/output/defect/hours/target services and department UI | Apply migrations; test output/actual quantity atomicity, batch lifecycle, defect review, supervisor scope, and worker forms |
+| Marketing | Leads, campaigns, conversions, targets, order/customer reporting | Test lead assignment, campaign lifecycle, conversion totals, role scoping, and empty/error states |
+| Transportation | Delivery/dispatch workflow plus trip/fuel/distance/delay/target module | Apply migration; test trip lifecycle and logs. Reconcile trip/fleet records with the separate delivery/vehicle/driver workflow |
+| R&D | Projects, experiments, samples, logs, milestones, targets | Test create/update/ownership/approval flows and connect reports to real records |
+| Collaboration | Company/application approval chain, audit records, generated collaboration bill | Test company ownership, each approval role, collaborator accept/decline, and bill idempotency |
+| Notifications | Header, notifications page, read state, realtime helpers | Normalize realtime payloads and test each workflow event and unread count |
+| Audit logs | Audit page and selected RPC/service audit writes | Add consistent database-side coverage for all sensitive mutations |
+| Reports | Attendance, bills, marketing/orders, transport, community impact | Verify report definitions, department filters, timezone/date boundaries, and failure vs empty states |
 
-### Priority 2 (Important)
+## Live Supabase observations
 
-1. Unify attendance into one approval-aware path and audit every accepted/rejected change.
-2. Add standalone CRUD pages/services for departments, customers, products, vehicles, drivers, campaigns, and programs where required.
-3. Reconcile role, department, status, notification, driver relationship, and program column contracts across SQL and TypeScript.
-4. Add transport fuel, distance, route efficiency, delay, maintenance, and compliance data/workflows.
-5. Add leave/manufacturing/R&D/payment/sync report exports and role-specific dashboard widgets.
-6. Replace silent empty/zero error fallbacks with visible loading/error/empty states.
-7. Add comprehensive database-trigger or transaction-level audit coverage and notification producers.
+The connected Management database currently contains the domain tables for manufacturing, marketing, transport, R&D, leave, payments, orders, collaboration, and employee management. All inspected public tables had RLS enabled.
 
-### Priority 3 (Optional)
+The latest snapshot showed no operational rows in several business domains (including leave requests/history, payments, manufacturing outputs/defects/hours, marketing leads/campaigns/conversions, transport trips/logs, and R&D projects/experiments/samples/logs/milestones). A zero-row table does not prove a feature is broken; it means live operational behavior still needs seeded/test records and end-to-end verification.
 
-1. Consolidate `src/app/App.tsx` and `src/app/AppImplementation.tsx` into one authoritative route/render path.
-2. Add automated unit, integration, RLS, RPC, route, role-matrix, and browser workflow tests; add `test`, `lint`, and `typecheck` scripts and CI.
-3. Fix the duplicate role-map key, remove production RPC payload logging, and split the oversized app implementation.
-4. Add pagination/server-side filtering, richer PDF reports, realtime notification normalization, and sync health trends.
+Manufacturing schema details were especially important:
+- `manufacturing_batches` stores `batch_code`, `planned_quantity`, `created_by`, and `assigned_supervisor` (not the names previously assumed by the service).
+- `manufacturing_outputs` requires a `batch_id`.
+- `manufacturing_defects` stores `defect_quantity` and `reported_at`.
+- `manufacturing_working_hours` requires a `batch_id` and stores actual work-hour rows.
+- Manufacturing tables currently expose scoped SELECT policies; writes must go through the new server-validated RPCs.
 
-## AUDIT CONCLUSION
+Transportation similarly stores trip origin/destination and trip code in `transport_trips`; distance and fuel logs are keyed by `trip_id`, with values in `distance_km` and `fuel_litres`. The service/UI now use this contract rather than writing unsupported columns.
 
-The current repository is a partially implemented employee and operations portal, not a complete Prajahita Employee Management System under the stated acceptance criteria. The highest-value existing foundation is employee management plus partial attendance, KPI, billing, order, notification, reporting, and transport functionality. Leave management, manufacturing, R&D, payments, and external Shop Database synchronization must be implemented and tested end to end before the system can be considered complete.
+## Security and data-integrity priorities
+
+1. Apply and verify the new RPC migrations before enabling their UI actions in production.
+2. Re-run Supabase security and performance advisors after applying migrations. Prior observations included SECURITY DEFINER function warnings, disabled leaked-password protection, RLS initplan warnings, permissive policies, unindexed foreign keys, and unused indexes.
+3. Review all SECURITY DEFINER functions for explicit identity/role checks, fixed `search_path`, and narrow EXECUTE grants.
+4. Review broad authenticated read policies on orders, payments, and customer data; authenticated-only access is not automatically appropriate row-level authorization.
+5. Keep all cross-table status changes atomic and record actor, old/new state, and timestamp.
+6. Never place service-role credentials in Vite client variables.
+
+## Architecture and quality work still required
+
+- `src/app/AppImplementation.tsx` remains a large, difficult-to-maintain module. Split it into feature-owned pages/components only after preserving the current routes with tests.
+- Standardize shared role, department, and status constants between TypeScript and SQL.
+- Consolidate duplicate transportation concepts: delivery dispatch/fleet assignment and trip/fuel/distance logging must share clear IDs and lifecycle rules.
+- Add unit and integration tests for services/RPC contracts, then Playwright or equivalent role-based end-to-end coverage.
+- Extend CI beyond typecheck/build to run automated tests and dependency/security checks.
+- Add distinct loading, empty, permission-denied, and query-error states; never turn a failed query into a believable zero metric.
+- Update this audit whenever a migration or workflow is shipped.
+
+## Release gate
+
+Do not call the portal fully complete until:
+- all six new migrations are reviewed and applied to the Management Supabase project;
+- every RPC has been tested with an allowed user and a denied user;
+- leave, payment, manufacturing, and transportation transactions are verified against live rows;
+- all department routes/forms have success, validation, and failure-path tests;
+- CI runs typecheck, build, and automated tests;
+- the production deployment and environment configuration are verified.
+
+**Current conclusion:** the project has substantial working functionality and the `premain` branch is improving real backend gaps. It is not yet production-complete or fully verified end to end.
