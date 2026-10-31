@@ -2914,6 +2914,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
 function AdminPage({ user }: { user: AppUser }) {
   const isVC = user.role === "Vice Chairman";
   const isVicePresident = user.role === "Vice President";
+  const [activeTab, setActiveTab] = useState<"roles"|"audit">("roles");
 
   if (!canViewAdmin(user.role)) {
     return (
@@ -2928,7 +2929,6 @@ function AdminPage({ user }: { user: AppUser }) {
     );
   }
 
-  const [activeTab, setActiveTab] = useState<"roles"|"audit">("roles");
 
   return (
     <div className="p-6 space-y-5">
