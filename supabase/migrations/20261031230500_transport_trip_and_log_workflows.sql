@@ -260,7 +260,7 @@ BEGIN
   v_start := COALESCE(p_period_start, v_target.start_date);
   v_end := COALESCE(p_period_end, v_target.end_date);
   v_quantity := COALESCE(p_target_deliveries, v_target.target_deliveries);
-  IF v_quantity IS NULL OR v_quantity <= 0 OR v_quantity < v_target.actual_deliveries THEN
+  IF v_quantity IS NULL OR v_quantity <= 0 OR v_quantity < COALESCE(v_target.actual_deliveries, 0) THEN
     RAISE EXCEPTION 'Target must be positive and cannot be lower than actual deliveries';
   END IF;
   IF v_start IS NULL OR v_end IS NULL OR v_end < v_start THEN
@@ -269,7 +269,7 @@ BEGIN
   IF p_status IS NOT NULL AND p_status NOT IN ('Active','Completed','Cancelled') THEN
     RAISE EXCEPTION 'Invalid transportation target status';
   END IF;
-  IF p_status = 'Completed' AND v_target.actual_deliveries < v_quantity THEN
+  IF p_status = 'Completed' AND COALESCE(v_target.actual_deliveries, 0) < v_quantity THEN
     RAISE EXCEPTION 'A target cannot be completed before its delivery quantity is achieved';
   END IF;
 
