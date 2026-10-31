@@ -508,8 +508,16 @@ export async function createTarget(data: CreateTargetInput): Promise<Manufacturi
 export async function updateTarget(targetId: string, updates: Partial<ManufacturingTarget>): Promise<ManufacturingResult<ManufacturingTarget>> {
   const error = requireId(targetId, "Target ID");
   if (error) return invalid(error.message);
-  const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...safeUpdates } = updates;
-  return updateOne<ManufacturingTarget>("manufacturing_targets", targetId, safeUpdates);
+  try {
+    const { data, error: queryError } = await supabase.rpc("update_manufacturing_target", {
+      p_target_id: targetId,
+      p_target_quantity: updates.target_quantity ?? null,
+      p_status: updates.status ?? null,
+      p_period_start: updates.period_start ?? null,
+      p_period_end: updates.period_end ?? null,
+    });
+    return queryError ? { data: null, error: asError(queryError) } : { data: data ? mapTarget(data as Record<string, unknown>) : null, error: data ? null : new Error("Manufacturing target was not updated") };
+  } catch (queryError) { return { data: null, error: asError(queryError) }; }
 }
 
 export async function calculateTargetVsActual(managerId: string, department?: string | null): Promise<ManufacturingResult<TargetVsActual>> {
