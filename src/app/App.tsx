@@ -189,7 +189,7 @@ export default function App() {
     return <ResetPasswordPage />;
   }
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="portal-loading" role="status" aria-live="polite"><span className="portal-spinner" aria-hidden="true" /><span>Loading your workspace…</span></div>;
 
   if (page === "login" && !profile) {
     return <LoginPage onLogin={() => {
@@ -312,14 +312,14 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: B.bgSolid, fontFamily: "Inter, sans-serif" }}>
+    <div className="portal-shell flex h-screen overflow-hidden" style={{ background: B.bgSolid, fontFamily: "Inter, sans-serif" }}>
       <Sidebar
         user={profile} page={page} onNav={handleNav}
         collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         mobile={isMobile} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)}
         onViewProfile={() => handleNav("profile")}
       />
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden" style={{ background: B.bg }}>
+      <div className="portal-workspace flex-1 flex flex-col min-w-0 h-full overflow-hidden" style={{ background: B.bg }}>
         <TopBar
           user={profile}
           onMenuClick={() => setMobileOpen(true)}
@@ -327,7 +327,7 @@ export default function App() {
           onNotifClick={() => handleNav("notifications")}
           onViewProfile={() => handleNav("profile")}
         />
-        <main className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+        <main className="portal-main flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           <style>{`main::-webkit-scrollbar{display:none}`}</style>
           {renderPage()}
         </main>

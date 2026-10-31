@@ -198,21 +198,21 @@ const DEPARTMENT_MODULE_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "Chi
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const B = {
-  nav: "#4E8050", navDark: "#3A6040", navLight: "#5E9862",
-  navAct: "rgba(255,255,255,0.18)", navBorder: "rgba(255,255,255,0.10)", navTxt: "rgba(255,255,255,0.75)",
-  bg: "linear-gradient(180deg, #F7E7CB 0%, #EFD7AF 100%)", bgSolid: "#EFD7AF",
-  glass: "rgba(255,255,255,0.28)", glassDark: "rgba(255,255,255,0.18)",
-  glassBorder: "rgba(255,255,255,0.40)", glassBlur: "blur(20px)",
-  glassShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)",
-  glassShadowHov: "0 16px 48px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.07)",
-  green: "#4E8050", greenLight: "rgba(78,128,80,0.12)",
-  blue: "#2563EB",  blueLight:  "rgba(37,99,235,0.10)",
-  gold: "#D4A017",  goldLight:  "rgba(212,160,23,0.12)",
-  red:  "#EF4444",  redLight:   "rgba(239,68,68,0.10)",
-  teal: "#0D7490",  tealLight:  "rgba(13,116,144,0.10)",
-  purple: "#7C3AED", purpleLight: "rgba(124,58,237,0.10)",
-  text: "#1C1C1E", textSub: "#3A3A3C", textMuted: "#5F6368", textFaint: "#9CA3AF",
-  border: "rgba(255,255,255,0.45)",
+  nav: "#153A32", navDark: "#102D27", navLight: "#23624F",
+  navAct: "rgba(255,255,255,0.12)", navBorder: "rgba(255,255,255,0.10)", navTxt: "rgba(238,247,242,0.72)",
+  bg: "linear-gradient(180deg, #F7F9F7 0%, #F1F5F2 100%)", bgSolid: "#F4F7F5",
+  glass: "#FFFFFF", glassDark: "#F7FAF8",
+  glassBorder: "#E3EBE6", glassBlur: "none",
+  glassShadow: "0 2px 8px rgba(22,45,35,0.04), 0 12px 28px rgba(22,45,35,0.035)",
+  glassShadowHov: "0 8px 20px rgba(22,45,35,0.08), 0 18px 38px rgba(22,45,35,0.06)",
+  green: "#176B52", greenLight: "rgba(23,107,82,0.10)",
+  blue: "#356FC0", blueLight: "rgba(53,111,192,0.10)",
+  gold: "#C58A2A", goldLight: "rgba(197,138,42,0.12)",
+  red: "#D64F57", redLight: "rgba(214,79,87,0.10)",
+  teal: "#218296", tealLight: "rgba(33,130,150,0.10)",
+  purple: "#7657B8", purpleLight: "rgba(118,87,184,0.10)",
+  text: "#17231F", textSub: "#43534B", textMuted: "#718078", textFaint: "#9AA69F",
+  border: "#E3EBE6",
 };
 const CG = B.green; const CB = B.blue; const CGo = B.gold; const CR = B.red; const CT = B.teal;
 const ATTEND_WEEK = [
@@ -229,7 +229,7 @@ function GlassCard({ children, className = "", hover = false, onClick, style = {
 }) {
   return (
     <div onClick={onClick}
-      className={`rounded-2xl transition-all duration-200 ${onClick || hover ? "cursor-pointer" : ""} ${className}`}
+      className={`portal-card rounded-2xl transition-all duration-200 ${onClick || hover ? "cursor-pointer" : ""} ${className}`}
       style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
         border: `1px solid ${B.glassBorder}`, boxShadow: B.glassShadow, ...style }}
       onMouseEnter={e => { if (hover || onClick) (e.currentTarget as HTMLElement).style.boxShadow = B.glassShadowHov; }}
@@ -244,7 +244,7 @@ function KPICard({ icon: Icon, label, value, sub, accentColor = CG }: {
   icon: ComponentType<{ size?: number; style?: React.CSSProperties }>; label: string; value: string; sub?: string; accentColor?: string;
 }) {
   return (
-    <div className="rounded-2xl overflow-hidden transition-all duration-200"
+    <div className="portal-kpi-card rounded-2xl overflow-hidden transition-all duration-200"
       style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
         border: `1px solid ${B.glassBorder}`, borderTop: `3px solid ${accentColor}`, boxShadow: B.glassShadow }}
       onMouseEnter={e => (e.currentTarget as HTMLElement).style.boxShadow = B.glassShadowHov}
@@ -338,7 +338,7 @@ function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disable
   const bg = danger ? B.red : gold ? B.gold : B.green;
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center font-semibold text-white rounded-xl transition-all duration-150 ${sizes[sz]} ${disabled ? "opacity-40 cursor-not-allowed" : "hover:opacity-90 active:scale-95"}`}
+      className={`portal-button portal-button-primary inline-flex items-center font-semibold text-white rounded-xl transition-all duration-150 ${sizes[sz]} ${disabled ? "opacity-40 cursor-not-allowed" : "hover:opacity-90 active:scale-95"}`}
       style={{ background: disabled ? "#9CA3AF" : bg, fontFamily: "Inter, sans-serif", boxShadow: disabled ? "none" : `0 4px 14px ${bg}40` }}>
       {Icon && <Icon size={sz === "sm" ? 13 : 15} />}
       {children}
@@ -351,7 +351,7 @@ function SecondaryButton({ children, onClick, icon: Icon, disabled = false }: {
 }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-150 ${disabled ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`}
+      className={`portal-button portal-button-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-150 ${disabled ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`}
       style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
         border: `1px solid ${B.glassBorder}`, color: B.textSub, fontFamily: "Inter, sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
       {Icon && <Icon size={14} style={{ color: B.textMuted }} />}
@@ -364,7 +364,7 @@ function SectionHeader({ title, subtitle, actions }: {
   title: string; subtitle?: string; actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
+    <div className="portal-section-header flex items-start justify-between flex-wrap gap-3 mb-6">
       <div>
         <h1 className="font-bold tracking-tight" style={{ fontSize: 28, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.2 }}>{title}</h1>
         {subtitle && <p className="text-sm mt-0.5" style={{ color: B.textMuted }}>{subtitle}</p>}
@@ -403,7 +403,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: B.bg }}>
+    <div className="portal-login-screen min-h-screen flex" style={{ background: B.bg }}>
       {/* Left panel */}
       <div className="hidden lg:flex flex-col justify-between p-10 w-96 flex-shrink-0 relative overflow-hidden"
         style={{ background: B.nav }}>
@@ -426,7 +426,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
       {/* Right — form */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
-          <div className="rounded-2xl p-8" style={{
+          <div className="portal-login-card rounded-2xl p-8" style={{
             background: "rgba(255,255,255,0.45)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
             border: "1px solid rgba(255,255,255,0.55)", boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
           }}>
@@ -660,13 +660,13 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
   if (mobile) return (
     <>
       {mobileOpen && <div className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm" onClick={onMobileClose} />}
-      <aside className={`fixed left-0 top-0 h-full w-64 z-50 transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+      <aside className={`portal-sidebar fixed left-0 top-0 h-full w-64 z-50 transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         style={{ background: B.nav }}>{content}</aside>
     </>
   );
 
   return (
-    <aside className={`hidden md:flex flex-col flex-shrink-0 h-full transition-all duration-300 ${collapsed ? "w-[60px]" : "w-64"}`}
+    <aside className={`portal-sidebar hidden md:flex flex-col flex-shrink-0 h-full transition-all duration-300 ${collapsed ? "w-[60px]" : "w-64"}`}
       style={{ background: B.nav }}>{content}</aside>
   );
 }
@@ -714,7 +714,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
   }, [menuOpen]);
 
   return (
-    <header className="flex items-center gap-3 px-5 flex-shrink-0 overflow-visible"
+    <header className="portal-topbar flex items-center gap-3 px-5 flex-shrink-0 overflow-visible"
       style={{ background: "rgba(255,255,255,0.30)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(255,255,255,0.40)", height: 64, boxShadow: "0 2px 16px rgba(0,0,0,0.05)", overflow: "visible" }}>
       <button onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
