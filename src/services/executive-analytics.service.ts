@@ -74,7 +74,7 @@ function growth(current: number, previous: number): number { return previous ? (
 function completedByPeriod(rows: Row[]): { current: number; previous: number } {
   const now = new Date();
   const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return rows.reduce((result, row) => {
+  return rows.reduce<{ current: number; previous: number }>((result, row) => {
     if (!isDone(row)) return result;
     const period = dateValue(row).slice(0, 7);
     if (period === monthKey(now)) result.current += 1;
