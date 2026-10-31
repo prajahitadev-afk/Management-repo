@@ -236,7 +236,7 @@ RETURNS public.transport_targets
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $function$
 DECLARE
   v_actor uuid := auth.uid();
   v_target public.transport_targets;
@@ -284,7 +284,7 @@ BEGIN
   RETURNING * INTO v_target;
   RETURN v_target;
 END;
-$;
+$function$;
 
 REVOKE ALL ON FUNCTION public.update_transport_target(uuid, integer, text, date, date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.update_transport_target(uuid, integer, text, date, date) TO authenticated;
