@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, collabrative]
+    branches: [main, collabrative, premain, pretwomain]
   pull_request:
     branches: [main]
 
