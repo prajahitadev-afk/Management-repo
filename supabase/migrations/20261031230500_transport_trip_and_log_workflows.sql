@@ -33,7 +33,8 @@ DECLARE
 BEGIN
   IF v_actor IS NULL THEN RAISE EXCEPTION 'Authentication is required'; END IF;
   SELECT role INTO v_role FROM public.profiles WHERE id = v_actor;
-  IF v_role NOT IN ('Admin','Manager','General Manager','MD-Transport','Managing Director','Vice Chairman','Vice President') THEN
+  IF v_role NOT IN ('Admin','Manager','Supervisor','General Manager','MD-Transport','Managing Director','Vice Chairman','Vice President')
+     OR (NOT public.same_department('Transportation') AND NOT public.is_executive()) THEN
     RAISE EXCEPTION 'You are not authorized to create trips';
   END IF;
   IF p_driver_id IS NULL OR NULLIF(btrim(p_origin),'') IS NULL
@@ -202,7 +203,8 @@ DECLARE
 BEGIN
   IF v_actor IS NULL THEN RAISE EXCEPTION 'Authentication is required'; END IF;
   SELECT role INTO v_role FROM public.profiles WHERE id = v_actor;
-  IF v_role NOT IN ('Admin','Manager','General Manager','MD-Transport','Managing Director','Vice Chairman','Vice President') THEN
+  IF v_role NOT IN ('Admin','Manager','General Manager','MD-Transport','Managing Director','Vice Chairman','Vice President')
+     OR (NOT public.same_department('Transportation') AND NOT public.is_executive()) THEN
     RAISE EXCEPTION 'You are not authorized to create transportation targets';
   END IF;
   IF p_target_deliveries IS NULL OR p_target_deliveries <= 0
