@@ -18,6 +18,7 @@ export type AttendanceReportPeriod = "daily" | "weekly" | "monthly";
 export type EmployeeAction = "create" | "update" | "suspend" | "activate" | "delete";
 
 const ROLE_LEVEL: Record<string, number> = {
+  Admin: 9,
   "Vice Chairman": 8,
   President: 7,
   "Vice President": 7,
