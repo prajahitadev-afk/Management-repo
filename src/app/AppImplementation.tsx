@@ -25,7 +25,7 @@ import { useTransport } from "../hooks/useTransport";
 import { useNotifications } from "../hooks/useNotifications";
 import { markAllAsRead } from "../services/notification.service";
 import type { NotificationEventType, NotificationRecord } from "../services/notification.service";
-import type { MarketingOrder } from "../services/marketing.service";
+import type { MarketingCustomer, MarketingOrder } from "../services/marketing.service";
 import { getBillAttachments, getBillHistory, viewBillAttachment, downloadBillAttachment, type BillAttachment, type BillHistory, type BillRecord, exportBillToPDF, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
 import logoSrc from "../assets/images/Prajahita.jpeg";
 import { getMonthlyRevenueData, getCommunityImpactData, getWeeklyAttendanceData, getAttendanceBreakdownData, type MonthData, type CommunityData, type AttendanceDay, type AttendanceBreakdown } from "../services/dashboard.service";
@@ -2239,7 +2239,7 @@ function BillsPage({ user }: { user: AppUser }) {
                   <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{bill.date}</td>
                   <td className="py-3.5 px-4"><StatusBadge status={bill.status} /></td>
                   <td className="py-3.5 px-4">
-                    <button className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
+                    <button type="button" onClick={() => setSelectedCustomer(c)} aria-label="View customer details" className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
                   </td>
                 </tr>
               ))}
@@ -2261,6 +2261,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const [customerSearch, setCustomerSearch] = useState("");
   const [actionLoadingOrderId, setActionLoadingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<MarketingOrder | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<MarketingCustomer | null>(null);
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
 
@@ -2274,15 +2275,8 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const canApproveOrders = (role?: Role) => ["Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "Worker");
   const canApproveCurrentUser = canApproveOrders(userRole);
 
-  useEffect(() => {
-    console.log("ORDERS", orders);
-    console.log("CUSTOMERS", customers);
-    console.log("ORDERS COMPONENT STATE", orders.length);
-    console.log("CUSTOMERS COMPONENT STATE", customers.length);
-  }, [orders, customers]);
 
   async function handleApproveOrder(order: MarketingOrder) {
-    console.log("APPROVE CLICK", order.id, order.status, userRole);
     if (!canApproveOrders(userRole)) return;
     setActionLoadingOrderId(order.id);
     try {
@@ -2619,6 +2613,35 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                 <div className="flex justify-end gap-3 mt-4 font-bold" style={{ color: B.text }}>Grand Total: ₹{orderDetails.grandTotal.toLocaleString()}</div>
               </>
             )}
+          </GlassCard>
+        </div>
+      )}
+
+      {selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.28)" }}>
+          <GlassCard className="w-full max-w-lg p-6">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: B.text }}>Customer Details</h2>
+                <p className="text-xs mt-1" style={{ color: B.textMuted }}>{selectedCustomer.id}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedCustomer(null)} aria-label="Close customer details" className="p-2 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><X size={18} /></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Name</p><p className="font-semibold" style={{ color: B.text }}>{selectedCustomer.name}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Contact Person</p><p style={{ color: B.text }}>{selectedCustomer.contactPerson || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Email</p><p style={{ color: B.text }}>{selectedCustomer.email || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Phone</p><p style={{ color: B.text }}>{selectedCustomer.phone || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Location</p><p style={{ color: B.text }}>{selectedCustomer.location || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>State</p><p style={{ color: B.text }}>{selectedCustomer.state || "—"}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Total Orders</p><p style={{ color: B.text }}>{selectedCustomer.orders}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Lifetime Value</p><p style={{ color: B.text }}>{selectedCustomer.value}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Customer Since</p><p style={{ color: B.text }}>{selectedCustomer.since}</p></div>
+              <div><p className="text-xs uppercase tracking-wide" style={{ color: B.textMuted }}>Status</p><p style={{ color: B.text }}>{selectedCustomer.status}</p></div>
+            </div>
+            <div className="flex justify-end mt-6">
+              <SecondaryButton onClick={() => setSelectedCustomer(null)}>Close</SecondaryButton>
+            </div>
           </GlassCard>
         </div>
       )}
