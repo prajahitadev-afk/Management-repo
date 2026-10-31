@@ -1639,12 +1639,7 @@ function AttendancePage({ user }: { user: AppUser }) {
 
         <div className="flex items-center justify-between px-5 py-4" style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
           <span className="text-xs" style={{ color: B.textMuted }}>Showing {filtered.length} employees</span>
-          <div className="flex gap-1">
-            {[1,2,3].map(p => (
-              <button key={p} className="w-8 h-8 rounded-lg text-xs font-semibold"
-                style={{ background: p===1 ? B.nav : "rgba(255,255,255,0.30)", color: p===1 ? "white" : B.textMuted, border: "1px solid rgba(255,255,255,0.45)" }}>{p}</button>
-            ))}
-          </div>
+          <span className="text-xs" style={{ color: B.textMuted }}>Page controls are not available in this view.</span>
         </div>
       </GlassCard>
     </div>
