@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../hooks/useNotifications";
-import { markAllAsRead } from "../services/notification.service";
 import { CreateOrderPage } from "./CreateOrderPage";
 import { CreateDispatchPage } from "./CreateDispatchPage";
 import { EmployeeDirectoryPage } from "../pages/employees/EmployeeDirectoryPage";
@@ -61,7 +60,7 @@ function NotFoundPage() {
 
 export default function App() {
   const { profile, loading } = useAuth();
-  const { notifications } = useNotifications(profile?.id);
+  const { notifications, markRead: markNotificationRead, markAllRead: markAllNotificationsRead } = useNotifications(profile?.id);
 
   const [page, setPage] = useState<Page>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -206,7 +205,7 @@ export default function App() {
   const isMobile = windowWidth < 768;
   const notifCount = notifications.filter((notification) => !notification.read).length;
   const handleMarkAllNotificationsRead = async () => {
-    await markAllAsRead(profile.id);
+    await markAllNotificationsRead();
   };
   const safeNavAccess = (currentPage: Page) => {
     const item = NAV_ITEMS.find((navItem) => navItem.id === currentPage);
@@ -300,7 +299,7 @@ export default function App() {
       case "transport": return <TransportPage setShowCreateDispatch={setShowCreateDispatch} />;
       case "admin": return <AdminPage user={profile} />;
       case "reports": return <ReportsPage user={profile} />;
-      case "notifications": return <NotificationsPage notifications={notifications} onMarkAllRead={handleMarkAllNotificationsRead} />;
+      case "notifications": return <NotificationsPage notifications={notifications} onMarkAllRead={handleMarkAllNotificationsRead} onMarkRead={markNotificationRead} />;
       case "audit": return <AuditLogPage />;
       case "organization": return <OrganizationChartPage currentUser={profile} onSelectEmployee={(employeeId) => {
         setSelectedEmployeeId(employeeId);
