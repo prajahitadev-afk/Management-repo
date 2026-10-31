@@ -382,7 +382,7 @@ const TT = {
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginPage({ onLogin }: { onLogin?: () => void }) {
-  const { login, profileError } = useAuth();
+  const { login, logout, profileError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -436,7 +436,10 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                 <p className="text-sm mb-5" style={{ color: B.textMuted }}>Sign in with your Prajahita Trust account</p>
                 {profileError && (
                   <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                    {profileError}
+                    <p>{profileError}</p>
+                    <button type="button" onClick={() => { void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }} className="mt-2 font-semibold underline">
+                      Sign out and try another account
+                    </button>
                   </div>
                 )}
                 <div className="mb-4">
