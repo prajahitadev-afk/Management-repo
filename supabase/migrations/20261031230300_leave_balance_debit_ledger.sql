@@ -97,17 +97,17 @@ BEGIN
     -- Deduct only at final approval. The guarded update and ledger insert are
     -- in the same transaction as the status transition.
     UPDATE public.leave_balances
-    SET casual_leave = CASE WHEN v_request.leave_type = 'Casual' THEN casual_leave - v_request.total_days ELSE casual_leave END,
-        sick_leave = CASE WHEN v_request.leave_type = 'Sick' THEN sick_leave - v_request.total_days ELSE sick_leave END,
-        earned_leave = CASE WHEN v_request.leave_type = 'Earned' THEN earned_leave - v_request.total_days ELSE earned_leave END,
-        unpaid_leave = CASE WHEN v_request.leave_type = 'Unpaid' THEN unpaid_leave - v_request.total_days ELSE unpaid_leave END,
+    SET casual_leave = CASE WHEN v_request.leave_type = 'Casual' THEN COALESCE(casual_leave, 0) - v_request.total_days ELSE COALESCE(casual_leave, 0) END,
+        sick_leave = CASE WHEN v_request.leave_type = 'Sick' THEN COALESCE(sick_leave, 0) - v_request.total_days ELSE COALESCE(sick_leave, 0) END,
+        earned_leave = CASE WHEN v_request.leave_type = 'Earned' THEN COALESCE(earned_leave, 0) - v_request.total_days ELSE COALESCE(earned_leave, 0) END,
+        unpaid_leave = CASE WHEN v_request.leave_type = 'Unpaid' THEN COALESCE(unpaid_leave, 0) - v_request.total_days ELSE COALESCE(unpaid_leave, 0) END,
         updated_at = now()
     WHERE employee_id = v_request.employee_id
       AND CASE v_request.leave_type
-        WHEN 'Casual' THEN casual_leave >= v_request.total_days
-        WHEN 'Sick' THEN sick_leave >= v_request.total_days
-        WHEN 'Earned' THEN earned_leave >= v_request.total_days
-        WHEN 'Unpaid' THEN unpaid_leave >= v_request.total_days
+        WHEN 'Casual' THEN COALESCE(casual_leave, 0) >= v_request.total_days
+        WHEN 'Sick' THEN COALESCE(sick_leave, 0) >= v_request.total_days
+        WHEN 'Earned' THEN COALESCE(earned_leave, 0) >= v_request.total_days
+        WHEN 'Unpaid' THEN COALESCE(unpaid_leave, 0) >= v_request.total_days
         ELSE false
       END;
 
