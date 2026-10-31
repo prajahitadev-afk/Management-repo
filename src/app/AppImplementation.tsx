@@ -43,6 +43,7 @@ import { CreateDispatchPage } from "./CreateDispatchPage";
 import { EmployeeDirectoryPage } from "../pages/employees/EmployeeDirectoryPage";
 import { EmployeeProfilePage } from "../pages/employees/EmployeeProfilePage";
 import { PaymentsPage } from "../pages/PaymentsPage";
+import { CollaborationModule } from "../pages/marketing/CollaborationModule";
 import { AttendancePage as EmployeeAttendancePage } from "../pages/employees/AttendancePage";
 import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage";
 import { EmployeeKpiWidget } from "../components/EmployeeKpiWidget";
@@ -2249,7 +2250,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const { profile } = useAuth();
   const userRole = profile?.role as Role | undefined;
   const { metrics, orders, customers, revenue, performance, loading, error, refreshData } = useMarketing();
-  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments">("orders");
+  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments"|"collaboration">("orders");
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [actionLoadingOrderId, setActionLoadingOrderId] = useState<string | null>(null);
@@ -2334,7 +2335,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
           </>
         } />
 
-<<<<<<< HEAD
       {/* ─── COLLABORATION MODULE BANNER SECTION ─── */}
       <div className="rounded-2xl p-5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
         <div className="flex items-center gap-4">
@@ -2360,8 +2360,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
         </button>
       </div>
 
-=======
->>>>>>> main
       {loading && (
         <div className="p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.25)" }}>
           Loading marketing data…
@@ -2426,26 +2424,23 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       {/* Tabs */}
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
-        {(["orders","customers","payments"] as const).map(t => (
+        {(["orders","customers","payments","collaboration"] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium capitalize transition-all"
             style={{
               background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
               color: activeTab === t ? B.nav : B.textMuted, fontWeight: activeTab === t ? 600 : 400,
-              borderRight: t !== "payments" ? "1px solid rgba(255,255,255,0.40)" : "none",
+              borderRight: t !== "collaboration" ? "1px solid rgba(255,255,255,0.40)" : "none",
             }}>
-            {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : "Payments"}
+            {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : t === "payments" ? "Payments" : "Collaboration"}
           </button>
         ))}
       </div>
 
-<<<<<<< HEAD
       {activeTab === "collaboration" && (
         <CollaborationModule currentUser={profile} />
       )}
 
-=======
->>>>>>> main
       {activeTab === "payments" && <PaymentsPage />}
 
       {activeTab === "orders" && (
