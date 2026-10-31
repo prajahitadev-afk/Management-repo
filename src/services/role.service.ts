@@ -3,6 +3,7 @@ import { EMPLOYEE_ROLES, type EmployeeRole } from "../types/role.types";
 
 export function getRoleHierarchyLevel(role: string): number {
   const levels: Record<string, number> = {
+    Admin: 9,
     Worker: 1,
     Supervisor: 2,
     Manager: 3,
