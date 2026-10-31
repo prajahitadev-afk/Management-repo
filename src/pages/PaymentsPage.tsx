@@ -36,6 +36,8 @@ export function PaymentsPage() {
   }, [loadPayments]);
 
   const updateStatus = async (payment: PaymentRow, status: Exclude<PaymentStatus, "Pending">) => {
+    const confirmed = window.confirm(`Mark payment for order ${payment.order_number ?? payment.order_id ?? payment.id} as ${status.toLowerCase()}?`);
+    if (!confirmed) return;
     setUpdatingId(payment.id);
     setError(null);
     try {
