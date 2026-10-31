@@ -99,6 +99,9 @@ BEGIN
   IF v_batch.status IN ('Completed', 'Cancelled') THEN
     RAISE EXCEPTION 'Output cannot be recorded for a completed or cancelled batch';
   END IF;
+  IF v_batch.actual_quantity + p_quantity > v_batch.planned_quantity THEN
+    RAISE EXCEPTION 'Recorded output cannot exceed the batch planned quantity';
+  END IF;
 
   INSERT INTO public.manufacturing_outputs (
     batch_id, worker_id, quantity_produced, production_date, remarks
