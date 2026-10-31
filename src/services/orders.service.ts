@@ -39,10 +39,7 @@ export async function dispatchOrder(orderId: string): Promise<void> {
 
 export async function getOrderDetails(orderId: string): Promise<OrderDetails> {
   const { data: orderItems, error: itemsError } = await supabase.from("order_items").select("*").eq("order_id", orderId);
-  console.log("ORDER_ITEMS RAW", orderItems);
-  console.log("ORDER_ITEMS ERROR", itemsError);
   if (itemsError) {
-    console.error("QUERY FAILED", itemsError);
     throw itemsError;
   }
   const rows = (orderItems ?? []) as Array<{ id: string; product_id: string | null; product_name: string | null; quantity: number | null; unit_price: number | string | null; total_price: number | string | null }>;
@@ -50,10 +47,7 @@ export async function getOrderDetails(orderId: string): Promise<OrderDetails> {
   let products: Array<{ id: string; name: string | null }> = [];
   if (needsProductLookup) {
     const { data, error: productsError } = await supabase.from("products").select("*");
-    console.log("PRODUCTS RAW", data);
-    console.log("PRODUCTS ERROR", productsError);
     if (productsError) {
-      console.error("QUERY FAILED", productsError);
       throw productsError;
     }
     products = (data ?? []) as Array<{ id: string; name: string | null }>;
