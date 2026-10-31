@@ -23,24 +23,13 @@ export interface OrderDetails {
   grandTotal: number;
 }
 
-const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  Pending: [ORDER_STATUS.Approved, ORDER_STATUS.Rejected],
-  Approved: [ORDER_STATUS.Dispatched],
-  Dispatched: [ORDER_STATUS.Delivered],
-  Delivered: [],
-  Rejected: [],
-};
-
 export async function transitionOrderStatus(orderId: string, nextStatus: OrderStatus): Promise<void> {
-  const { data: current, error: currentError } = await supabase.from("orders").select("status").eq("id", orderId).single();
-  if (currentError) throw currentError;
-  const currentStatus = normalizeOrderStatus(current.status);
-  if (!ORDER_TRANSITIONS[currentStatus].includes(nextStatus)) {
-    throw new Error(`Invalid order transition from ${currentStatus} to ${nextStatus}.`);
-  }
-  const { data, error } = await supabase.from("orders").update({ status: nextStatus }).eq("id", orderId).select("id, status").single();
+  const { data, error } = await supabase.rpc("transition_order_status", {
+    p_order_id: orderId,
+    p_next_status: nextStatus,
+  });
   if (error) throw error;
-  if (!data?.id || data.status !== nextStatus) throw new Error("Order status update was not confirmed.");
+  if (data !== nextStatus) throw new Error("Order status update was not confirmed.");
   window.dispatchEvent(new CustomEvent("order-workflow-changed"));
 }
 
