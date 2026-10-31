@@ -59,7 +59,7 @@ type Role =
   | "General Manager" | "Chief Manager" | "Manager" | "Supervisor" | "Worker"
   | "Admin";
 
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
 type EmployeeRoute = "directory" | "profile" | "attendance" | "organization";
 
 interface AppUser { id: string; name: string; role: Role; department: string; avatar: string; email: string; employeeId?: string; }
@@ -549,7 +549,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible !== false && navAccess(item, user));
+  const visibleNavItems = NAV_ITEMS.filter((item) => (!("visible" in item) || item.visible !== false) && navAccess(item, user));
 
   const content = (
     <div className="flex flex-col h-full relative overflow-hidden">
@@ -2490,7 +2490,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{o.delivery}</td>
                     <td className="py-3.5 px-4"><StatusBadge status={o.status} /></td>
                     <td className="py-3.5 px-4">
-                      {console.log("ORDER STATUS", o.status, "BUTTON DISABLED", actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status))}
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={(event) => { event.stopPropagation(); void handleApproveOrder(o); }}
