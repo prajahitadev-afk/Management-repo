@@ -98,7 +98,7 @@ export function useNotifications(userId?: string) {
   }
 
   async function markAllRead() {
-    if (!isValidUUID(userId)) return;
+    if (!userId || !isValidUUID(userId)) return;
     await markAllNotificationsAsRead(userId);
     setNotifications((current) => current.map((item) => ({ ...item, read: true })));
   }
