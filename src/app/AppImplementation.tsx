@@ -381,7 +381,7 @@ const TT = {
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginPage({ onLogin }: { onLogin?: () => void }) {
-  const { login } = useAuth();
+  const { login, profileError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -433,6 +433,11 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
               <>
                 <h2 className="text-xl font-bold mb-1" style={{ color: B.text }}>Welcome back</h2>
                 <p className="text-sm mb-5" style={{ color: B.textMuted }}>Sign in with your Prajahita Trust account</p>
+                {profileError && (
+                  <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                    {profileError}
+                  </div>
+                )}
                 <div className="mb-4">
                   <label
                     className="block text-xs font-bold mb-1.5 uppercase tracking-widest"
