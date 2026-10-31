@@ -7,23 +7,6 @@ import {
 } from "react";
 import { supabase } from "../lib/supabase";
 
-function clearAuthStorage() {
-  if (typeof window === "undefined") return;
-
-  const storages = [window.localStorage, window.sessionStorage];
-  storages.forEach((storage) => {
-    const keysToRemove: string[] = [];
-    for (let index = 0; index < storage.length; index += 1) {
-      const key = storage.key(index);
-      if (!key) continue;
-      if (key.startsWith("sb-") || key.includes("supabase") || key.includes("auth")) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => storage.removeItem(key));
-  });
-}
-
 interface AuthContextType {
   user: any;
   profile: any;
@@ -106,31 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function loadSession() {
       setLoading(true);
 
-      if (typeof window !== "undefined") {
-        const searchParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ""));
-        const params = new URLSearchParams(searchParams);
-        for (const [key, value] of hashParams.entries()) {
-          if (!params.has(key)) {
-            params.set(key, value);
-          }
-        }
-
-        const hasRecoveryType = params.get("type") === "recovery";
-        const hasAccessToken = !!params.get("access_token");
-        const hasRefreshToken = !!params.get("refresh_token");
-        if (hasRecoveryType || hasAccessToken || hasRefreshToken) {
-          const { error: sessionError } = await (supabase.auth as any).getSessionFromUrl();
-          if (!sessionError) {
-            const search = window.location.search || "";
-            const hash = window.location.hash || "";
-            if (window.location.pathname !== "/reset-password") {
-              window.history.replaceState({}, "", "/reset-password" + search + hash);
-            }
-          }
-        }
-      }
-
+      // Supabase handles PKCE and recovery URL callbacks through detectSessionInUrl.
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -174,14 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-<<<<<<< HEAD
       if (error) throw error;
       if (!data?.user) throw new Error("Unable to sign in with those credentials.");
-=======
-      if (error) {
-        throw error;
-      }
->>>>>>> main
 
       await syncProfile(data.user);
     } finally {
@@ -190,14 +143,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      clearAuthStorage();
-      setUser(null);
-      setProfile(null);
-      setLoading(false);
-    }
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    setUser(null);
+    setProfile(null);
+    setLoading(false);
 
     if (typeof window !== "undefined") {
       window.location.replace("/");

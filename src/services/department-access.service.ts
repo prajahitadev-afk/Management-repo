@@ -1,10 +1,9 @@
 import { normalizeDepartment, type DepartmentKey } from "./department.service";
 
-export type DepartmentRole = "Worker" | "Supervisor" | "Manager" | "Chief Manager" | "General Manager" | "MD" | "Admin";
+export type DepartmentRole = "Worker" | "Supervisor" | "Manager" | "Chief Manager" | "General Manager" | "MD";
 
 const roleKey = (role: string | null | undefined): DepartmentRole => {
-  if (role === "Admin") return "Admin";
-  if (String(role ?? "").startsWith("MD-") || role === "Managing Director") return "MD";
+  if (String(role ?? "").startsWith("MD-") || role === "Managing Director" || role === "Vice Chairman" || role === "Vice President" || role === "President") return "MD";
   if (role === "Supervisor" || role === "Manager" || role === "Chief Manager" || role === "General Manager") return role;
   return "Worker";
 };
@@ -29,8 +28,8 @@ const tabs: Record<DepartmentKey, Record<DepartmentRole, string[]>> = {
 
 export function getAllowedTabs(role: string | null | undefined, department: string | null | undefined): string[] {
   const departmentTabs = tabs[normalizeDepartment(department)];
+  if (role === "Admin") return [...new Set(Object.values(departmentTabs).flat())];
   const resolvedRole = roleKey(role);
-  if (resolvedRole === "Admin") return [...new Set(Object.values(departmentTabs).flat())];
   return departmentTabs[resolvedRole];
 }
 

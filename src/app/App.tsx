@@ -13,7 +13,6 @@ import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import AuditLogPage from "../pages/AuditLogPage";
 import { LeavePage } from "../pages/leave/LeavePage";
 import DepartmentPage from "../pages/department/DepartmentPage";
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
 import {
   AdminPage,
   BillsPage,
@@ -229,6 +228,7 @@ export default function App() {
       profile: "/profile",
       leave: "/leave",
       department: "/department",
+      "not-found": "/404",
     };
 
     window.history.pushState({}, "", routeMap[nextPage] ?? "/");

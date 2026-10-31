@@ -85,13 +85,18 @@ export async function updateProfile(id: string, updates: Partial<ProfileRecord>)
     await assignEmployeeRole(id, updates.role, authData.user.id);
   }
 
+  if (updates.department !== undefined) {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) throw authError ?? new Error("Authentication required");
+    const { assignEmployeeDepartment } = await import("./department.service");
+    await assignEmployeeDepartment(id, updates.department, authData.user.id);
+  }
+
   const allowedUpdates = {
     name: updates.name,
     email: updates.email,
     phone: updates.phone,
     role: undefined,
-    department: updates.department,
-    status: updates.status,
     employee_id: updates.employee_id,
   };
 

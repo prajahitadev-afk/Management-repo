@@ -18,6 +18,7 @@ export type AttendanceReportPeriod = "daily" | "weekly" | "monthly";
 export type EmployeeAction = "create" | "update" | "suspend" | "activate" | "delete";
 
 const ROLE_LEVEL: Record<string, number> = {
+  Admin: 9,
   "Vice Chairman": 8,
   President: 7,
   "Vice President": 7,
@@ -460,11 +461,9 @@ export async function updateEmployee(actorId: string, employeeId: string, update
     email: updates.email,
     phone: updates.phone,
     address: updates.address,
-    role: updates.role,
     employee_code: updates.employeeCode,
     designation: updates.designation,
     hierarchy_level: updates.hierarchyLevel,
-    department: updates.department,
     reports_to: updates.reportsTo,
     status: updates.status,
     joining_date: updates.joiningDate,

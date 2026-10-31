@@ -11,7 +11,7 @@ export default function AuditLogPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const { logs, actors, loading, error } = useAuditLogs({ search, action, actorId, from, to });
-  const actionLabel = useMemo(() => (value: string) => value.replaceAll("_", " "), []);
+  const actionLabel = useMemo(() => (value: string) => value.replace(/_/g, " "), []);
 
   return <div className="p-6 space-y-5">
     <div className="rounded-2xl border border-white/50 bg-white/40 p-4 shadow-sm"><h1 className="text-xl font-semibold text-slate-800">Audit Log</h1><p className="text-sm text-slate-600">Track employee, attendance, department, role, supervisor, and KPI changes.</p></div>

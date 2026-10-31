@@ -43,6 +43,7 @@ import { CreateDispatchPage } from "./CreateDispatchPage";
 import { EmployeeDirectoryPage } from "../pages/employees/EmployeeDirectoryPage";
 import { EmployeeProfilePage } from "../pages/employees/EmployeeProfilePage";
 import { PaymentsPage } from "../pages/PaymentsPage";
+import { CollaborationModule } from "../pages/marketing/CollaborationModule";
 import { AttendancePage as EmployeeAttendancePage } from "../pages/employees/AttendancePage";
 import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage";
 import { EmployeeKpiWidget } from "../components/EmployeeKpiWidget";
@@ -58,7 +59,7 @@ type Role =
   | "General Manager" | "Chief Manager" | "Manager" | "Supervisor" | "Worker"
   | "Admin";
 
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
 type EmployeeRoute = "directory" | "profile" | "attendance" | "organization";
 
 interface AppUser { id: string; name: string; role: Role; department: string; avatar: string; email: string; employeeId?: string; }
@@ -548,7 +549,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible !== false && navAccess(item, user));
+  const visibleNavItems = NAV_ITEMS.filter((item) => (!("visible" in item) || item.visible !== false) && navAccess(item, user));
 
   const content = (
     <div className="flex flex-col h-full relative overflow-hidden">
@@ -2249,7 +2250,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const { profile } = useAuth();
   const userRole = profile?.role as Role | undefined;
   const { metrics, orders, customers, revenue, performance, loading, error, refreshData } = useMarketing();
-  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments">("orders");
+  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments"|"collaboration">("orders");
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [actionLoadingOrderId, setActionLoadingOrderId] = useState<string | null>(null);
@@ -2257,7 +2258,12 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
 
-  const filteredOrders = orders;
+  const normalizedOrderSearch = orderSearch.trim().toLowerCase();
+  const filteredOrders = orders.filter((order) => {
+    if (!normalizedOrderSearch) return true;
+    return [order.ref, order.customer, order.location, order.soap, order.status]
+      .some((value) => String(value ?? "").toLowerCase().includes(normalizedOrderSearch));
+  });
 
   const canApproveOrders = (role?: Role) => ["Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "Worker");
   const canApproveCurrentUser = canApproveOrders(userRole);
@@ -2314,7 +2320,12 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
     }
   }
 
-  const filteredCustomers = customers;
+  const normalizedCustomerSearch = customerSearch.trim().toLowerCase();
+  const filteredCustomers = customers.filter((customer) => {
+    if (!normalizedCustomerSearch) return true;
+    return [customer.id, customer.name, customer.location]
+      .some((value) => String(value ?? "").toLowerCase().includes(normalizedCustomerSearch));
+  });
 
   const handleExport = () => {
     void exportMarketingWorkbook(filteredOrders, filteredCustomers, metrics, revenue, performance);
@@ -2334,7 +2345,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
           </>
         } />
 
-<<<<<<< HEAD
       {/* ─── COLLABORATION MODULE BANNER SECTION ─── */}
       <div className="rounded-2xl p-5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
         <div className="flex items-center gap-4">
@@ -2360,8 +2370,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
         </button>
       </div>
 
-=======
->>>>>>> main
       {loading && (
         <div className="p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.25)" }}>
           Loading marketing data…
@@ -2426,26 +2434,23 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       {/* Tabs */}
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
-        {(["orders","customers","payments"] as const).map(t => (
+        {(["orders","customers","payments","collaboration"] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium capitalize transition-all"
             style={{
               background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
               color: activeTab === t ? B.nav : B.textMuted, fontWeight: activeTab === t ? 600 : 400,
-              borderRight: t !== "payments" ? "1px solid rgba(255,255,255,0.40)" : "none",
+              borderRight: t !== "collaboration" ? "1px solid rgba(255,255,255,0.40)" : "none",
             }}>
-            {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : "Payments"}
+            {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : t === "payments" ? "Payments" : "Collaboration"}
           </button>
         ))}
       </div>
 
-<<<<<<< HEAD
       {activeTab === "collaboration" && (
         <CollaborationModule currentUser={profile} />
       )}
 
-=======
->>>>>>> main
       {activeTab === "payments" && <PaymentsPage />}
 
       {activeTab === "orders" && (
@@ -2485,7 +2490,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{o.delivery}</td>
                     <td className="py-3.5 px-4"><StatusBadge status={o.status} /></td>
                     <td className="py-3.5 px-4">
-                      {console.log("ORDER STATUS", o.status, "BUTTON DISABLED", actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status))}
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={(event) => { event.stopPropagation(); void handleApproveOrder(o); }}
