@@ -55,6 +55,10 @@ GitHub Actions runs these checks for pushes and pull requests targeting `main`.
 - Database access is controlled by PostgreSQL grants and row-level security policies. Do not treat client-side role checks as a security boundary.
 - Apply reviewed SQL migrations to the Management Supabase project only. Do not run schema changes against the separate Shop Supabase project.
 
+## Database migrations
+
+Incremental Management Supabase changes are recorded under `supabase/migrations/`. These migrations capture the security and order-workflow changes made in this maintenance pass. They are **not** a complete initial schema for a brand-new Supabase project; use the existing live Management project as the schema baseline until a full ordered schema export is prepared. Review each migration and apply it to the Management project only.
+
 ## Security
 
 - Keep `.env.local` and other local environment files out of Git.
