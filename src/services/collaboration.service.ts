@@ -92,8 +92,8 @@ export interface CollaborationAuditLog {
   previous_status: CollaborationStatus | "N/A";
   new_status: CollaborationStatus;
   details: string;
-  ip_address: string;
-  device_info: string;
+  ip_address?: string;
+  device_info?: string;
   created_at: string;
 }
 
@@ -449,12 +449,12 @@ export async function fetchCollaborationAuditLogs(applicationId?: string): Promi
     if (data) {
       const rows = data as Array<
         Omit<CollaborationAuditLog, "application_number" | "ip_address" | "device_info"> & {
-          collaboration_applications: { application_number: string } | null;
+          collaboration_applications: { application_number: string } | { application_number: string }[] | null;
         }
       >;
       auditLogsStore = rows.map(({ collaboration_applications, ...log }) => ({
         ...log,
-        application_number: collaboration_applications?.application_number ?? "",
+        application_number: (Array.isArray(collaboration_applications) ? collaboration_applications[0] : collaboration_applications)?.application_number ?? "",
       }));
     }
   }
