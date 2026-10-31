@@ -59,6 +59,7 @@ import {
 } from "../../services/research.service";
 import {
   getDefects,
+  getBatches,
   getDefectsByWorker,
   getGMDashboard,
   getCMDashboard,
@@ -265,9 +266,10 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             setManufacturingData({ md: result.data! });
             setMetrics([{ label: "Annual output", value: String(result.data!.annual_output) }, { label: "Annual targets", value: String(result.data!.annual_targets) }, { label: "Achievement", value: `${result.data!.achievement_percentage.toFixed(1)}%` }]);
           }
-          const defectQueue = await getDefects();
-          if (defectQueue.error) throw defectQueue.error;
-          if (active) setTableData((current) => ({ ...current, defects: asRecords(defectQueue.data) }));
+          const [defectQueue, batches] = await Promise.all([getDefects(), getBatches()]);
+          const failure = [defectQueue, batches].find((result) => result.error);
+          if (failure?.error) throw failure.error;
+          if (active) setTableData((current) => ({ ...current, defects: asRecords(defectQueue.data), batches: asRecords(batches.data) }));
         } else if (metadata.key === "marketing") {
           const role = profile.role;
           if (role === "Admin") {
@@ -564,7 +566,19 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
   }
   const secondaryForm = getSecondaryFormDefinition(metadata.key, activeTab);
   const availableForm = getFormDefinition(metadata.key, activeTab);
-  const openForm = (definition: FormDefinition | null) => { if (!definition) return; setFormValues({}); setFormError(""); setActiveForm(definition); };
+  const openForm = (definition: FormDefinition | null) => {
+    if (!definition) return;
+    const batchOptions = (tableData.batches ?? []).map((batch) => ({
+      label: `${String(batch.batch_number ?? "Batch")} · ${String(batch.product_name ?? "")}`,
+      value: String(batch.id ?? ""),
+    })).filter((option) => option.value);
+    const fields = definition.fields.map((field) => field.key === "batch_id"
+      ? { ...field, type: "select" as const, options: batchOptions }
+      : field);
+    setFormValues({});
+    setFormError("");
+    setActiveForm({ ...definition, fields });
+  };
   const handleReviewDefect = async (row: Record<string, unknown>) => {
     const defectId = String(row.id ?? "");
     if (!defectId) { setDataError("Defect ID is missing"); return; }
@@ -636,14 +650,14 @@ function DepartmentDataTable({ loading, error, rows, columns, onReviewDefect }: 
   return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-black/10 text-xs uppercase tracking-wide text-slate-500">{columns.map((column) => <th key={column.label} className="px-3 py-2 font-semibold">{column.label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={recordValue(row, "id") || String(index)} className="border-b border-black/5 text-slate-700">{columns.map((column) => <td key={column.label} className="px-3 py-3">{column.action ? (row.status === "Open" ? <button type="button" onClick={() => onReviewDefect?.(row)} className="rounded-md bg-[#4e8050] px-3 py-1.5 text-xs font-medium text-white">Review</button> : <span className="text-slate-500">Reviewed</span>) : column.value(row)}</td>)}</tr>)}</tbody></table></div>;
 }
 
-type FormField = { key: string; label: string; type?: "number" | "date"; required?: boolean };
+type FormField = { key: string; label: string; type?: "number" | "date" | "select"; required?: boolean; options?: Array<{ label: string; value: string }> };
 type FormDefinition = { kind: string; title: string; fields: FormField[] };
 
 function getFormDefinition(department: string, tab: string): FormDefinition | null {
   const definitions: Record<string, FormDefinition> = {
     "manufacturing:Production": { kind: "batch", title: "New Batch", fields: [{ key: "batch_number", label: "Batch Code", required: true }, { key: "product_name", label: "Product Name", required: true }, { key: "target_quantity", label: "Planned Quantity", type: "number", required: true }, { key: "start_date", label: "Start Date", type: "date", required: true }, { key: "end_date", label: "End Date", type: "date", required: true }, { key: "supervisor_id", label: "Assigned Supervisor", required: false }] },
-    "manufacturing:Defects": { kind: "defect", title: "Record Defect", fields: [{ key: "batch_id", label: "Batch", required: true }, { key: "defect_type", label: "Defect Type", required: true }, { key: "quantity", label: "Quantity", type: "number", required: true }, { key: "severity", label: "Severity", required: true }, { key: "description", label: "Description", required: true }] },
-    "manufacturing:Hours": { kind: "hours", title: "Record Hours", fields: [{ key: "batch_id", label: "Batch ID", required: true }, { key: "work_date", label: "Date", type: "date", required: true }, { key: "hours_worked", label: "Hours Worked", type: "number", required: true }, { key: "overtime_hours", label: "Overtime Hours", type: "number", required: false }, { key: "remarks", label: "Remarks", required: false }] },
+    "manufacturing:Defects": { kind: "defect", title: "Record Defect", fields: [{ key: "batch_id", label: "Batch", type: "select", required: true }, { key: "defect_type", label: "Defect Type", required: true }, { key: "quantity", label: "Quantity", type: "number", required: true }, { key: "severity", label: "Severity", required: true }, { key: "description", label: "Description", required: true }] },
+    "manufacturing:Hours": { kind: "hours", title: "Record Hours", fields: [{ key: "batch_id", label: "Batch", type: "select", required: true }, { key: "work_date", label: "Date", type: "date", required: true }, { key: "hours_worked", label: "Hours Worked", type: "number", required: true }, { key: "overtime_hours", label: "Overtime Hours", type: "number", required: false }, { key: "remarks", label: "Remarks", required: false }] },
     "manufacturing:Targets": { kind: "manufacturing-target", title: "Create Target", fields: [{ key: "target_name", label: "Target Name", required: false }, { key: "target_quantity", label: "Target Quantity", type: "number", required: true }, { key: "period_start", label: "Start Date", type: "date", required: true }, { key: "period_end", label: "End Date", type: "date", required: true }] },
     "marketing:Leads": { kind: "lead", title: "New Lead", fields: [{ key: "name", label: "Lead Name", required: true }, { key: "source", label: "Lead Source", required: true }, { key: "status", label: "Status", required: true }, { key: "notes", label: "Notes", required: false }] },
     "marketing:Campaigns": { kind: "campaign", title: "New Campaign", fields: [{ key: "name", label: "Campaign Name", required: true }, { key: "budget", label: "Budget", type: "number", required: true }, { key: "start_date", label: "Start Date", type: "date", required: true }, { key: "end_date", label: "End Date", type: "date", required: true }, { key: "status", label: "Status", required: true }] },
@@ -664,10 +678,10 @@ function getFormDefinition(department: string, tab: string): FormDefinition | nu
 }
 
 function getSecondaryFormDefinition(department: string, tab: string): FormDefinition | null {
-  if (department === "manufacturing" && tab === "Production") return { kind: "output", title: "Record Output", fields: [{ key: "batch_id", label: "Batch", required: true }, { key: "quantity_produced", label: "Quantity Produced", type: "number", required: true }, { key: "production_date", label: "Production Date", type: "date", required: true }, { key: "remarks", label: "Remarks", required: false }] };
+  if (department === "manufacturing" && tab === "Production") return { kind: "output", title: "Record Output", fields: [{ key: "batch_id", label: "Batch", type: "select", required: true }, { key: "quantity_produced", label: "Quantity Produced", type: "number", required: true }, { key: "production_date", label: "Production Date", type: "date", required: true }, { key: "remarks", label: "Remarks", required: false }] };
   return null;
 }
 
 function DepartmentFormModal({ definition, values, error, submitting, onChange, onClose, onSubmit }: { definition: FormDefinition; values: Record<string, string>; error: string; submitting: boolean; onChange: (key: string, value: string) => void; onClose: () => void; onSubmit: () => void }) {
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="department-form-title"><form onSubmit={(event) => { event.preventDefault(); onSubmit(); }} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-center justify-between"><h2 id="department-form-title" className="text-lg font-semibold text-slate-800">{definition.title}</h2><button type="button" onClick={onClose} className="text-sm text-slate-500">Close</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{definition.fields.map((field) => <label key={field.key} className="text-sm text-slate-700"><span>{field.label}{field.required ? " *" : ""}</span><input required={field.required} type={field.type ?? "text"} min={field.type === "number" ? "0.01" : undefined} value={values[field.key] ?? ""} onChange={(event) => onChange(field.key, event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#4e8050]" /></label>)}</div>{error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}<div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button><button type="submit" disabled={submitting} className="rounded-lg bg-[#4e8050] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{submitting ? "Saving..." : "Save"}</button></div></form></div>;
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="department-form-title"><form onSubmit={(event) => { event.preventDefault(); onSubmit(); }} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-center justify-between"><h2 id="department-form-title" className="text-lg font-semibold text-slate-800">{definition.title}</h2><button type="button" onClick={onClose} className="text-sm text-slate-500">Close</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{definition.fields.map((field) => <label key={field.key} className="text-sm text-slate-700"><span>{field.label}{field.required ? " *" : ""}</span>{field.type === "select" ? <select required={field.required} value={values[field.key] ?? ""} onChange={(event) => onChange(field.key, event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-[#4e8050]"><option value="">Select a batch</option>{(field.options ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input required={field.required} type={field.type ?? "text"} min={field.type === "number" ? "0.01" : undefined} value={values[field.key] ?? ""} onChange={(event) => onChange(field.key, event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#4e8050]" />}</label>)}</div>{definition.fields.some((field) => field.type === "select" && !(field.options?.length)) && <p className="mt-2 text-xs text-amber-700">No batches are available. Create a production batch first.</p>}{error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}<div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button><button type="submit" disabled={submitting || definition.fields.some((field) => field.type === "select" && !(field.options?.length))} className="rounded-lg bg-[#4e8050] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{submitting ? "Saving..." : "Save"}</button></div></form></div>;
 }
