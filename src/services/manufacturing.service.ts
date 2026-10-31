@@ -33,12 +33,12 @@ export interface ManufacturingDefect {
   worker_id: string;
   defect_type: string;
   quantity: number;
+  severity: "Low" | "Medium" | "High" | "Critical";
   description: string | null;
-  status: string;
+  status: "Open" | "Reviewed" | "Resolved";
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
-  updated_at: string;
   [key: string]: unknown;
 }
 
@@ -94,6 +94,7 @@ export interface CreateDefectInput {
   worker_id: string;
   defect_type: string;
   quantity: number;
+  severity?: "Low" | "Medium" | "High" | "Critical";
   description?: string | null;
 }
 
@@ -290,29 +291,78 @@ export async function getWorkerProductionSummary(workerId: string): Promise<Manu
   return { data: { total_soaps_produced: total, average_daily_production: byDay.size ? total / byDay.size : 0, batches_worked: new Set(rows.map((row) => row.batch_id)).size }, error: null };
 }
 
-export async function getDefects(): Promise<ManufacturingResult<ManufacturingDefect[]>> { return { data: [], error: null }; }
+function mapDefect(row: Record<string, unknown>): ManufacturingDefect {
+  return {
+    ...row,
+    id: String(row.id ?? ""),
+    batch_id: String(row.batch_id ?? ""),
+    worker_id: String(row.worker_id ?? ""),
+    defect_type: String(row.defect_type ?? ""),
+    quantity: numberValue(row.defect_quantity),
+    severity: (row.severity ?? "Medium") as ManufacturingDefect["severity"],
+    description: row.description == null ? null : String(row.description),
+    status: (row.status ?? "Open") as ManufacturingDefect["status"],
+    reviewed_by: row.reviewed_by == null ? null : String(row.reviewed_by),
+    reviewed_at: row.reviewed_at == null ? null : String(row.reviewed_at),
+    created_at: String(row.reported_at ?? ""),
+  };
+}
+
+async function readDefects(filters: { workerId?: string; batchId?: string } = {}): Promise<ManufacturingResult<ManufacturingDefect[]>> {
+  try {
+    let query = supabase.from("manufacturing_defects").select("*").order("reported_at", { ascending: false });
+    if (filters.workerId) query = query.eq("worker_id", filters.workerId);
+    if (filters.batchId) query = query.eq("batch_id", filters.batchId);
+    const { data, error } = await query;
+    if (error) return { data: null, error: asError(error) };
+    return { data: (data ?? []).map((row) => mapDefect(row as Record<string, unknown>)), error: null };
+  } catch (error) {
+    return { data: null, error: asError(error) };
+  }
+}
+
+export async function getDefects(): Promise<ManufacturingResult<ManufacturingDefect[]>> {
+  return readDefects();
+}
 
 export async function getDefectsByWorker(workerId: string): Promise<ManufacturingResult<ManufacturingDefect[]>> {
   const error = requireId(workerId, "Worker ID");
-  if (error) return invalid(error.message);
-  return { data: [], error: null };
+  return error ? invalid(error.message) : readDefects({ workerId });
 }
 
 export async function getDefectsByBatch(batchId: string): Promise<ManufacturingResult<ManufacturingDefect[]>> {
   const error = requireId(batchId, "Batch ID");
-  if (error) return invalid(error.message);
-  return { data: [], error: null };
+  return error ? invalid(error.message) : readDefects({ batchId });
 }
 
 export async function recordDefect(data: CreateDefectInput): Promise<ManufacturingResult<ManufacturingDefect>> {
   if (!data.batch_id.trim() || !data.worker_id.trim() || !data.defect_type.trim()) return invalid("Batch ID, worker ID, and defect type are required");
-  if (!Number.isFinite(data.quantity) || data.quantity <= 0) return invalid("Defect quantity must be greater than zero");
-  return invalid("No defect tracking data available");
+  if (!Number.isInteger(data.quantity) || data.quantity <= 0) return invalid("Defect quantity must be a positive whole number");
+  try {
+    const { data: row, error } = await supabase.rpc("record_manufacturing_defect", {
+      p_batch_id: data.batch_id,
+      p_worker_id: data.worker_id,
+      p_defect_type: data.defect_type.trim(),
+      p_quantity: data.quantity,
+      p_severity: data.severity ?? "Medium",
+      p_description: data.description?.trim() || null,
+    });
+    if (error) return { data: null, error: asError(error) };
+    return { data: row ? mapDefect(row as Record<string, unknown>) : null, error: row ? null : new Error("Defect report was not created") };
+  } catch (error) {
+    return { data: null, error: asError(error) };
+  }
 }
 
 export async function reviewDefect(defectId: string, reviewerId: string): Promise<ManufacturingResult<ManufacturingDefect>> {
   if (requireId(defectId, "Defect ID") || requireId(reviewerId, "Reviewer ID")) return invalid("Defect ID and reviewer ID are required");
-  return invalid("No defect tracking data available");
+  try {
+    const { data: row, error } = await supabase.rpc("review_manufacturing_defect", { p_defect_id: defectId });
+    if (error) return { data: null, error: asError(error) };
+    return { data: row ? mapDefect(row as Record<string, unknown>) : null, error: row ? null : new Error("Defect was not reviewed") };
+  } catch (error) {
+    return { data: null, error: asError(error) };
+  }
 }
 
 function attendanceToHours(row: Record<string, unknown>): ManufacturingWorkingHours {
