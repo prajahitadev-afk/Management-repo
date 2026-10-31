@@ -188,13 +188,19 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
   if (type === "Marketing") {
     const { data: ordersRows, error: ordersError } = await supabase
       .from("orders")
-      .select("id, order_number, status, order_date, total_amount, customer_id, created_at")
+      .select("id, order_number, status, order_date, total_amount, customer_id, created_by, created_at")
       .gte("order_date", from)
       .lte("order_date", to);
 
     if (ordersError) throw ordersError;
 
     const orderRows = ordersRows || [];
+    const creatorIds = Array.from(new Set(orderRows.map((row) => row.created_by).filter(Boolean))) as string[];
+    const { data: creators, error: creatorsError } = creatorIds.length
+      ? await supabase.from("profiles").select("id, department").in("id", creatorIds)
+      : { data: [], error: null };
+    if (creatorsError) throw creatorsError;
+    const creatorDepartmentById = new Map((creators ?? []).map((creator) => [String(creator.id), creator.department]));
     const orderIds = orderRows.map((row) => row.id);
     const { data: orderItems, error: itemsError } = orderIds.length ? await supabase.from("order_items").select("order_id, product_id, quantity, unit_price").in("order_id", orderIds) : { data: [], error: null };
     if (itemsError) throw itemsError;
@@ -204,7 +210,11 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
     const productMapById = new Map((products || []).map((product) => [String(product.id), String(product.name ?? "Unknown")]));
     const itemsByOrder = new Map<string, typeof orderItems>();
     (orderItems || []).forEach((item) => itemsByOrder.set(String(item.order_id), [...(itemsByOrder.get(String(item.order_id)) || []), item]));
-    const filteredOrders = orderRows.filter((row) => !departmentFilter || row.customer_id === departmentFilter);
+    const filteredOrders = orderRows.filter((row) => {
+      if (!departmentFilter) return true;
+      const creatorDepartment = creatorDepartmentById.get(String(row.created_by ?? ""));
+      return normalizeDepartmentName(creatorDepartment as string | undefined) === normalizeDepartmentName(departmentFilter);
+    });
     const totalOrders = filteredOrders.length;
     const revenue = filteredOrders.reduce((sum, row) => sum + Number(row.total_amount ?? 0), 0);
     const uniqueCustomers = new Set(filteredOrders.map((row) => row.customer_id).filter(Boolean)).size;
