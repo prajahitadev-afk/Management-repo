@@ -228,6 +228,7 @@ export default function App() {
       profile: "/profile",
       leave: "/leave",
       department: "/department",
+      "not-found": "/404",
     };
 
     window.history.pushState({}, "", routeMap[nextPage] ?? "/");
