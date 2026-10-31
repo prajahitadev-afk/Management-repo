@@ -199,7 +199,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             if (!active) return;
             setMetrics([
               { label: "Worker output", value: String((outputs.data ?? []).reduce((sum, row) => sum + Number(row.quantity_produced || 0), 0)) },
-              { label: "Worker defects", value: (defects.data ?? []).length ? String((defects.data ?? []).length) : "No defect tracking data available" },
+              { label: "Worker defects", value: String((defects.data ?? []).length) },
               { label: "Worker hours", value: String((hours.data ?? []).reduce((sum, row) => sum + Number(row.hours_worked || 0), 0)) },
               { label: "Team output", value: String(supervisor.data?.team_output ?? 0) },
               { label: "Target achievement", value: `${(manager.data?.achievement_percentage ?? 0).toFixed(1)}%` },
@@ -225,7 +225,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             setMetrics([
               { label: "Total soaps produced", value: String((outputs.data ?? []).reduce((sum, row) => sum + Number(row.quantity_produced || 0), 0)) },
               { label: "Today's output", value: String((outputs.data ?? []).filter((row) => row.production_date === new Date().toISOString().slice(0, 10)).reduce((sum, row) => sum + Number(row.quantity_produced || 0), 0)) },
-              { label: "Defect tracking", value: "No defect tracking data available" },
+              { label: "Defects reported", value: String((defects.data ?? []).length) },
             ]);
             setRecentActivity((outputs.data ?? []).slice(0, 4).map((row) => `Batch ${row.batch_id} Â· ${row.quantity_produced} units Â· ${row.production_date}`));
           } else if (role === "Supervisor") {
@@ -572,9 +572,9 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
       let result: { error: Error | null };
       switch (activeForm.kind) {
         case "batch": result = await createBatch({ batch_number: value.batch_number, product_name: value.product_name, target_quantity: Number(value.target_quantity), start_date: value.start_date, end_date: value.end_date, supervisor_id: value.supervisor_id || null, manager_id: profile.id }); break;
-        case "output": result = await recordOutput({ worker_id: profile.id, quantity_produced: Number(value.quantity_produced), production_date: value.production_date, remarks: value.remarks }); break;
-        case "defect": result = await recordDefect({ batch_id: value.batch_id, worker_id: profile.id, defect_type: value.defect_type, quantity: Number(value.quantity), description: value.description }); break;
-        case "hours": result = await recordWorkingHours({ batch_id: value.batch_id || null, worker_id: profile.id, work_date: value.work_date, hours_worked: Number(value.hours_worked), overtime_hours: Number(value.overtime_hours || 0) }); break;
+        case "output": result = await recordOutput({ batch_id: value.batch_id, worker_id: profile.id, quantity_produced: Number(value.quantity_produced), production_date: value.production_date, remarks: value.remarks }); break;
+        case "defect": result = await recordDefect({ batch_id: value.batch_id, worker_id: profile.id, defect_type: value.defect_type, quantity: Number(value.quantity), severity: (value.severity || "Medium") as "Low" | "Medium" | "High" | "Critical", description: value.description }); break;
+        case "hours": result = await recordWorkingHours({ batch_id: value.batch_id, worker_id: profile.id, work_date: value.work_date, hours_worked: Number(value.hours_worked), overtime_hours: Number(value.overtime_hours || 0), remarks: value.remarks }); break;
         case "manufacturing-target": result = await createManufacturingTarget({ manager_id: profile.id, target_quantity: Number(value.target_quantity), period_start: value.period_start, period_end: value.period_end }); break;
         case "lead": result = await createLead({ assigned_to: profile.id, name: value.name, source: value.source, status: value.status }); break;
         case "campaign": result = await createCampaign({ manager_id: profile.id, name: value.name, budget: Number(value.budget), start_date: value.start_date, end_date: value.end_date, status: value.status }); break;
@@ -626,7 +626,7 @@ function getFormDefinition(department: string, tab: string): FormDefinition | nu
   const definitions: Record<string, FormDefinition> = {
     "manufacturing:Production": { kind: "batch", title: "New Batch", fields: [{ key: "batch_number", label: "Batch Code", required: true }, { key: "product_name", label: "Product Name", required: true }, { key: "target_quantity", label: "Planned Quantity", type: "number", required: true }, { key: "start_date", label: "Start Date", type: "date", required: true }, { key: "end_date", label: "End Date", type: "date", required: true }, { key: "supervisor_id", label: "Assigned Supervisor", required: false }] },
     "manufacturing:Defects": { kind: "defect", title: "Record Defect", fields: [{ key: "batch_id", label: "Batch", required: true }, { key: "defect_type", label: "Defect Type", required: true }, { key: "quantity", label: "Quantity", type: "number", required: true }, { key: "severity", label: "Severity", required: true }, { key: "description", label: "Description", required: true }] },
-    "manufacturing:Hours": { kind: "hours", title: "Record Hours", fields: [{ key: "batch_id", label: "Batch", required: false }, { key: "work_date", label: "Date", type: "date", required: true }, { key: "hours_worked", label: "Hours Worked", type: "number", required: true }, { key: "overtime_hours", label: "Overtime Hours", type: "number", required: false }, { key: "remarks", label: "Remarks", required: false }] },
+    "manufacturing:Hours": { kind: "hours", title: "Record Hours", fields: [{ key: "batch_id", label: "Batch ID", required: true }, { key: "work_date", label: "Date", type: "date", required: true }, { key: "hours_worked", label: "Hours Worked", type: "number", required: true }, { key: "overtime_hours", label: "Overtime Hours", type: "number", required: false }, { key: "remarks", label: "Remarks", required: false }] },
     "manufacturing:Targets": { kind: "manufacturing-target", title: "Create Target", fields: [{ key: "target_name", label: "Target Name", required: false }, { key: "target_quantity", label: "Target Quantity", type: "number", required: true }, { key: "period_start", label: "Start Date", type: "date", required: true }, { key: "period_end", label: "End Date", type: "date", required: true }] },
     "marketing:Leads": { kind: "lead", title: "New Lead", fields: [{ key: "name", label: "Lead Name", required: true }, { key: "source", label: "Lead Source", required: true }, { key: "status", label: "Status", required: true }, { key: "notes", label: "Notes", required: false }] },
     "marketing:Campaigns": { kind: "campaign", title: "New Campaign", fields: [{ key: "name", label: "Campaign Name", required: true }, { key: "budget", label: "Budget", type: "number", required: true }, { key: "start_date", label: "Start Date", type: "date", required: true }, { key: "end_date", label: "End Date", type: "date", required: true }, { key: "status", label: "Status", required: true }] },
