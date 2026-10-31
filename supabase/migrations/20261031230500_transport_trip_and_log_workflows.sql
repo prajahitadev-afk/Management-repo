@@ -224,6 +224,71 @@ BEGIN
 END;
 $$;
 
+
+CREATE OR REPLACE FUNCTION public.update_transport_target(
+  p_target_id uuid,
+  p_target_deliveries integer DEFAULT NULL,
+  p_status text DEFAULT NULL,
+  p_period_start date DEFAULT NULL,
+  p_period_end date DEFAULT NULL
+)
+RETURNS public.transport_targets
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+DECLARE
+  v_actor uuid := auth.uid();
+  v_target public.transport_targets;
+  v_start date;
+  v_end date;
+  v_quantity integer;
+BEGIN
+  IF v_actor IS NULL THEN RAISE EXCEPTION 'Authentication is required'; END IF;
+  SELECT * INTO v_target
+  FROM public.transport_targets
+  WHERE id = p_target_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Transportation target was not found'; END IF;
+  IF v_actor <> v_target.manager_id
+     AND NOT public.is_in_my_hierarchy(v_target.manager_id)
+     AND NOT public.is_department_md()
+     AND NOT public.is_executive() THEN
+    RAISE EXCEPTION 'You are not allowed to update this target';
+  END IF;
+
+  v_start := COALESCE(p_period_start, v_target.start_date);
+  v_end := COALESCE(p_period_end, v_target.end_date);
+  v_quantity := COALESCE(p_target_deliveries, v_target.target_deliveries);
+  IF v_quantity IS NULL OR v_quantity <= 0 OR v_quantity < v_target.actual_deliveries THEN
+    RAISE EXCEPTION 'Target must be positive and cannot be lower than actual deliveries';
+  END IF;
+  IF v_start IS NULL OR v_end IS NULL OR v_end < v_start THEN
+    RAISE EXCEPTION 'Invalid target date range';
+  END IF;
+  IF p_status IS NOT NULL AND p_status NOT IN ('Active','Completed','Cancelled') THEN
+    RAISE EXCEPTION 'Invalid transportation target status';
+  END IF;
+  IF p_status = 'Completed' AND v_target.actual_deliveries < v_quantity THEN
+    RAISE EXCEPTION 'A target cannot be completed before its delivery quantity is achieved';
+  END IF;
+
+  UPDATE public.transport_targets
+  SET target_deliveries = v_quantity,
+      start_date = v_start,
+      end_date = v_end,
+      target_name = 'Delivery target ' || v_start::text || ' - ' || v_end::text,
+      target_period = v_start::text || ' to ' || v_end::text,
+      status = COALESCE(p_status, status)
+  WHERE id = p_target_id
+  RETURNING * INTO v_target;
+  RETURN v_target;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.update_transport_target(uuid, integer, text, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.update_transport_target(uuid, integer, text, date, date) TO authenticated;
+
 REVOKE ALL ON FUNCTION public.list_transport_trips() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.create_transport_trip(uuid,text,text,date) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.update_transport_trip(uuid,text) FROM PUBLIC, anon;
