@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Truck, Shield,
   BarChart2, Bell, Search, ChevronLeft, ChevronRight, LogOut,
   Menu, X, CheckCircle, Clock, XCircle, AlertTriangle, Eye,
-  Download, Upload, Plus, Filter, MoreHorizontal, Calendar,
+  Download, Upload, Plus, Calendar,
   Package, MapPin, User, ChevronDown, ArrowRight,
   Lock, RefreshCw, Heart, Activity, DollarSign, MessageSquare,
   FileCheck, FileX, Send, Printer, CheckSquare, Archive, Zap,
@@ -888,7 +888,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
               <h3 className="font-semibold text-base" style={{ color: B.text }}>Orders & Deliveries</h3>
               <p className="text-xs mt-0.5" style={{ color: B.textMuted }}>Jan – Jul 2025</p>
             </div>
-            <SecondaryButton icon={Filter}>Filter</SecondaryButton>
+            
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={stats.revenueTrend}>
@@ -2778,7 +2778,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
               <option value="All">All Status</option>
               <option value="Approved">Approved</option>
             </select>
-            <SecondaryButton icon={Filter}>Filter</SecondaryButton>
+            
           </div>
         </div>
         <div className="overflow-x-auto">
