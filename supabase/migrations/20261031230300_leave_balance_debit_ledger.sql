@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS public.leave_balance_transactions (
 );
 
 ALTER TABLE public.leave_balance_transactions ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS leave_balance_transactions_employee_created_idx
+  ON public.leave_balance_transactions (employee_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS leave_balance_transactions_request_idx
+  ON public.leave_balance_transactions (leave_request_id);
 DROP POLICY IF EXISTS leave_balance_transactions_select_scoped ON public.leave_balance_transactions;
 CREATE POLICY leave_balance_transactions_select_scoped
   ON public.leave_balance_transactions
@@ -61,7 +65,7 @@ BEGIN
   IF v_request.current_approver_id <> auth.uid() THEN
     RAISE EXCEPTION 'This leave request is not assigned to you';
   END IF;
-  IF p_decision NOT IN ('Approved', 'Rejected') THEN
+  IF p_decision IS NULL OR p_decision NOT IN ('Approved', 'Rejected') THEN
     RAISE EXCEPTION 'Invalid leave decision';
   END IF;
 
