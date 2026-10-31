@@ -322,7 +322,7 @@ BEGIN
   IF p_status IS NOT NULL AND p_status NOT IN ('Active','Completed','Cancelled') THEN
     RAISE EXCEPTION 'Invalid manufacturing target status';
   END IF;
-  IF p_status = 'Completed' AND v_target.actual_quantity < v_quantity THEN
+  IF COALESCE(p_status, v_target.status) = 'Completed' AND v_target.actual_quantity < v_quantity THEN
     RAISE EXCEPTION 'A target cannot be completed before its quantity is achieved';
   END IF;
 
