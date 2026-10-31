@@ -48,6 +48,7 @@ import { AttendancePage as EmployeeAttendancePage } from "../pages/employees/Att
 import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage";
 import { EmployeeKpiWidget } from "../components/EmployeeKpiWidget";
 import { LeavePage } from "../pages/leave/LeavePage";
+import AuditLogPage from "../pages/AuditLogPage";
 import { ExecutiveAnalyticsDashboard } from "../components/ExecutiveAnalyticsDashboard";
 import { canAccessDepartmentModule } from "../services/hierarchy.service";
 
@@ -2928,44 +2929,6 @@ function AdminPage({ user }: { user: AppUser }) {
   }
 
   const [activeTab, setActiveTab] = useState<"roles"|"audit">("roles");
-  const [roles, setRoles] = useState<Array<{ id: string; role_name: string; hierarchy_level?: number }>>([]);
-  const [auditLogs, setAuditLogs] = useState<Array<{ id: string; action: string; comments: string | null; performed_by: string | null; performed_role: string | null; created_at: string | null }>>([]);
-
-  useEffect(() => {
-    loadRoles();
-    void loadAuditLogs();
-  }, []);
-
-  async function loadRoles() {
-    const { data } = await supabase
-      .from("roles")
-      .select("*")
-      // fallback to role_name ordering if hierarchy_level is not present
-      .order("role_name");
-
-    if (data) {
-      setRoles(data as Array<{ id: string; role_name: string; hierarchy_level?: number }>);
-    }
-  }
-
-  async function loadAuditLogs() {
-    try {
-      const { data, error } = await supabase
-        .from("bill_history")
-        .select("id, action, comments, performed_by, performed_role, created_at")
-        .order("created_at", { ascending: false })
-        .limit(25);
-
-      if (error) {
-        throw error;
-      }
-
-      setAuditLogs((data ?? []) as Array<{ id: string; action: string; comments: string | null; performed_by: string | null; performed_role: string | null; created_at: string | null }>);
-    } catch (err) {
-      console.error("Failed to load audit log", err);
-      setAuditLogs([]);
-    }
-  }
 
   return (
     <div className="p-6 space-y-5">
@@ -3039,34 +3002,7 @@ function AdminPage({ user }: { user: AppUser }) {
         </GlassCard>
       )}
 
-      {activeTab === "audit" && (
-        <GlassCard className="p-5">
-          <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Activity Audit Log</h3>
-          {auditLogs.length > 0 ? auditLogs.map((log, i, arr) => {
-            const icons: Record<string, ComponentType<{ size?: number; style?: React.CSSProperties }>> = { approval: CheckCircle, create: Plus, admin: Shield, submit: Send, rejection: XCircle, export: Download, recruit: UserCheck };
-            const colors: Record<string,string>= { approval: CG, create: CB, admin: CGo, submit: CB, rejection: CR, export: CG, recruit: B.purple };
-            const actionType = log.action.includes("approve") || log.action.includes("approved") ? "approval" : log.action.includes("submit") || log.action.includes("submitted") ? "submit" : log.action.includes("reject") || log.action.includes("rejected") ? "rejection" : "admin";
-            const Icon = icons[actionType];
-            const color = colors[actionType];
-            return (
-              <div key={log.id ?? i} className="flex items-start gap-3 py-3.5"
-                style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: `${color}18` }}>
-                  <Icon size={14} style={{ color }} />
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold" style={{ color: B.text }}>{log.performed_role || log.performed_by || "System"}</span>
-                  <span className="text-sm" style={{ color: B.textSub }}> — {log.action.replace(/_/g, " ")}</span>
-                  <div className="text-xs mt-0.5" style={{ color: B.textFaint }}>{log.comments || (log.created_at ? new Date(log.created_at).toLocaleString("en-IN") : "No note")}</div>
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="text-xs" style={{ color: B.textMuted }}>No audit activity available yet.</div>
-          )}
-        </GlassCard>
-      )}
+      {activeTab === "audit" && <AuditLogPage />}}
     </div>
   );
 }
