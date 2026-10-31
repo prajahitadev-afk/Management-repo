@@ -20,7 +20,7 @@ The latest maintenance pass on `main` stabilized the portal and added Supabase h
 | Area | Change | Verification status |
 |---|---|---|
 | Manufacturing defects | Replaced empty-result stubs with database reads and authenticated reporting/review RPC calls; maps the deployed `defect_quantity` and `reported_at` columns | Code committed; migration not applied |
-| Manufacturing writes | Added RPC-backed batch creation, output logging, working-hours logging, target creation, and batch status updates; aligned service models to actual column names | Code committed; migration not applied |
+| Manufacturing writes | Added RPC-backed batch creation, output logging, working-hours logging, target create/update, and batch status updates; aligned service models to actual column names | Code committed; migration not applied |
 | Manufacturing UI | Added supervisor review action and batch selectors for output/defect/hours forms | Vercel preview check passed for the UI commit |
 | Leave | Final approver now deducts the matching leave balance in the same transaction and writes a balance-ledger record | Migration committed; not applied or live-tested |
 | Payments | Added authorized Pending → Paid/Failed settlement, atomic order payment-status update, and payment history; removed raw payment/customer debug logging and narrowed lookup queries | Code committed; migration not applied |
@@ -36,7 +36,7 @@ The latest maintenance pass on `main` stabilized the portal and added Supabase h
 - `supabase/migrations/20261031230400_payment_status_workflow.sql`
 - `supabase/migrations/20261031230500_transport_trip_and_log_workflows.sql`
 
-The RPCs derive the acting user from `auth.uid()`, validate role/hierarchy/department scope, and are granted to `authenticated` rather than `anon`/PUBLIC. The SQL still requires review and execution against the intended Management Supabase project.
+The RPCs derive the acting user from `auth.uid()`, validate role/hierarchy/department scope, and are granted to `authenticated` rather than `anon`/PUBLIC. The six migration files were also checked together in a transaction against the connected Management database and explicitly rolled back; the DDL/function definitions completed without SQL errors and no persistent schema changes were made. The SQL still requires review and execution against the intended Management Supabase project.
 
 ## Current module assessment
 
