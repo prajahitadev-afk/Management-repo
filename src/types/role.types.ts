@@ -1,7 +1,12 @@
 export const EMPLOYEE_ROLES = [
   "Vice Chairman",
   "President",
+  "Vice President",
   "Managing Director",
+  "MD-Manufacturing",
+  "MD-Marketing",
+  "MD-Transport",
+  "MD-RD",
   "General Manager",
   "Chief Manager",
   "Manager",
