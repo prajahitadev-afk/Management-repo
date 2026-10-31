@@ -250,7 +250,7 @@ function mapBatch(row: Record<string, unknown>): ManufacturingBatch {
 export async function getBatches(): Promise<ManufacturingResult<ManufacturingBatch[]>> {
   try {
     const { data, error } = await supabase.rpc("list_manufacturing_batches");
-    return error ? { data: null, error: asError(error) } : { data: (data ?? []).map((row) => mapBatch(row as Record<string, unknown>)), error: null };
+    return error ? { data: null, error: asError(error) } : { data: (data ?? []).map((row: unknown) => mapBatch(row as Record<string, unknown>)), error: null };
   } catch (error) { return { data: null, error: asError(error) }; }
 }
 
