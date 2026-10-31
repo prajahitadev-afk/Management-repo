@@ -163,6 +163,15 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!loading && profile && page === "login") {
+      setPage("dashboard");
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", "/");
+      }
+    }
+  }, [loading, profile, page]);
+
   const isResetPasswordPath = typeof window !== "undefined" && window.location.pathname === "/reset-password";
   const isRecoveryUrl = typeof window !== "undefined" && (() => {
     const params = getRecoverySearchParams();
@@ -183,8 +192,11 @@ export default function App() {
 
   if (loading) return <div>Loading...</div>;
 
-  if (page === "login") {
-    return <LoginPage />;
+  if (page === "login" && !profile) {
+    return <LoginPage onLogin={() => {
+      setPage("dashboard");
+      if (typeof window !== "undefined") window.history.replaceState({}, "", "/");
+    }} />;
   }
 
   if (!profile) {
