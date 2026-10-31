@@ -83,7 +83,7 @@ import {
 interface DepartmentPageProps { profile: { id: string; department?: string | null; role: string }; routeDepartment?: string; routeTab?: string; }
 
 const VALID_DEPARTMENTS = ["Administration", "Manufacturing", "Marketing", "Transportation", "Research & Development"] as const;
-const DEPARTMENT_EXECUTIVE_ROLES = new Set(["Managing Director", "President", "Vice Chairman"]);
+const DEPARTMENT_EXECUTIVE_ROLES = new Set(["Managing Director", "President", "Vice President", "Vice Chairman"]);
 
 function canonicalDepartment(value: string | null | undefined): string | null {
   const normalized = String(value ?? "").trim().toLowerCase();
