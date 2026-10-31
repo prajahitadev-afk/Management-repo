@@ -146,60 +146,32 @@ export async function createOrderWithItems(input: {
 
   if (input.status !== ORDER_STATUS.Pending) throw new Error("New orders must start in Pending status.");
   const items = normalizeItems(input.items);
-  const orderId = crypto.randomUUID();
-  const orderPayload = {
-    id: orderId,
-    order_number: input.order_number,
-    customer_id: input.customer_id,
-    order_date: input.order_date,
-    expected_delivery: input.expected_delivery,
-    status: ORDER_STATUS.Pending,
-    total_amount: input.total_amount,
-  };
-  console.log("ORDER INSERT PAYLOAD", orderPayload);
-  console.log("ORDER INSERT TYPES", {
-    total_amount: typeof orderPayload.total_amount,
-    customer_id: typeof orderPayload.customer_id,
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!authData.user) throw new Error("Authentication required");
+
+  const { data, error } = await supabase.rpc("create_order_with_items", {
+    p_order_number: input.order_number,
+    p_customer_id: input.customer_id,
+    p_order_date: input.order_date,
+    p_expected_delivery: input.expected_delivery,
+    p_status: ORDER_STATUS.Pending,
+    p_total_amount: input.total_amount,
+    p_payment_method: input.payment_method,
+    p_items: items.map((item) => ({
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.total_price,
+    })),
   });
-  const { data: order, error: orderError } = await supabase.from("orders").insert(orderPayload).select("id").single();
-  console.log("ORDER INSERT ERROR", orderError);
-  if (orderError) {
-    console.error("ORDER INSERT FAILED", orderError);
-    throw orderError;
-  }
-  if (!order?.id) throw new Error("Order insert did not return an id");
 
-  const itemPayload = items.map((item) => ({
-    id: crypto.randomUUID(),
-    order_id: orderId,
-    product_id: item.product_id,
-    product_name: item.product_name,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    total_price: item.total_price,
-  }));
-  console.log("ORDER ITEMS INSERT PAYLOAD", itemPayload);
-  const { error: itemsError } = await supabase.from("order_items").insert(itemPayload);
-  console.log("ORDER ITEMS INSERT ERROR", itemsError);
-  if (itemsError) {
-    console.error("ORDER ITEMS INSERT FAILED", itemsError);
-    throw itemsError;
+  if (error) throw error;
+  if (typeof data !== "string" || !data) {
+    throw new Error("Order, items and payment were not created successfully.");
   }
-
-  const paymentPayload = {
-    order_id: orderId,
-    amount: input.total_amount,
-    payment_method: input.payment_method,
-    status: "Pending",
-  };
-  console.log("PAYMENT INSERT PAYLOAD", paymentPayload);
-  const { error: paymentError } = await supabase.from("payments").insert(paymentPayload);
-  console.log("PAYMENT INSERT ERROR", paymentError);
-  if (paymentError) {
-    console.error("PAYMENT INSERT FAILED", paymentError);
-    throw paymentError;
-  }
-  return orderId;
+  return data;
 }
 
 export async function approveOrder(orderId: string, orderNumber: string, actorRole?: string): Promise<void> {
