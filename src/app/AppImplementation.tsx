@@ -3002,7 +3002,7 @@ function AdminPage({ user }: { user: AppUser }) {
         </GlassCard>
       )}
 
-      {activeTab === "audit" && <AuditLogPage />}}
+      {activeTab === "audit" && <AuditLogPage />}
     </div>
   );
 }
