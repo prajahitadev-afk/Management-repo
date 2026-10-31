@@ -3195,9 +3195,11 @@ function ReportsPage({ user }: { user: AppUser }) {
 function NotificationsPage({
   notifications,
   onMarkAllRead,
+  onMarkRead,
 }: {
   notifications: NotificationRecord[];
   onMarkAllRead: () => void;
+  onMarkRead?: (notificationId: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState("all");
 
@@ -3260,7 +3262,7 @@ function NotificationsPage({
                 <span className="text-xs" style={{ color: B.textFaint }}>
                   {n.created_at ? new Date(n.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Just now"}
                 </span>
-                <button className="p-1 rounded-md hover:bg-white/20" style={{ color: B.textFaint }}><MoreHorizontal size={15} /></button>
+                {!n.read && <button type="button" title="Mark as read" aria-label="Mark notification as read" disabled={!onMarkRead} onClick={() => { void onMarkRead?.(n.id).catch((err) => alert(err instanceof Error ? err.message : "Unable to mark notification as read")); }} className="p-1 rounded-md hover:bg-white/20 disabled:opacity-40" style={{ color: B.textFaint }}><CheckCircle size={15} /></button>}
               </div>
             </div>
           );
