@@ -7,12 +7,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before running the app.')
 }
 
-const authOptions = typeof window !== "undefined"
-  ? { persistSession: false, storage: window.sessionStorage }
-  : { persistSession: false };
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: authOptions,
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
 })
 
 // ─── Employee Portal URLs ───────────────────────────────────────────────────
