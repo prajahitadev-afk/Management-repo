@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import { getCurrentProfile, getDirectSuperior, getHierarchyProfiles, getVisibleProfilesForUser } from "./hierarchy.service";
+import { getCurrentProfile, getHierarchyProfiles, getVisibleProfilesForUser } from "./hierarchy.service";
 import {
   type LeaveApprovalHistory,
   type LeaveBalance,
@@ -31,23 +31,15 @@ async function resolveAuthenticatedEmployeeId(employeeId: string, operation: str
 
 export async function createLeaveRequest(input: LeaveRequestInput): Promise<string> {
   validateLeaveRequestInput(input);
-  const authenticated = await supabase.auth.getUser();
-  if (authenticated.error || !authenticated.data.user) throw authenticated.error ?? new Error("Authentication required");
-  const superior = await getDirectSuperior(authenticated.data.user.id);
-  if (!superior) throw new Error("A direct superior is required before submitting leave.");
-  const { data, error } = await supabase.from("leave_requests").insert({
-    employee_id: authenticated.data.user.id,
-    leave_type: input.leaveType,
-    start_date: input.startDate,
-    end_date: input.endDate,
-    total_days: getLeaveTotalDays(input.startDate, input.endDate),
-    reason: input.reason.trim(),
-    status: "Pending",
-    current_approver_id: superior.id,
-  }).select("id").single();
+  const { data, error } = await supabase.rpc("submit_leave_request", {
+    p_leave_type: input.leaveType,
+    p_start_date: input.startDate,
+    p_end_date: input.endDate,
+    p_reason: input.reason.trim(),
+  });
   if (error) throw error;
-  if (!data?.id) throw new Error("Leave request was not created");
-  return String(data.id);
+  if (typeof data !== "string" || !data) throw new Error("Leave request was not created");
+  return data;
 }
 
 export async function getLeaveRequests(employeeId?: string): Promise<LeaveRequest[]> {
@@ -115,10 +107,6 @@ export async function reviewLeaveRequest(leaveId: string, input: LeaveReviewInpu
   if (input.decision === "Rejected" && !input.remarks?.trim()) throw new Error("A rejection reason is required");
   const authenticated = await supabase.auth.getUser();
   if (authenticated.error || !authenticated.data.user) throw authenticated.error ?? new Error("Authentication required");
-  const request = await getLeaveRequest(leaveId);
-  if (!request) throw new Error("Leave request not found");
-  const requester = await getCurrentProfile(request.employee_id);
-  if (requester.reports_to !== authenticated.data.user.id) throw new Error("Only the employee's direct superior can approve this leave request.");
   const { data, error } = await supabase.rpc("review_leave_request", {
     p_leave_id: leaveId,
     p_decision: input.decision,
