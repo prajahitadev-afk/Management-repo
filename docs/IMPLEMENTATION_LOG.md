@@ -19,7 +19,7 @@ This log groups the branch commits by the implementation headings used in their 
 ## 2. Manufacturing production and batch workflow
 
 - Mapped batch service models to `batch_code`, `planned_quantity`, `created_by`, and `assigned_supervisor`.
-- Added atomic batch creation, output logging, working-hour logging, target creation, and batch status update RPCs.
+- Added atomic batch creation, output logging, working-hour logging, target creation/update, and batch status update RPCs.
 - Output logging now increments batch actual quantity in the same transaction and prevents exceeding the planned quantity.
 - Added a scoped batch lookup RPC and select controls instead of asking users to type batch UUIDs.
 - Connected the department UI to batch-linked output, defect, and working-hour operations.
@@ -54,7 +54,7 @@ This is a manual settlement workflow; it is not an external payment-gateway inte
 - Mapped trip, distance, fuel, delay, and target services to the deployed table schema.
 - Trips now use trip code, origin, destination, driver profile, date, and status.
 - Distance/fuel/delay logs are associated with a trip ID and derive the driver from the trip.
-- Added RPC-backed trip, distance, fuel, delay, and target writes with department/hierarchy checks.
+- Added RPC-backed trip, distance, fuel, delay, and target create/update writes with department/hierarchy checks.
 - Updated forms to use trip selectors for distance, fuel, and delay records.
 
 **Migration:** `20261031230500_transport_trip_and_log_workflows.sql`
@@ -84,7 +84,7 @@ The separate delivery/vehicle/driver workflow still needs a planned integration 
 
 ## Verification
 
-- The six new migration files were submitted together to the connected Management database inside a transaction that was explicitly rolled back. The DDL/function definitions completed without SQL errors; no schema changes from that validation transaction were retained.
+- The six new migration files were submitted together to the connected Management database inside a transaction that was explicitly rolled back. After correcting dollar-quoting in the target-update functions, the DDL/function definitions completed without SQL errors; no schema changes from that validation transaction were retained.
 - Vercel preview checks reported success for the main manufacturing, transportation, report, payment, and component-refactor code commits. The latest commit status should be checked again before merge.
 - The repository's CI workflow runs TypeScript and production-build checks on its configured triggers. No comprehensive unit, integration, or browser E2E suite exists yet.
 - No new migration has been applied to the live Supabase database, and no live workflow rows were created during this branch work.
