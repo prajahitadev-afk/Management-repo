@@ -40,7 +40,6 @@ export function PaymentsPage() {
     setError(null);
     try {
       await setPaymentStatus(payment.id, status);
-      await loadPayments();
       window.dispatchEvent(new Event("order-workflow-changed"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update payment status");
