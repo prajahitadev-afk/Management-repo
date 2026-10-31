@@ -462,8 +462,16 @@ export async function createTarget(data: CreateTransportTargetInput): Promise<Tr
 export async function updateTarget(id: string, data: Partial<TransportTarget>): Promise<TransportationResult<TransportTarget>> {
   const error = requiredId(id, "Target ID");
   if (error) return invalid(error.message);
-  const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...updates } = data;
-  return updateRow<TransportTarget>("transport_targets", id, updates);
+  try {
+    const { data: row, error: queryError } = await supabase.rpc("update_transport_target", {
+      p_target_id: id,
+      p_target_deliveries: data.target_deliveries ?? null,
+      p_status: data.status ?? null,
+      p_period_start: data.period_start ?? null,
+      p_period_end: data.period_end ?? null,
+    });
+    return queryError ? { data: null, error: transportationError(queryError) } : { data: row ? mapTransportTarget(row as Record<string, unknown>) : null, error: row ? null : new Error("Transportation target was not updated") };
+  } catch (queryError) { return { data: null, error: transportationError(queryError) }; }
 }
 
 export async function calculateTargetVsActual(managerId: string): Promise<TransportationResult<TransportTargetVsActual>> {
