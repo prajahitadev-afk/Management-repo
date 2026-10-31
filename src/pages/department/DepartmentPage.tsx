@@ -2,6 +2,7 @@
 import { DepartmentHeader } from "../../components/department/DepartmentHeader";
 import { DepartmentOverview } from "../../components/department/DepartmentOverview";
 import { DepartmentTabs } from "../../components/department/DepartmentTabs";
+import { DepartmentDataTable, type TableColumn } from "../../components/department/DepartmentDataTable";
 import { DepartmentFormModal, type FormDefinition } from "../../components/department/DepartmentFormModal";
 import { AdministrationDashboard } from "../../components/AdministrationDashboard";
 import { getDepartmentMetadata } from "../../services/department.service";
@@ -643,8 +644,6 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
   return <main className="min-h-full p-4 sm:p-6" style={{ background: "linear-gradient(180deg, #F7E7CB 0%, #EFD7AF 100%)" }}><div className="mx-auto max-w-7xl space-y-5"><DepartmentHeader metadata={metadata} role={profile.role} /><div className="rounded-2xl border border-white/60 bg-white/45 p-2 shadow-sm"><DepartmentTabs tabs={tabs} activeTab={activeTab} onChange={changeTab} /></div>{successMessage && <div role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{successMessage}</div>}{dataError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{dataError}</div>}{loading ? <div className="rounded-2xl border border-white/60 bg-white/45 p-6 text-sm text-slate-600">Loading department data...</div> : activeTab === tabs[0] && !availableForm && !secondaryForm ? <DepartmentOverview metadata={metadata} tabs={tabs} metrics={activeMetrics} recentActivity={recentActivity} /> : <section className="rounded-2xl border border-white/60 bg-white/45 p-6 shadow-sm"><div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-slate-800">{activeTab}</h2><div className="flex gap-2">{availableForm && <button type="button" onClick={() => openForm(availableForm)} className="rounded-lg bg-[#4e8050] px-3 py-2 text-sm font-medium text-white">+ {availableForm.title}</button>}{secondaryForm && <button type="button" onClick={() => openForm(secondaryForm)} className="rounded-lg bg-[#4e8050] px-3 py-2 text-sm font-medium text-white">+ {secondaryForm.title}</button>}</div></div>{tableConfig ? <DepartmentDataTable loading={loading} error={dataError} rows={tableData[tableConfig.key] ?? []} columns={tableConfig.columns} onReviewDefect={handleReviewDefect} /> : <div className="mt-4 grid gap-3 sm:grid-cols-3">{metrics.slice(0, 3).map((metric) => <div key={metric.label} className="rounded-xl bg-white/45 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</p><p className="mt-2 text-2xl font-semibold text-slate-800">{metric.value}</p></div>)}</div>}</section>}</div>{activeForm && <DepartmentFormModal definition={activeForm} values={formValues} error={formError} submitting={submitting} onChange={(key, value) => setFormValues((current) => ({ ...current, [key]: value }))} onClose={() => { setActiveForm(null); setFormError(""); }} onSubmit={submitForm} />}</main>;
 }
 
-type TableColumn = { label: string; value: (row: Record<string, unknown>) => string; action?: boolean };
-
 function recordValue(row: Record<string, unknown>, ...keys: string[]): string {
   const value = keys.map((key) => row[key]).find((entry) => entry !== null && entry !== undefined && entry !== "");
   return value === undefined || value === null ? "-" : String(value);
@@ -654,12 +653,6 @@ function asRecords<T>(rows: T[] | null): Record<string, unknown>[] {
   return (rows ?? []) as unknown as Record<string, unknown>[];
 }
 
-function DepartmentDataTable({ loading, error, rows, columns, onReviewDefect }: { loading: boolean; error: string; rows: Record<string, unknown>[]; columns: TableColumn[]; onReviewDefect?: (row: Record<string, unknown>) => void }) {
-  if (loading) return <p className="mt-4 text-sm text-slate-600">Loading records...</p>;
-  if (error) return <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>;
-  if (!rows.length) return <p className="mt-4 text-sm text-slate-600">No records found</p>;
-  return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-black/10 text-xs uppercase tracking-wide text-slate-500">{columns.map((column) => <th key={column.label} className="px-3 py-2 font-semibold">{column.label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={recordValue(row, "id") || String(index)} className="border-b border-black/5 text-slate-700">{columns.map((column) => <td key={column.label} className="px-3 py-3">{column.action ? (row.status === "Open" ? <button type="button" onClick={() => onReviewDefect?.(row)} className="rounded-md bg-[#4e8050] px-3 py-1.5 text-xs font-medium text-white">Review</button> : <span className="text-slate-500">Reviewed</span>) : column.value(row)}</td>)}</tr>)}</tbody></table></div>;
-}
 
 function getFormDefinition(department: string, tab: string): FormDefinition | null {
   const definitions: Record<string, FormDefinition> = {
