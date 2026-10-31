@@ -2239,7 +2239,7 @@ function BillsPage({ user }: { user: AppUser }) {
                   <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{bill.date}</td>
                   <td className="py-3.5 px-4"><StatusBadge status={bill.status} /></td>
                   <td className="py-3.5 px-4">
-                    <button type="button" onClick={() => setSelectedCustomer(c)} aria-label="View customer details" className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedBill(bill); setTab("detail"); }} aria-label="View bill details" className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
                   </td>
                 </tr>
               ))}
@@ -2291,7 +2291,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   }
 
   async function handleRejectOrder(order: MarketingOrder) {
-    console.log("REJECT CLICK", order.id, order.status, userRole);
     if (!canApproveOrders(userRole)) return;
     const reason = window.prompt(`Provide a reason for rejecting order ${order.ref}:`);
     if (!reason) return;
@@ -2331,9 +2330,6 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
     void exportMarketingWorkbook(filteredOrders, filteredCustomers, metrics, revenue, performance);
   };
 
-  console.log("ORDERS TABLE ROWS", filteredOrders.length);
-  console.log("CUSTOMERS TABLE ROWS", filteredCustomers.length);
-  console.log("APPROVAL ROLE", userRole, "AUTHORIZED", canApproveCurrentUser);
 
   return (
     <div className="p-6 space-y-5">
@@ -2566,7 +2562,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4 text-sm font-semibold" style={{ color: CG }}>{c.value}</td>
                     <td className="py-3.5 px-4 text-sm" style={{ color: B.textMuted }}>{c.since}</td>
                     <td className="py-3.5 px-4">
-                      <button className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
+                      <button type="button" onClick={() => setSelectedCustomer(c)} aria-label="View customer details" className="p-1.5 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><Eye size={15} /></button>
                     </td>
                   </tr>
                 ))}
