@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, Send, Archive, Plus } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { ORDER_STATUS } from "../services/order-statuses";
-import { dispatchOrder } from "../services/orders.service";
 
 const B = {
   text: "#1C1C1E",
@@ -248,7 +247,6 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
       if (deliveryError) throw deliveryError;
       if (typeof deliveryId !== "string") throw new Error("Failed to create delivery");
 
-      await dispatchOrder(selectedOrder);
 
       alert("Dispatch created successfully!");
       onSubmit();
