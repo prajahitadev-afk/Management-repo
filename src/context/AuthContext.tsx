@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabase";
 interface AuthContextType {
   user: any;
   profile: any;
+  profileError: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -38,16 +39,30 @@ function buildProfileCompatibility(profileData: any, authUser: any) {
   };
 }
 
+function getProfileLoadError(error: { code?: string; message?: string } | null, profileData: unknown) {
+  if (!error && !profileData) {
+    return "Your account is signed in, but no employee profile is linked to it. Ask an administrator to link your Auth account to an employee profile.";
+  }
+
+  if (error?.code === "PGRST116") {
+    return "Your account is signed in, but no employee profile is linked to it. Ask an administrator to link your Auth account to an employee profile.";
+  }
+
+  return `Your account is signed in, but its employee profile could not be loaded. ${error?.message || "Please check the profiles table permissions and try again."}`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function syncProfile(sessionUser: any) {
+  async function syncProfile(sessionUser: any): Promise<string | null> {
     if (!sessionUser?.id) {
       setUser(null);
       setProfile(null);
-      return;
+      setProfileError(null);
+      return null;
     }
 
     setUser(sessionUser);
@@ -56,14 +71,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from("profiles")
       .select("*")
       .eq("id", sessionUser.id)
-      .single();
+      .maybeSingle();
 
-    if (error) {
+    if (error || !profileData) {
+      const message = getProfileLoadError(error, profileData);
       setProfile(null);
-      return;
+      setProfileError(message);
+      return message;
     }
 
     setProfile(buildProfileCompatibility(profileData, sessionUser));
+    setProfileError(null);
+    return null;
   }
 
   async function refreshProfile() {
@@ -76,35 +95,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from("profiles")
       .select("*")
       .eq("id", activeUserId)
-      .single();
+      .maybeSingle();
 
-    if (error) {
+    if (error || !profileData) {
+      setProfileError(getProfileLoadError(error, profileData));
       return;
     }
 
     setProfile(buildProfileCompatibility(profileData, user ?? { id: activeUserId, email: profileData.email }));
+    setProfileError(null);
   }
 
   useEffect(() => {
+    let mounted = true;
+
     async function loadSession() {
       setLoading(true);
+      try {
+        // Supabase handles PKCE and recovery URL callbacks through detectSessionInUrl.
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-      // Supabase handles PKCE and recovery URL callbacks through detectSessionInUrl.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        if (error) throw error;
 
-      if (session?.user) {
-        await syncProfile(session.user);
-      } else {
-        setUser(null);
-        setProfile(null);
+        if (session?.user) {
+          await syncProfile(session.user);
+        } else {
+          setUser(null);
+          setProfile(null);
+          setProfileError(null);
+        }
+      } catch (error) {
+        if (mounted) {
+          setUser(null);
+          setProfile(null);
+          setProfileError(error instanceof Error ? error.message : "Unable to restore your sign-in session.");
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      setLoading(false);
     }
 
-    loadSession();
+    void loadSession();
 
     const {
       data: { subscription },
@@ -114,21 +148,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.dispatchEvent(new PopStateEvent("popstate"));
       }
 
-      if (session?.user) {
-        await syncProfile(session.user);
-      } else {
-        setUser(null);
+      try {
+        if (session?.user) {
+          await syncProfile(session.user);
+        } else {
+          setUser(null);
+          setProfile(null);
+          setProfileError(null);
+        }
+      } catch (error) {
         setProfile(null);
+        setProfileError(error instanceof Error ? error.message : "Unable to load your employee profile.");
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function login(email: string, password: string) {
     setLoading(true);
+    setProfileError(null);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -136,7 +180,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       if (!data?.user) throw new Error("Unable to sign in with those credentials.");
 
-      await syncProfile(data.user);
+      const profileLoadError = await syncProfile(data.user);
+      if (profileLoadError) {
+        throw new Error(profileLoadError);
+      }
     } finally {
       setLoading(false);
     }
@@ -147,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
     setUser(null);
     setProfile(null);
+    setProfileError(null);
     setLoading(false);
 
     if (typeof window !== "undefined") {
@@ -159,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         profile,
+        profileError,
         loading,
         login,
         logout,

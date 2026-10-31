@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, collabrative]
+    branches: [main, collabrative, premain, pretwomain, prethreemain]
   pull_request:
-    branches: [main]
+    branches: [main, premain, pretwomain, prethreemain]
 
 permissions:
   contents: read
