@@ -976,7 +976,7 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
                 <div className="text-sm font-bold" style={{ color: B.text }}>₹{bill.amount.toLocaleString()}</div>
                 <div className="text-xs" style={{ color: B.textMuted }}>{bill.status}</div>
               </div>
-              <PrimaryButton size="sm" icon={CheckCircle}>Approve</PrimaryButton>
+              <PrimaryButton size="sm" icon={FileText} onClick={() => navigateDashboardAction("/bills")}>Review</PrimaryButton>
             </div>
           ))}
         </GlassCard>
