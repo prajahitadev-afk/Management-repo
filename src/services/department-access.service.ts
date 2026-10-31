@@ -3,7 +3,7 @@ import { normalizeDepartment, type DepartmentKey } from "./department.service";
 export type DepartmentRole = "Worker" | "Supervisor" | "Manager" | "Chief Manager" | "General Manager" | "MD";
 
 const roleKey = (role: string | null | undefined): DepartmentRole => {
-  if (String(role ?? "").startsWith("MD-") || role === "Managing Director") return "MD";
+  if (String(role ?? "").startsWith("MD-") || role === "Managing Director" || role === "Vice Chairman" || role === "Vice President" || role === "President") return "MD";
   if (role === "Supervisor" || role === "Manager" || role === "Chief Manager" || role === "General Manager") return role;
   return "Worker";
 };
