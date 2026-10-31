@@ -7,7 +7,7 @@ const colors = ["#4E8050", "#167A8A", "#B7791F", "#805AD5"];
 const chartStyle = { backgroundColor: "#fff", border: "1px solid #e5e7eb", borderRadius: 8 };
 const format = (value: number) => `${value.toFixed(1)}%`;
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: string; value: string | number }) {
   return <div className="rounded-xl border border-white/60 bg-white/55 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-800">{value}</p></div>;
 }
 
