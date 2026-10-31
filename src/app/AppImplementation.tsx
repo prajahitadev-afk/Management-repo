@@ -2258,7 +2258,12 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
 
-  const filteredOrders = orders;
+  const normalizedOrderSearch = orderSearch.trim().toLowerCase();
+  const filteredOrders = orders.filter((order) => {
+    if (!normalizedOrderSearch) return true;
+    return [order.ref, order.customer, order.location, order.soap, order.status]
+      .some((value) => String(value ?? "").toLowerCase().includes(normalizedOrderSearch));
+  });
 
   const canApproveOrders = (role?: Role) => ["Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "Worker");
   const canApproveCurrentUser = canApproveOrders(userRole);
@@ -2315,7 +2320,12 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
     }
   }
 
-  const filteredCustomers = customers;
+  const normalizedCustomerSearch = customerSearch.trim().toLowerCase();
+  const filteredCustomers = customers.filter((customer) => {
+    if (!normalizedCustomerSearch) return true;
+    return [customer.id, customer.name, customer.location]
+      .some((value) => String(value ?? "").toLowerCase().includes(normalizedCustomerSearch));
+  });
 
   const handleExport = () => {
     void exportMarketingWorkbook(filteredOrders, filteredCustomers, metrics, revenue, performance);
