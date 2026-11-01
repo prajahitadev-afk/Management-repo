@@ -400,8 +400,6 @@ export async function createEmployee(actorId: string, input: EmployeeInput): Pro
   }
 
   const authUserId = authData.user.id;
-  console.log("Auth User ID", authUserId);
-
   const payload = buildEmployeeProfilePayload({
     authUserId,
     employeeId,
@@ -417,17 +415,13 @@ export async function createEmployee(actorId: string, input: EmployeeInput): Pro
     joiningDate: input.joiningDate,
   });
 
-  console.log("Creating Profile", JSON.stringify(payload, null, 2));
-  const insertResult = await supabase.from("profiles").insert([payload]).select("*").single();
-  let profileData = insertResult.data;
-  let profileError = insertResult.error;
-
-  if (profileError) {
-    console.error("Profile creation failed, attempting upsert", profileError);
-    const upsertResult = await supabase.from("profiles").upsert([payload], { onConflict: "id" }).select("*").single();
-    profileData = upsertResult.data;
-    profileError = upsertResult.error;
-  }
+  // The auth.users INSERT trigger creates the initial profiles row.
+  // Upsert that row directly instead of first issuing a duplicate INSERT (409).
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .upsert(payload, { onConflict: "id" })
+    .select("*")
+    .single();
 
   if (profileError || !profileData) {
     console.error("Profile creation failed", profileError);
@@ -512,12 +506,18 @@ export async function deleteEmployee(actorId: string, employeeId: string): Promi
   if (!isValidUUID(actorId) || !isValidUUID(employeeId)) throw new Error("Valid employee IDs are required");
   await authorizeEmployeeAction(actorId, employeeId, "delete");
 
-  const { error: softDeleteError } = await supabase.from("profiles").update({ deleted_at: new Date().toISOString() }).eq("id", employeeId);
+  // profiles has no deleted_at column and is referenced by operational tables.
+  // Archive the employee using the existing status field instead of attempting
+  // a failing hard delete that produces 400/409 PostgREST responses.
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ status: "Inactive" })
+    .eq("id", employeeId)
+    .select("id")
+    .single();
 
-  if (!softDeleteError) return;
-
-  const { error } = await supabase.from("profiles").delete().eq("id", employeeId);
   if (error) throw error;
+  if (!data) throw new Error("Employee could not be archived");
 }
 
 async function authorizeEmployeeAction(
