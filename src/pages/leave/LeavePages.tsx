@@ -58,7 +58,7 @@ function errorMessage(error: unknown): string {
 
 function PageShell({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <main className="min-h-full bg-slate-50 p-4 sm:p-6">
+    <main className="portal-feature-page min-h-full bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start gap-3">
