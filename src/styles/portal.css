@@ -245,3 +245,53 @@ body { background: #f4f7f5; color: var(--portal-ink); }
   .portal-global-search { max-width: none; }
   .portal-login-card { border-radius: 16px !important; }
 }
+
+
+.portal-feature-page,
+.portal-leave-page {
+  min-width: 0;
+  color: #17231f;
+}
+.portal-feature-page > :first-child,
+.portal-leave-page > :first-child {
+  border-color: #e3ebe6 !important;
+  background: #fff !important;
+}
+.portal-leave-page { background: #f4f7f5 !important; }
+.portal-leave-page nav { border-color: #e3ebe6 !important; }
+.portal-leave-page nav button[aria-current="page"] {
+  background: #176b52 !important;
+  color: #fff !important;
+}
+.portal-leave-page nav button:not([aria-current="page"]):hover {
+  background: #edf3ef !important;
+  color: #153a32 !important;
+}
+.portal-main [class*="bg-slate-800"],
+.portal-main [class*="bg-slate-900"] {
+  background-color: #153a32 !important;
+}
+.portal-main [class*="text-slate-900"],
+.portal-main [class*="text-slate-800"] { color: #17231f !important; }
+.portal-main [class*="text-slate-600"],
+.portal-main [class*="text-slate-500"] { color: #718078 !important; }
+.portal-main [class*="border-slate-200"] { border-color: #e3ebe6 !important; }
+.portal-main [class*="bg-slate-50"] { background-color: #f7faf8 !important; }
+.portal-main [class*="bg-blue-700"] { background-color: #176b52 !important; }
+.portal-main [class*="text-blue-700"],
+.portal-main [class*="text-blue-800"] { color: #176b52 !important; }
+.portal-main [class*="border-blue-200"] { border-color: #c7ddd0 !important; }
+.portal-main [class*="bg-blue-50"] { background-color: #edf5f0 !important; }
+.portal-main [class*="bg-amber-50"] { background-color: #fbf5e9 !important; }
+.portal-main [class*="text-amber-800"] { color: #8c641f !important; }
+.portal-main [class*="border-amber-200"] { border-color: #ead9b5 !important; }
+.portal-main [class*="bg-rose-50"],
+.portal-main [class*="bg-red-50"] { background-color: #fcf0f0 !important; }
+.portal-main [class*="border-rose-200"],
+.portal-main [class*="border-red-200"] { border-color: #edcaca !important; }
+.portal-main [class*="text-rose-700"],
+.portal-main [class*="text-red-800"] { color: #b43d48 !important; }
+.portal-main [class*="bg-emerald-50"] { background-color: #edf5f0 !important; }
+.portal-main [class*="text-emerald-800"],
+.portal-main [class*="text-emerald-700"] { color: #176b52 !important; }
+.portal-main [class*="border-emerald-200"] { border-color: #c7ddd0 !important; }
