@@ -75,6 +75,11 @@ Deno.serve(async (req: Request) => {
       await clear("bills", column);
     }
 
+    // Clear non-FK user attribution columns too, while retaining the business records.
+    await clear("customers", "auth_user_id");
+    await clear("collaboration_applications", "submitted_by_id");
+    await clear("orders", "created_by");
+
     await clear("deliveries", "assigned_by");
     await clear("delivery_tracking", "updated_by");
     await del("employee_department_history", "employee_id");
