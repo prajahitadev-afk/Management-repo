@@ -3478,7 +3478,7 @@ export default function App() {
         onViewProfile={() => handleNav("profile")}
       />
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden" style={{ background: B.bg }}>
-        <TopBar user={profile} onMenuClick={() => setMobileOpen(true)} notifCount={notifCount} onNotifClick={() => handleNav("notifications")} onViewProfile={() => handleNav("profile")} />
+        <TopBar user={profile} onMenuClick={() => setMobileOpen(true)} onNav={handleNav} notifCount={notifCount} onNotifClick={() => handleNav("notifications")} onViewProfile={() => handleNav("profile")} />
         <main className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           <style>{`main::-webkit-scrollbar{display:none}`}</style>
           {renderPage()}
