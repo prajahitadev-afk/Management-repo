@@ -234,7 +234,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
       {error && (
         <div role="alert" className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span className="flex items-center gap-2"><AlertCircle size={16} /> {error}</span>
-          <button onClick={() => void refresh()} className="inline-flex shrink-0 items-center gap-2 font-semibold hover:underline">
+          <button type="button" onClick={() => void refresh()} className="inline-flex shrink-0 items-center gap-2 font-semibold hover:underline">
             <RefreshCw size={14} /> Retry
           </button>
         </div>
@@ -339,7 +339,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
       {/* ─── CONTROLS & NAVIGATION TABS ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4 bg-white/60 rounded-2xl px-3 py-2">
         <div className="flex items-center gap-2 overflow-x-auto">
-          <button
+          <button type="button"
             onClick={() => setActiveTab("applications")}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "applications"
@@ -350,7 +350,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             <Layers size={16} /> Applications & Approvals
           </button>
           
-          <button
+          <button type="button"
             onClick={() => setActiveTab("bills")}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "bills"
@@ -361,7 +361,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             <FileCheck size={16} /> Generated Bills ({bills.length})
           </button>
 
-          <button
+          <button type="button"
             onClick={() => setActiveTab("audit")}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "audit"
@@ -373,7 +373,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           </button>
 
           {!isExternalCollaborator && (
-            <button
+            <button type="button"
               onClick={() => setActiveTab("admin")}
               className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === "admin"
@@ -388,7 +388,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
         {/* Action: + Apply Bill (PDF Section 6 requirement) */}
         {!isExternalCollaborator && (
-          <button
+          <button type="button"
             onClick={() => setShowApplyModal(true)}
             className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:via-emerald-800 hover:to-teal-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all"
           >
@@ -551,7 +551,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                           </div>
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <button
+                          <button type="button"
                             onClick={() => setSelectedApp(app)}
                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1"
                           >
@@ -610,7 +610,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
+                      <button type="button"
                         onClick={() => alert(`Downloading official bill document: ${bill.bill_number}.pdf`)}
                         className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all"
                         title="Download Bill PDF"
@@ -675,7 +675,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               <h2 className="text-lg font-bold text-slate-800">Collaboration Admin Panel</h2>
               <p className="text-xs text-slate-500">Manage registered partner companies, assign Collaborator Heads, and manage sector access.</p>
             </div>
-            <button
+            <button type="button"
               onClick={() => setShowAddCompanyModal(true)}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all"
             >
@@ -708,7 +708,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 </div>
 
                 <div className="pt-2 border-t flex justify-end">
-                  <button
+                  <button type="button"
                     onClick={() => toggleCompany(comp.id)}
                     className="px-3 py-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg transition-all"
                   >
@@ -730,7 +730,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 <h3 className="text-xl font-black text-slate-900">Apply Bill (Collaboration Application)</h3>
                 <p className="text-xs text-slate-500">Generates a unique Collaboration ID (e.g. PRJ-COL-2026-XXXXXX)</p>
               </div>
-              <button onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button type="button" onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={20} />
               </button>
             </div>
@@ -907,7 +907,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 <h3 className="text-2xl font-black text-slate-900 mt-1">{selectedApp.customer_name}</h3>
                 <p className="text-xs text-slate-500">Collaborator: {selectedApp.collaborator_company_name}</p>
               </div>
-              <button onClick={() => setSelectedApp(null)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button type="button" onClick={() => setSelectedApp(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={24} />
               </button>
             </div>
@@ -1025,7 +1025,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                   <span className="text-xs font-bold text-emerald-700 uppercase block">Official Generated Bill</span>
                   <span className="font-mono font-black text-emerald-900 text-lg">{selectedApp.generated_bill_number}</span>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => alert(`Downloading Generated Bill: ${selectedApp.generated_bill_number}.pdf`)}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow"
                 >
@@ -1062,7 +1062,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                       || (selectedApp.current_approver_role === "MD-Marketing"
                         && activeUser.role === "Managing Director"
                         && activeUser.department === "Marketing")) && (
-                      <button
+                      <button type="button"
                         onClick={() => void handleApproveSelected()}
                         disabled={actionPending}
                         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
@@ -1080,7 +1080,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                       || (selectedApp.current_approver_role === "MD-Marketing"
                         && activeUser.role === "Managing Director"
                         && activeUser.department === "Marketing")) && (
-                      <button
+                      <button type="button"
                         onClick={() => setShowRejectModal(true)}
                         disabled={actionPending}
                         className="px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1"
@@ -1094,14 +1094,14 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 {/* EXTERNAL COLLABORATOR HANDSHAKE BUTTONS (SECTION 8) */}
                 {selectedApp.status === "AWAITING COLLABORATOR ACCEPTANCE" && isExternalCollaborator && (
                   <>
-                    <button
+                    <button type="button"
                       onClick={() => void handleAcceptSelected()}
                       disabled={actionPending}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
                     >
                       <CheckCircle2 size={16} /> {actionPending ? "Saving Decision..." : "Approve Offer & Generate Bill"}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => setShowDeclineModal(true)}
                       className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1"
                     >
@@ -1110,7 +1110,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                   </>
                 )}
 
-                <button
+                <button type="button"
                   onClick={() => setSelectedApp(null)}
                   className="px-4 py-2.5 border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
@@ -1141,13 +1141,13 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               className="w-full p-3 bg-slate-50 border rounded-xl text-xs focus:ring-2 focus:ring-red-500"
             />
             <div className="flex justify-end gap-2 pt-2">
-              <button
+              <button type="button"
                 onClick={() => setShowRejectModal(false)}
                 className="px-4 py-2 border text-xs font-bold rounded-xl text-slate-600"
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleRejectConfirm}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow"
               >
@@ -1177,13 +1177,13 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               className="w-full p-3 bg-slate-50 border rounded-xl text-xs focus:ring-2 focus:ring-red-500"
             />
             <div className="flex justify-end gap-2 pt-2">
-              <button
+              <button type="button"
                 onClick={() => setShowDeclineModal(false)}
                 className="px-4 py-2 border text-xs font-bold rounded-xl text-slate-600"
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleDeclineConfirm}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow"
               >
