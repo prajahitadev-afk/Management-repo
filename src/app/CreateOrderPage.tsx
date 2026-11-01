@@ -292,7 +292,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
 
   return (
     <div className="portal-form-page">
-      <button onClick={onClose} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
+      <button type="button" onClick={onClose} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
         <ChevronLeft size={16} /> Back
       </button>
 
@@ -323,7 +323,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
                 <label className="block text-xs font-bold uppercase tracking-widest" style={{ color: B.textMuted }}>
                   Select Customer
                 </label>
-                <button onClick={() => setShowCustomerForm((prev) => !prev)} className="text-xs font-semibold" style={{ color: B.green }}>
+                <button type="button" onClick={() => setShowCustomerForm((prev) => !prev)} className="text-xs font-semibold" style={{ color: B.green }}>
                   {showCustomerForm ? "Hide form" : "Add New Customer"}
                 </button>
               </div>
@@ -396,7 +396,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
                         {p.category || ""} · ₹{Number(p.price ?? p.unit_price ?? 0).toLocaleString()} · Stock: {p.stock_quantity ?? 0} · {p.product_code}
                       </p>
                     </div>
-                    <button onClick={() => handleAddItem(p.id)} className="p-2 rounded-lg hover:bg-white/20">
+                    <button type="button" onClick={() => handleAddItem(p.id)} className="p-2 rounded-lg hover:bg-white/20">
                       <Plus size={16} style={{ color: B.green }} />
                     </button>
                   </div>
@@ -431,7 +431,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
                       <p className="text-sm font-semibold w-24 text-right" style={{ color: B.text }}>
                           ₹{item.total_price.toLocaleString()}
                       </p>
-                      <button onClick={() => handleRemoveItem(item.product_id)} className="p-1.5 rounded-lg hover:bg-red-500/20">
+                      <button type="button" onClick={() => handleRemoveItem(item.product_id)} className="p-1.5 rounded-lg hover:bg-red-500/20">
                         <Trash2 size={14} style={{ color: B.red }} />
                       </button>
                     </div>
