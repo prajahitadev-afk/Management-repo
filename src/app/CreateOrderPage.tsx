@@ -8,18 +8,18 @@ import { ORDER_STATUS } from "../services/order-statuses";
 import { notifyInventoryShortage, notifyOrderPendingApproval } from "../services/notification.service";
 
 const B = {
-  text: "#1C1C1E",
-  textSub: "#3A3A3C",
-  textMuted: "#5F6368",
-  textFaint: "#9CA3AF",
-  glass: "rgba(255,255,255,0.28)",
-  glassBlur: "blur(20px)",
-  glassBorder: "rgba(255,255,255,0.40)",
-  glassShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)",
-  green: "#4E8050",
-  greenLight: "rgba(78,128,80,0.12)",
-  red: "#EF4444",
-  redLight: "rgba(239,68,68,0.10)",
+  text: "#17231F",
+  textSub: "#43534B",
+  textMuted: "#718078",
+  textFaint: "#9AA69F",
+  glass: "#FFFFFF",
+  glassBlur: "none",
+  glassBorder: "#E3EBE6",
+  glassShadow: "0 2px 8px rgba(22,45,35,0.04), 0 12px 28px rgba(22,45,35,0.035)",
+  green: "#176B52",
+  greenLight: "rgba(23,107,82,0.10)",
+  red: "#D64F57",
+  redLight: "rgba(214,79,87,0.10)",
 };
 
 interface Customer {
@@ -61,7 +61,7 @@ function PrimaryButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center font-semibold text-white rounded-xl transition-all duration-150 px-4 py-2 text-sm gap-2"
+      className="portal-button portal-button-primary inline-flex items-center font-semibold text-white rounded-xl transition-all duration-150 px-4 py-2 text-sm gap-2"
       style={{
         background: disabled ? "#9CA3AF" : B.green,
         boxShadow: disabled ? "none" : `0 4px 14px ${B.green}40`,
@@ -87,7 +87,7 @@ function SecondaryButton({
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-150"
+      className="portal-button portal-button-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-150"
       style={{
         background: B.glass,
         backdropFilter: B.glassBlur,
@@ -131,8 +131,6 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
       const [customersData, productsData] = await Promise.all([getCustomers(), getProducts()]);
       setCustomers(customersData as Customer[]);
       setProducts(productsData as Product[]);
-      console.log("PRODUCTS COMPONENT", productsData);
-      console.log("PRODUCTS COMPONENT COUNT", productsData?.length);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -144,12 +142,6 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
   useEffect(() => {
     void loadData();
   }, []);
-
-  useEffect(() => {
-    console.log("PRODUCTS COMPONENT STATE", products);
-    console.log("PRODUCTS COMPONENT STATE COUNT", products.length);
-    console.log("PRODUCTS IN DROPDOWN", products);
-  }, [products]);
 
   function handleAddItem(productId: string) {
     const product = products.find((p) => p.id === productId);
@@ -299,7 +291,7 @@ export function CreateOrderPage({ onClose, onSubmit }: { onClose: () => void; on
   const totalAmount = orderItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
 
   return (
-    <div className="p-6">
+    <div className="portal-form-page">
       <button onClick={onClose} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
         <ChevronLeft size={16} /> Back
       </button>
