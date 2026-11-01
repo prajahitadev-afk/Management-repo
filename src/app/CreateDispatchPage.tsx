@@ -261,7 +261,7 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
 
   return (
     <div className="portal-form-page">
-      <button onClick={onClose} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
+      <button type="button" onClick={onClose} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
         <ChevronLeft size={16} /> Back
       </button>
 
@@ -316,7 +316,7 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
                 <label className="block text-xs font-bold uppercase tracking-widest" style={{ color: B.textMuted }}>
                   Select Vehicle
                 </label>
-                <button onClick={() => setShowVehicleForm((prev) => !prev)} className="text-xs font-semibold" style={{ color: B.green }}>
+                <button type="button" onClick={() => setShowVehicleForm((prev) => !prev)} className="text-xs font-semibold" style={{ color: B.green }}>
                   {showVehicleForm ? "Hide form" : "Add New Vehicle"}
                 </button>
               </div>
@@ -361,7 +361,7 @@ export function CreateDispatchPage({ onClose, onSubmit }: { onClose: () => void;
                 <label className="block text-xs font-bold uppercase tracking-widest" style={{ color: B.textMuted }}>
                   Select Driver
                 </label>
-                <button onClick={() => setShowDriverForm((prev) => !prev)} className="text-xs font-semibold" style={{ color: B.green }}>
+                <button type="button" onClick={() => setShowDriverForm((prev) => !prev)} className="text-xs font-semibold" style={{ color: B.green }}>
                   {showDriverForm ? "Hide form" : "Add New Driver"}
                 </button>
               </div>
