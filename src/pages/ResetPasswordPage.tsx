@@ -73,14 +73,14 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#F7E7CB" }}>
-      <div className="w-full max-w-md rounded-3xl p-8" style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 24px 80px rgba(0,0,0,0.08)" }}>
+    <div className="portal-reset-screen">
+      <div className="portal-reset-card">
         <h1 className="text-2xl font-bold mb-4">Reset Password</h1>
         <p className="text-sm mb-6 text-slate-600">Enter a new password to complete your recovery.</p>
         {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
         {message && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
-        <div className="space-y-4">
-          <label className="block text-sm font-medium text-slate-700">New Password</label>
+        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }}>
+          <label htmlFor="reset-new-password" className="block text-sm font-medium text-slate-700">New Password</label>
           <input
             type="password"
             value={newPassword}
@@ -88,7 +88,7 @@ export function ResetPasswordPage() {
             className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
             placeholder="Enter new password"
           />
-          <label className="block text-sm font-medium text-slate-700">Confirm Password</label>
+          <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-slate-700">Confirm Password</label>
           <input
             type="password"
             value={confirmPassword}
