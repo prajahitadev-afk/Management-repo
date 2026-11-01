@@ -62,6 +62,31 @@ const ROLE_LEVEL: Record<string, number> = {
   Worker: 1,
 };
 
+const HIERARCHY_POSITION_LABEL: Record<string, string> = {
+  "Vice Chairman": "Vice Chairman",
+  Trustee: "Trustee",
+  President: "Trustee",
+  "Vice President": "Trustee",
+  "Managing Director": "Managing Directors (MD)",
+  "MD-Manufacturing": "MD – Manufacturing",
+  "MD-Marketing": "MD – Marketing",
+  "MD-Transport": "MD – Transport",
+  "MD-RD": "MD – Research & Development",
+  "General Manager": "General Managers (GM)",
+  "Chief Manager": "Chief Managers (CM)",
+  Manager: "Managers",
+  Supervisor: "Supervisors",
+  Worker: "Workers",
+};
+
+function getHierarchyLevel(role: string): string {
+  return String(ROLE_LEVEL[role] ?? 1);
+}
+
+function getHierarchyPosition(role: string): string {
+  return HIERARCHY_POSITION_LABEL[role] ?? role;
+}
+
 function canManageEmployee(currentUser: CurrentUser, employee: Employee): boolean {
   if (currentUser.role === "Worker" || employee.id === currentUser.id) return false;
   if (employee.role === "Vice Chairman") return false;
@@ -222,7 +247,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     setName(employee.name);
     setEmployeeCode(employee.employeeCode);
     setDesignation(employee.designation);
-    setHierarchyLevel(employee.hierarchyLevel ? String(employee.hierarchyLevel) : "1");
+    setHierarchyLevel(getHierarchyLevel(employee.role));
     setEmail(employee.email);
     setPhone(employee.phone);
     setSelectedRole(employee.role);
@@ -576,8 +601,11 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                 <input required maxLength={100} value={designation} onChange={(event) => setDesignation(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
               <label className="text-sm text-slate-700">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</span>
-                <input required min={1} step={1} type="number" value={hierarchyLevel} onChange={(event) => setHierarchyLevel(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Position</span>
+                <div className="flex min-h-[42px] w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                  {getHierarchyPosition(selectedRole)}
+                </div>
+                <span className="mt-1 block text-xs text-slate-500">Automatically follows the selected role.</span>
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span>
@@ -589,7 +617,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Role</span>
-                <select required value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
+                <select required value={selectedRole} onChange={(event) => { setSelectedRole(event.target.value); setHierarchyLevel(getHierarchyLevel(event.target.value)); }} className="w-full rounded-xl border border-slate-200 px-3 py-2">
                   {roleSelectionOptions.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
@@ -655,8 +683,11 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                 <input required maxLength={100} value={designation} onChange={(event) => setDesignation(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
               <label className="text-sm text-slate-700">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</span>
-                <input required min={1} step={1} type="number" value={hierarchyLevel} onChange={(event) => setHierarchyLevel(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Position</span>
+                <div className="flex min-h-[42px] w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                  {getHierarchyPosition(selectedRole)}
+                </div>
+                <span className="mt-1 block text-xs text-slate-500">Automatically follows the selected role.</span>
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span>
@@ -668,7 +699,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Role</span>
-                <select required value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2">
+                <select required value={selectedRole} onChange={(event) => { setSelectedRole(event.target.value); setHierarchyLevel(getHierarchyLevel(event.target.value)); }} className="w-full rounded-xl border border-slate-200 px-3 py-2">
                   {roleSelectionOptions.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
