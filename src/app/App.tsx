@@ -324,6 +324,7 @@ export default function App() {
         <TopBar
           user={profile}
           onMenuClick={() => setMobileOpen(true)}
+          onNav={handleNav}
           notifCount={notifCount}
           onNotifClick={() => handleNav("notifications")}
           onViewProfile={() => handleNav("profile")}
