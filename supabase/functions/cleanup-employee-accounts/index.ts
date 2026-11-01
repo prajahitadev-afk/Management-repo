@@ -48,10 +48,13 @@ Deno.serve(async (req: Request) => {
     const keepUser = authUsers.users.find((user) => user.email?.toLowerCase() === ADMIN_EMAIL);
     if (!keepUser || keepUser.id !== callerData.user.id) throw new Error("The protected administrator account could not be verified");
 
-    const employeeIds = authUsers.users
-      .filter((user) => user.id !== keepUser.id)
-      .map((user) => user.id);
-    if (employeeIds.length === 0) return json({ success: true, deletedAccounts: 0, message: "No other accounts to remove." });
+    const requestBody = await req.json().catch(() => ({}));
+    const requestedEmployeeId = typeof requestBody.employeeId === "string" ? requestBody.employeeId.trim() : "";
+    if (!requestedEmployeeId) return json({ error: "employeeId is required" }, 400);
+    if (requestedEmployeeId === keepUser.id) return json({ error: "The administrator account is protected" }, 403);
+    const targetUser = authUsers.users.find((user) => user.id === requestedEmployeeId);
+    if (!targetUser) return json({ error: "Employee Auth account not found" }, 404);
+    const employeeIds = [requestedEmployeeId];
 
     const must = async (label: string, result: { error: { message: string } | null }) => {
       if (result.error) throw new Error(label + ": " + result.error.message);
@@ -143,23 +146,10 @@ Deno.serve(async (req: Request) => {
     await must("profiles.reports_to", await admin.from("profiles").update({ reports_to: null }).in("reports_to", employeeIds));
     await must("profiles.manager_id", await admin.from("profiles").update({ manager_id: null }).in("manager_id", employeeIds));
 
-    // Remove employee-owned Storage objects through the Storage API, never by
-    // deleting storage.objects metadata directly.
-    const { data: ownedObjects, error: objectsError } = await admin
-      .schema("storage").from("objects").select("bucket_id, name").in("owner", employeeIds);
-    if (objectsError) throw objectsError;
-    const byBucket = new Map<string, string[]>();
-    for (const object of ownedObjects ?? []) {
-      const paths = byBucket.get(object.bucket_id) ?? [];
-      paths.push(object.name);
-      byBucket.set(object.bucket_id, paths);
-    }
-    for (const [bucket, paths] of byBucket) {
-      for (let offset = 0; offset < paths.length; offset += 100) {
-        const { error } = await admin.storage.from(bucket).remove(paths.slice(offset, offset + 100));
-        if (error) throw new Error("Storage cleanup (" + bucket + "): " + error.message);
-      }
-    }
+    // Storage's system schema is not exposed through this project's PostgREST API.
+    // Leave Storage objects untouched rather than querying storage.objects via REST.
+    // Auth deletion below is still performed through the supported Auth Admin API.
+    await del("leave_approval_history", "approver_id");
 
     let deletedAccounts = 0;
     for (const userId of employeeIds) {
@@ -170,17 +160,18 @@ Deno.serve(async (req: Request) => {
 
     const { data: remainingUsers, error: verifyError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (verifyError) throw verifyError;
-    const remainingEmails = remainingUsers.users.map((user) => user.email?.toLowerCase()).filter(Boolean);
-    if (remainingEmails.length !== 1 || remainingEmails[0] !== ADMIN_EMAIL) {
-      throw new Error("Post-cleanup verification failed: unexpected Auth accounts remain");
+    const adminStillExists = remainingUsers.users.some((user) => user.id === keepUser.id && user.email?.toLowerCase() === ADMIN_EMAIL);
+    const targetStillExists = remainingUsers.users.some((user) => user.id === requestedEmployeeId);
+    if (!adminStillExists || targetStillExists) {
+      throw new Error("Post-deletion verification failed: administrator protection or target deletion check failed");
     }
 
     return json({
       success: true,
       preservedAccount: ADMIN_EMAIL,
       deletedAccounts,
-      removedStorageObjects: (ownedObjects ?? []).length,
-      message: "Employee accounts and linked employee data were removed. The administrator account and its owned records were preserved.",
+      deletedEmployeeId: requestedEmployeeId,
+      message: "The selected employee Auth account and linked employee data were removed. The administrator account was preserved.",
     });
   } catch (error) {
     console.error("Employee account cleanup failed", error);
