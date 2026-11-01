@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { AlertCircle, Building2, Search, Users, UserRound } from "lucide-react";
 import { useOrganizationChart } from "../../hooks/useOrganizationChart";
 import { assignSupervisor } from "../../services/employee-hierarchy.service";
-import type { EmployeeHierarchyNode } from "../../types/employee-hierarchy.types";
+import type { HierarchyEmployee } from "../../types/employee-hierarchy.types";
 
 interface OrganizationChartPageProps {
   currentUser?: {
@@ -75,7 +75,7 @@ function HierarchyTier({ title, employees, branches = false }: { title: string; 
   );
 }
 
-export function OrganizationChartPage({ currentUser, onSelectEmployee }: OrganizationChartPageProps) {
+export function OrganizationChartPage({ currentUser }: OrganizationChartPageProps) {
   const { employees, loading, error, refresh } = useOrganizationChart({ userId: currentUser?.id });
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All");
