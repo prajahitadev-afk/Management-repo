@@ -228,7 +228,16 @@ function GlassCard({ children, className = "", hover = false, onClick, style = {
   children: React.ReactNode; className?: string; hover?: boolean; onClick?: () => void; style?: React.CSSProperties;
 }) {
   return (
-    <div onClick={onClick}
+    <div
+      onClick={onClick}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={`portal-card rounded-2xl transition-all duration-200 ${onClick || hover ? "cursor-pointer" : ""} ${className}`}
       style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
         border: `1px solid ${B.glassBorder}`, boxShadow: B.glassShadow, ...style }}
@@ -330,14 +339,14 @@ function RoleBadge({ role }: { role: Role }) {
 }
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
-function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disabled = false, gold = false, danger = false }: {
+function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disabled = false, gold = false, danger = false, type = "button" }: {
   children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; size?: "sm" | "md" | "lg";
-  disabled?: boolean; gold?: boolean; danger?: boolean;
+  disabled?: boolean; gold?: boolean; danger?: boolean; type?: "button" | "submit";
 }) {
   const sizes = { sm: "px-3 py-1.5 text-xs gap-1.5", md: "px-4 py-2 text-sm gap-2", lg: "px-5 py-2.5 text-sm gap-2" };
   const bg = danger ? B.red : gold ? B.gold : B.green;
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type={type} onClick={onClick} disabled={disabled}
       className={`portal-button portal-button-primary inline-flex items-center font-semibold text-white rounded-xl transition-all duration-150 ${sizes[sz]} ${disabled ? "opacity-40 cursor-not-allowed" : "hover:opacity-90 active:scale-95"}`}
       style={{ background: disabled ? "#9CA3AF" : bg, fontFamily: "Inter, sans-serif", boxShadow: disabled ? "none" : `0 4px 14px ${bg}40` }}>
       {Icon && <Icon size={sz === "sm" ? 13 : 15} />}
@@ -346,11 +355,11 @@ function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disable
   );
 }
 
-function SecondaryButton({ children, onClick, icon: Icon, disabled = false }: {
-  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; disabled?: boolean;
+function SecondaryButton({ children, onClick, icon: Icon, disabled = false, type = "button" }: {
+  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; disabled?: boolean; type?: "button" | "submit";
 }) {
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type={type} onClick={onClick} disabled={disabled}
       className={`portal-button portal-button-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-150 ${disabled ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`}
       style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
         border: `1px solid ${B.glassBorder}`, color: B.textSub, fontFamily: "Inter, sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
@@ -386,17 +395,20 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [forgot, setForgot] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
-  async function doLogin() {
+  async function doLogin(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setLoginError(null);
     try {
       setLoading(true);
-      await login(email, password);
+      await login(email.trim(), password);
       onLogin?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Login failed");
+      setLoginError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -431,7 +443,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
             border: "1px solid rgba(255,255,255,0.55)", boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
           }}>
             {!forgot ? (
-              <>
+              <form onSubmit={doLogin} noValidate={false}>
                 <h2 className="text-xl font-bold mb-1" style={{ color: B.text }}>Welcome back</h2>
                 <p className="text-sm mb-5" style={{ color: B.textMuted }}>Sign in with your Prajahita Trust account</p>
                 {profileError && (
@@ -442,42 +454,31 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                     </button>
                   </div>
                 )}
+                {loginError && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{loginError}</div>}
                 <div className="mb-4">
-                  <label
-                    className="block text-xs font-bold mb-1.5 uppercase tracking-widest"
-                    style={{ color: B.textMuted }}
-                  >
-                    Email
-                  </label>
-
-                  <input
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    type="email"
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{
-                      background: "rgba(255,255,255,0.50)",
-                      border: "1px solid rgba(255,255,255,0.55)",
-                      color: B.text
-                    }}
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Password</label>
-                  <input value={password} onChange={e => setPassword(e.target.value)} type="password"
+                  <label htmlFor="portal-login-email" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Email</label>
+                  <input id="portal-login-email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} type="email"
+                    autoComplete="username" inputMode="email" required aria-required="true"
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                     style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
                 </div>
-                <PrimaryButton onClick={doLogin} size="lg" icon={loading ? RefreshCw : ArrowRight}>
+                <div className="mb-4">
+                  <label htmlFor="portal-login-password" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Password</label>
+                  <input id="portal-login-password" name="password" value={password} onChange={e => setPassword(e.target.value)} type="password"
+                    autoComplete="current-password" required aria-required="true"
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
+                </div>
+                <PrimaryButton type="submit" disabled={loading || !email.trim() || !password} size="lg" icon={loading ? RefreshCw : ArrowRight}>
                   {loading ? "Authenticating…" : "Sign In"}
                 </PrimaryButton>
-                <button onClick={() => setForgot(true)} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
+                <button type="button" onClick={() => { setLoginError(null); setForgot(true); }} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
                   Forgot password?
                 </button>
-              </>
+              </form>
             ) : (
               <>
-                <button onClick={() => setForgot(false)} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
+                <button type="button" onClick={() => setForgot(false)} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
                   <ChevronLeft size={16} /> Back
                 </button>
                 <h2 className="text-xl font-bold mb-2" style={{ color: B.text }}>Reset Password</h2>
@@ -567,8 +568,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 
       {/* Brand */}
       <div className="relative z-10 flex-shrink-0 px-4 pt-5 pb-4" style={{ borderBottom: `1px solid ${B.navBorder}` }}>
-        <div className="flex items-center gap-3" onClick={!mobile ? onToggle : undefined}
-          style={{ cursor: !mobile ? "pointer" : "default" }}>
+        <div className="portal-sidebar-brand flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
             style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", backdropFilter: "blur(10px)" }}>
             <img src={logoSrc} alt="Prajahita logo" className="w-full h-full object-cover" />
@@ -580,13 +580,13 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
             </div>
           )}
           {!mobile && (
-            <button onClick={onToggle} className="ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}
+            <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={onToggle} className="ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "white"}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"}>
               {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
           )}
-          {mobile && <button onClick={onMobileClose} style={{ color: "rgba(255,255,255,0.5)" }}><X size={18} /></button>}
+          {mobile && <button type="button" aria-label="Close navigation" onClick={onMobileClose} style={{ color: "rgba(255,255,255,0.5)" }}><X size={18} /></button>}
         </div>
         {(!collapsed || mobile) && (
           <div className="mt-3 pt-3 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.09)" }}>
@@ -622,7 +622,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
         {visibleNavItems.map(item => {
           const active = page === item.id;
           return (
-            <button key={item.id}
+            <button key={item.id} type="button" aria-current={active ? "page" : undefined}
               onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150"
               style={{
@@ -645,9 +645,9 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
       </nav>
 
       <div className="relative z-10 px-2.5 py-3 flex-shrink-0" style={{ borderTop: `1px solid ${B.navBorder}` }}>
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+        <button type="button" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
           style={{ color: "rgba(255,255,255,0.38)" }}
-          onClick={() => logout()}
+          onClick={() => { void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "white"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.38)"; }}>
           <LogOut size={16} />
@@ -717,7 +717,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
     <header className="portal-topbar flex items-center gap-3 px-5 flex-shrink-0 overflow-visible"
       style={{ background: "rgba(255,255,255,0.30)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(255,255,255,0.40)", height: 64, boxShadow: "0 2px 16px rgba(0,0,0,0.05)", overflow: "visible" }}>
-      <button onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
+      <button type="button" aria-label="Open navigation" onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
         <Menu size={20} />
       </button>
       <div className="flex-1 max-w-md">
@@ -729,7 +729,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
         </div>
       </div>
       <div className="flex items-center gap-2 ml-auto">
-        <button onClick={onNotifClick} className="relative p-2 rounded-xl transition-colors hover:bg-white/20"
+        <button type="button" aria-label={`Open notifications${notifCount ? `, ${notifCount} unread` : ""}`} onClick={onNotifClick} className="relative p-2 rounded-xl transition-colors hover:bg-white/20"
           style={{ border: "1px solid rgba(255,255,255,0.40)", background: "rgba(255,255,255,0.25)", backdropFilter: "blur(10px)" }}>
           <Bell size={17} style={{ color: B.textSub }} />
           {notifCount > 0 && (
@@ -738,7 +738,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
           )}
         </button>
         <div className="relative overflow-visible" data-profile-menu>
-          <button ref={triggerRef} onClick={() => {
+          <button type="button" ref={triggerRef} aria-label="Open account menu" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => {}
             if (menuOpen) {
               setMenuOpen(false);
               return;
@@ -765,10 +765,10 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
                 <div className="text-xs mt-1 text-slate-500">Department: {user.department}</div>
               </div>
               <div className="mt-2 space-y-1">
-                <button onClick={() => { setMenuOpen(false); onViewProfile(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-slate-900 hover:bg-slate-50">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onViewProfile(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-slate-900 hover:bg-slate-50">
                   <User size={14} /> Profile
                 </button>
-                <button onClick={() => { setMenuOpen(false); void logout(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50">
                   <LogOut size={14} /> Logout
                 </button>
               </div>
