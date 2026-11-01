@@ -13,6 +13,7 @@ import {
   updateEmployee,
 } from "../../services/employee.service";
 import type { Employee } from "../../types/employee.types";
+import { supabase } from "../../lib/supabase";
 import { ASSIGNABLE_DEPARTMENTS } from "../../types/department.types";
 
 const EMPLOYEE_ROLES = [
@@ -98,6 +99,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [joiningDate, setJoiningDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [cleanupInProgress, setCleanupInProgress] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [reportingChain, setReportingChain] = useState<Employee[] | null>(null);
   const [reportingChainEmployeeId, setReportingChainEmployeeId] = useState<string | null>(null);
@@ -266,12 +268,42 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     }
   }
 
+  async function handleKeepOnlyAdmin() {
+    const confirmed = window.confirm(
+      "This permanently removes every Auth account except admin@company.com, employee-linked records, and employee-owned Storage files. Administrator-owned records and the database structure will be kept. Continue?",
+    );
+    if (!confirmed) return;
+
+    try {
+      setCleanupInProgress(true);
+      setMessage(null);
+      const { data, error } = await supabase.functions.invoke("cleanup-employee-accounts", {
+        method: "POST",
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error ?? "Employee cleanup did not complete");
+      setMessage(`Cleanup complete. Preserved ${data.preservedAccount}; removed ${data.deletedAccounts} accounts and ${data.removedStorageObjects} employee-owned files.`);
+      await refresh();
+      const remaining = await getEmployeesForUser(currentUser.id);
+      setAllEmployees(remaining);
+    } catch (err) {
+      console.error("Employee account cleanup failed", err);
+      setMessage(err instanceof Error ? err.message : "Employee account cleanup failed");
+    } finally {
+      setCleanupInProgress(false);
+    }
+  }
+
   async function handleDelete(employee: Employee) {
+    const confirmed = window.confirm(`Archive ${employee.name}? They will no longer appear as an active employee, but their historical records will be retained.`);
+    if (!confirmed) return;
+
     try {
       await deleteEmployee(currentUser.id, employee.id);
       await refresh();
+      setMessage(`${employee.name} was archived successfully.`);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Failed to delete employee");
+      setMessage(err instanceof Error ? err.message : "Failed to archive employee");
     }
   }
 
@@ -300,6 +332,16 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
             <h1 className="text-xl font-semibold text-slate-800">Employee Directory</h1>
             <p className="text-sm text-slate-600">Search, filter, and manage employees from the database.</p>
           </div>
+          {currentUser.role === "Vice Chairman" && (
+            <button
+              type="button"
+              onClick={() => void handleKeepOnlyAdmin()}
+              disabled={cleanupInProgress}
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {cleanupInProgress ? "Cleaning accounts..." : "Keep only admin@company.com"}
+            </button>
+          )}
           {currentUser.role !== "Worker" && (
             <button
               type="button"
@@ -386,6 +428,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <option value="All">All</option>
               <option value="Active">Active</option>
               <option value="Suspended">Suspended</option>
+              <option value="Inactive">Inactive</option>
             </select>
           </label>
         </div>
@@ -398,89 +441,98 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       ) : filteredEmployees.length === 0 ? (
         <EmptyState message="No employees found for the current criteria." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-white/50 bg-white/40 shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 text-xs text-slate-500">
+            <span><strong className="text-slate-800">{filteredEmployees.length}</strong> employees found</span>
+            <span>Showing {Math.min(filteredEmployees.length, (page - 1) * PAGE_SIZE + 1)}–{Math.min(filteredEmployees.length, page * PAGE_SIZE)} of {filteredEmployees.length}</span>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-white/60 text-left text-xs uppercase tracking-wide text-slate-500">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Employee ID</th>
-                  <th className="px-4 py-3">Employee Code</th>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Designation</th>
-                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Role &amp; Department</th>
+                  <th className="px-4 py-3">Contact</th>
                   <th className="px-4 py-3">Reports To</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Phone</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Joining Date</th>
-                  <th className="px-4 py-3">Actions</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100">
                 {pagedEmployees.map((employee) => (
                   <Fragment key={employee.id}>
-                  <tr key={employee.id} className="border-t border-white/40 bg-white/20">
-                    <td className="px-4 py-3 font-semibold text-slate-700">{employee.employeeId}</td>
-                    <td className="px-4 py-3 text-slate-600">{employee.employeeCode || "—"}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">{employee.name}</div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{employee.designation || "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{employee.department}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {allEmployees.find((candidate) => candidate.id === employee.reportsTo)?.name ?? employee.reportsTo ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${employee.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                        {employee.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{employee.phone}</td>
-                    <td className="px-4 py-3 text-slate-600">{employee.email}</td>
-                    <td className="px-4 py-3 text-slate-600">{employee.joiningDate ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => onSelectEmployee?.(employee.id)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Profile">
-                          <Eye size={15} />
-                        </button>
-                        <button type="button" onClick={() => void toggleReportingChain(employee)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Reporting Chain">
-                          <span className="text-xs font-semibold">{reportingChainEmployeeId === employee.id ? "Hide" : "Chain"}</span>
-                        </button>
-                        {canManageEmployee(currentUser, employee) && (
-                          <>
-                            <button type="button" onClick={() => openEditModal(employee)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="Edit Employee">
-                              <Pencil size={15} />
-                            </button>
-                            {employee.status === "Active" ? (
-                              <button type="button" onClick={() => void toggleStatus(employee, "Suspended")} className="rounded-lg p-2 text-amber-700 hover:bg-white/70" title="Suspend">
-                                <UserX size={15} />
+                    <tr className="bg-white/70 transition-colors hover:bg-white">
+                      <td className="px-4 py-3">
+                        <div className="min-w-[190px]">
+                          <div className="font-semibold text-slate-800">{employee.name}</div>
+                          <div className="mt-0.5 text-xs text-slate-500">{employee.employeeId}</div>
+                          <div className="mt-0.5 text-xs text-slate-400">
+                            {employee.employeeCode || "No employee code"}
+                            {employee.designation ? ` · ${employee.designation}` : ""}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-700">{employee.role}</div>
+                        <div className="mt-0.5 text-xs text-slate-500">{employee.department || "No department"}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="max-w-[220px] truncate text-slate-700" title={employee.email}>{employee.email || "—"}</div>
+                        <div className="mt-0.5 text-xs text-slate-500">{employee.phone || "No phone number"}</div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {allEmployees.find((candidate) => candidate.id === employee.reportsTo)?.name ?? "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${employee.status === "Active" ? "bg-emerald-50 text-emerald-700" : employee.status === "Inactive" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-700"}`}>
+                          {employee.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                          <button type="button" onClick={() => onSelectEmployee?.(employee.id)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" title="View profile" aria-label={`View ${employee.name}`}>
+                            <Eye size={16} />
+                          </button>
+                          <button type="button" onClick={() => void toggleReportingChain(employee)} className="rounded-lg px-2 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900" title="View reporting chain">
+                            {reportingChainEmployeeId === employee.id ? "Hide chain" : "Chain"}
+                          </button>
+                          {canManageEmployee(currentUser, employee) && (
+                            <>
+                              <button type="button" onClick={() => openEditModal(employee)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" title="Edit employee" aria-label={`Edit ${employee.name}`}>
+                                <Pencil size={16} />
                               </button>
-                            ) : (
-                              <button type="button" onClick={() => void toggleStatus(employee, "Active")} className="rounded-lg p-2 text-emerald-700 hover:bg-white/70" title="Activate">
-                                <UserCheck size={15} />
-                              </button>
-                            )}
-                            <button type="button" onClick={() => void handleDelete(employee)} className="rounded-lg p-2 text-rose-700 hover:bg-white/70" title="Delete">
-                              <Trash2 size={15} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {reportingChainEmployeeId === employee.id && (
-                    <tr key={`${employee.id}-chain`} className="border-t border-white/40 bg-white/10">
-                      <td colSpan={11} className="px-4 py-3 text-sm text-slate-600">
-                        <span className="font-semibold text-slate-700">Reporting chain:</span>{" "}
-                        {reportingChain?.map((member, index) => (
-                          <span key={member.id}>
-                            {index > 0 && " > "}
-                            {member.name} ({member.role})
-                          </span>
-                        ))}
+                              {employee.status === "Active" ? (
+                                <button type="button" onClick={() => void toggleStatus(employee, "Suspended")} className="rounded-lg p-2 text-amber-700 hover:bg-amber-50" title="Suspend employee" aria-label={`Suspend ${employee.name}`}>
+                                  <UserX size={16} />
+                                </button>
+                              ) : employee.status === "Suspended" ? (
+                                <button type="button" onClick={() => void toggleStatus(employee, "Active")} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50" title="Activate employee" aria-label={`Activate ${employee.name}`}>
+                                  <UserCheck size={16} />
+                                </button>
+                              ) : null}
+                              {employee.status !== "Inactive" && (
+                                <button type="button" onClick={() => void handleDelete(employee)} className="rounded-lg p-2 text-rose-700 hover:bg-rose-50" title="Archive employee" aria-label={`Archive ${employee.name}`}>
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  )}
+                    {reportingChainEmployeeId === employee.id && (
+                      <tr className="bg-slate-50/80">
+                        <td colSpan={6} className="px-4 py-3 text-sm text-slate-600">
+                          <span className="font-semibold text-slate-700">Reporting chain:</span>{" "}
+                          {reportingChain?.map((member, index) => (
+                            <span key={member.id}>
+                              {index > 0 && " → "}
+                              {member.name} ({member.role})
+                            </span>
+                          ))}
+                        </td>
+                      </tr>
+                    )}
                   </Fragment>
                 ))}
               </tbody>
