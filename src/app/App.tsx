@@ -208,7 +208,8 @@ export default function App() {
     await markAllNotificationsRead();
   };
   const safeNavAccess = (currentPage: Page) => {
-    const item = NAV_ITEMS.find((navItem) => navItem.id === currentPage);
+    const accessPage = currentPage === "organization" ? "employees" : currentPage;
+    const item = NAV_ITEMS.find((navItem) => navItem.id === accessPage);
     return item ? navAccess(item, profile) : false;
   };
 
