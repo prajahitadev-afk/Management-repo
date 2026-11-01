@@ -165,7 +165,7 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
               <h1 className="text-xl font-semibold text-slate-800">My Attendance</h1>
               <p className="text-sm text-slate-600">Your attendance metrics and personal history from the database.</p>
             </div>
-            <button onClick={() => void handleApply()} className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Refresh</button>
+            <button type="button" onClick={() => void handleApply()} className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Refresh</button>
           </div>
         </div>
         {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div>}
@@ -232,7 +232,7 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
             <h1 className="text-xl font-semibold text-slate-800">Attendance</h1>
             <p className="text-sm text-slate-600">Mark attendance and review summaries for your team from the database.</p>
           </div>
-          <button onClick={() => void handleSave()} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+          <button type="button" onClick={() => void handleSave()} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
             <Save size={15} /> {saving ? "Saving..." : "Save Attendance"}
           </button>
         </div>
@@ -271,7 +271,7 @@ export function AttendancePage({ currentUser }: AttendancePageProps) {
               ))}
             </select>
           </label>
-          <button onClick={() => void handleApply()} className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Apply</button>
+          <button type="button" onClick={() => void handleApply()} className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Apply</button>
         </div>
       </div>
 
