@@ -169,7 +169,7 @@ body { background: #f4f7f5; color: var(--portal-ink); }
 .portal-main label { color: #52645a; }
 .portal-main input:not([type="checkbox"]):not([type="radio"]),
 .portal-main select, .portal-main textarea {
-  width: 100%;
+  max-width: 100%;
   min-height: 42px;
   padding: .55rem .75rem;
   border: 1px solid #dfe8e2 !important;
