@@ -541,6 +541,7 @@ const NAV_ITEMS = [
   { id: "orders",        label: "Orders",            icon: ShoppingCart,    minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Marketing" },
   { id: "transport",     label: "Transport",        icon: Truck,           minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Transport" },
   { id: "admin",         label: "Admin / RBAC",     icon: Shield,          adminOnly: true },
+  { id: "audit",          label: "Audit Log",         icon: ClipboardList,   adminOnly: true },
 ];
 
 function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
