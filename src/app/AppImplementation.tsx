@@ -414,6 +414,24 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
     }
   }
 
+  async function sendResetLink(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setResetError(null);
+    setResetSuccess(null);
+    try {
+      setLoading(true);
+      if (!email.trim()) throw new Error("Please enter your email address.");
+      const redirectTo = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      if (error) throw error;
+      setResetSuccess("Password reset link sent to your email.");
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : "Unable to send password reset link.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="portal-login-screen min-h-screen flex" style={{ background: B.bg }}>
       {/* Left panel */}
@@ -485,38 +503,27 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                 <p className="text-sm mb-4" style={{ color: B.textMuted }}>
                   Enter your email and we will send you a password reset link.
                 </p>
-                <input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  placeholder="your@prajahita.org"
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none mb-4"
-                  style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}
-                />
-                {resetError && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{resetError}</div>}
-                {resetSuccess && <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{resetSuccess}</div>}
-                <PrimaryButton onClick={async () => {
-                  setResetError(null);
-                  setResetSuccess(null);
-                  try {
-                    setLoading(true);
-                    if (!email.trim()) {
-                      throw new Error("Please enter your email address.");
-                    }
-                    const redirectTo = `${window.location.origin}/reset-password`;
-                    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                      redirectTo,
-                    });
-                    if (error) throw error;
-                    setResetSuccess("Password reset link sent to your email.");
-                  } catch (err) {
-                    setResetError(err instanceof Error ? err.message : "Unable to send password reset link.");
-                  } finally {
-                    setLoading(false);
-                  }
-                }} size="lg" icon={Send}>
-                  {loading ? "Sending…" : "Send reset link"}
-                </PrimaryButton>
+                <form onSubmit={sendResetLink}>
+                  <label htmlFor="portal-reset-email" className="mb-1.5 block text-xs font-bold uppercase tracking-widest" style={{ color: B.textMuted }}>Email</label>
+                  <input
+                    id="portal-reset-email"
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    required
+                    placeholder="your@prajahita.org"
+                    className="mb-4 w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}
+                  />
+                  {resetError && <div role="alert" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{resetError}</div>}
+                  {resetSuccess && <div role="status" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{resetSuccess}</div>}
+                  <PrimaryButton type="submit" disabled={loading || !email.trim()} size="lg" icon={Send}>
+                    {loading ? "Sending…" : "Send reset link"}
+                  </PrimaryButton>
+                </form>
               </>
             )}
           </div>
@@ -621,7 +628,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
       {/* Nav */}
       <nav className="relative z-10 flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
         {visibleNavItems.map(item => {
-          const active = page === item.id;
+          const active = page === item.id || (item.id === "employees" && page === "organization");
           return (
             <button type="button" key={item.id} aria-current={active ? "page" : undefined}
               onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
