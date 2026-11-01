@@ -677,6 +677,17 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchResults = NAV_ITEMS
+    .filter((item) => navAccess(item, user) && item.label.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    .slice(0, 6);
+  const runModuleSearch = (target?: Page) => {
+    if (!target) return;
+    onNav(target);
+    setSearchQuery("");
+    setSearchOpen(false);
+  };
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -720,13 +731,40 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
       <button type="button" aria-label="Open navigation" onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
         <Menu size={20} />
       </button>
-      <div className="flex-1 max-w-md">
+      <div className="portal-global-search relative flex-1 max-w-md">
         <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl"
-          style={{ background: "rgba(255,255,255,0.40)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.50)", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)" }}>
+          style={{ background: "#F7FAF8", border: "1px solid #E3EBE6", boxShadow: "inset 0 1px 2px rgba(22,45,35,0.025)" }}>
           <Search size={15} style={{ color: B.textFaint }} />
-          <input placeholder="Search staff, bills, orders, programs…" className="flex-1 bg-transparent text-sm outline-none" style={{ color: B.text }} />
+          <input
+            aria-label="Find a portal module"
+            aria-controls="portal-module-search-results"
+            aria-expanded={searchOpen && Boolean(searchQuery.trim())}
+            placeholder="Find a module…"
+            value={searchQuery}
+            onFocus={() => setSearchOpen(true)}
+            onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true); }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") { event.preventDefault(); runModuleSearch(searchResults[0]?.id as Page | undefined); }
+              if (event.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+            }}
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: B.text }}
+          />
+          {searchQuery && <button type="button" aria-label="Clear module search" onClick={() => setSearchQuery("")} className="rounded-md p-1 text-slate-400 hover:bg-slate-100"><X size={13} /></button>}
         </div>
+        {searchOpen && searchQuery.trim() && (
+          <div id="portal-module-search-results" role="listbox" aria-label="Matching modules" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+            {searchResults.length ? searchResults.map((item) => (
+              <button key={item.id} type="button" role="option" aria-selected="false"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => runModuleSearch(item.id as Page)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900">
+                <item.icon size={15} className="text-emerald-700" />
+                <span>{item.label}</span>
+              </button>
+            )) : <p className="px-3 py-3 text-xs text-slate-500">No matching modules available for your role.</p>}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2 ml-auto">
         <button type="button" aria-label={`Open notifications${notifCount ? `, ${notifCount} unread` : ""}`} onClick={onNotifClick} className="relative p-2 rounded-xl transition-colors hover:bg-white/20"
