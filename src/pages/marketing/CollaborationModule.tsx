@@ -8,6 +8,93 @@ import {
 import { useCollaboration } from "../../hooks/useCollaboration";
 import { CollaborationApplication, ApproverRole } from "../../services/collaboration.service";
 
+
+function downloadGeneratedBillCopy(bill: {
+  bill_number: string;
+  collaborator_company_name: string;
+  customer_name: string;
+  product_name: string;
+  total_amount: number;
+  currency: string;
+  status: string;
+  generated_at: string;
+}) {
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+
+  const generatedAt = new Date(bill.generated_at);
+  const dateLabel = Number.isNaN(generatedAt.getTime())
+    ? "Date unavailable"
+    : generatedAt.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+  const amount = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(bill.total_amount) || 0);
+  const document = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(bill.bill_number)} — Generated bill copy</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 36px; color: #17231f; background: #f4f7f5; font: 14px/1.55 Inter, Arial, sans-serif; }
+    .sheet { max-width: 760px; margin: 0 auto; padding: 44px; background: #fff; border: 1px solid #e3ebe6; border-radius: 18px; }
+    .brand { color: #176b52; font-size: 12px; font-weight: 800; letter-spacing: .16em; }
+    h1 { margin: 26px 0 4px; font-size: 28px; letter-spacing: -.04em; }
+    .muted { color: #718078; }
+    .notice { margin-top: 18px; padding: 12px 14px; border: 1px solid #ead9b5; border-radius: 10px; color: #805b1b; background: #fbf5e9; font-size: 12px; }
+    dl { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; margin: 32px 0; }
+    dt { color: #718078; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    dd { margin: 4px 0 0; font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
+    .total { margin-top: 32px; padding: 22px; border-radius: 12px; color: #fff; background: #153a32; }
+    .total span { display: block; color: #c4d8ce; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+    .total strong { display: block; margin-top: 4px; font-size: 30px; }
+    footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e3ebe6; color: #718078; font-size: 11px; }
+    @media print { body { padding: 0; background: #fff; } .sheet { border: 0; border-radius: 0; } }
+    @media (max-width: 560px) { body { padding: 12px; } .sheet { padding: 22px; } dl { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="brand">PRAJAHITA · MANAGEMENT PORTAL</div>
+    <h1>Collaboration bill</h1>
+    <p class="muted">Bill reference: <strong>${escapeHtml(bill.bill_number)}</strong></p>
+    <div class="notice"><strong>Generated copy.</strong> This printable document is generated from the saved collaboration bill record. It is not an uploaded or digitally signed tax invoice.</div>
+    <dl>
+      <div><dt>Collaborator company</dt><dd>${escapeHtml(bill.collaborator_company_name)}</dd></div>
+      <div><dt>Customer</dt><dd>${escapeHtml(bill.customer_name)}</dd></div>
+      <div><dt>Product / service</dt><dd>${escapeHtml(bill.product_name || "—")}</dd></div>
+      <div><dt>Generated date</dt><dd>${escapeHtml(dateLabel)}</dd></div>
+      <div><dt>Status</dt><dd>${escapeHtml(bill.status)}</dd></div>
+    </dl>
+    <section class="total">
+      <span>Total amount</span>
+      <strong>${escapeHtml(bill.currency)} ${escapeHtml(amount)}</strong>
+    </section>
+    <footer>Generated from the collaboration bill record stored in Prajahita Management Portal.</footer>
+  </main>
+  <script>window.addEventListener("load", () => window.print());</script>
+</body>
+</html>`;
+
+  const printableWindow = window.open("", "_blank", "noopener,noreferrer,width=900,height=760");
+  if (!printableWindow) {
+    const blob = new Blob([document], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement("a");
+    link.href = url;
+    link.download = `${bill.bill_number}-generated-copy.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+  printableWindow.document.write(document);
+  printableWindow.document.close();
+}
+
 interface AppUser {
   id: string;
   name: string;
@@ -611,9 +698,9 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <button type="button"
-                        onClick={() => alert(`Downloading official bill document: ${bill.bill_number}.pdf`)}
+                        onClick={() => downloadGeneratedBillCopy(bill)}
                         className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all"
-                        title="Download Bill PDF"
+                        title="Print generated bill copy"
                       >
                         <Download size={16} />
                       </button>
@@ -1022,14 +1109,18 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             {selectedApp.generated_bill_number && (
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-300 flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-bold text-emerald-700 uppercase block">Official Generated Bill</span>
+                  <span className="text-xs font-bold text-emerald-700 uppercase block">Generated Bill Copy</span>
                   <span className="font-mono font-black text-emerald-900 text-lg">{selectedApp.generated_bill_number}</span>
                 </div>
                 <button type="button"
-                  onClick={() => alert(`Downloading Generated Bill: ${selectedApp.generated_bill_number}.pdf`)}
+                  onClick={() => {
+                    const generatedBill = bills.find((bill) => bill.bill_number === selectedApp.generated_bill_number);
+                    if (generatedBill) downloadGeneratedBillCopy(generatedBill);
+                    else setActionError("The saved bill record could not be found. Refresh the page and try again.");
+                  }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow"
                 >
-                  <Download size={14} /> Download Final Bill
+                  <Download size={14} /> Print Generated Copy
                 </button>
               </div>
             )}
