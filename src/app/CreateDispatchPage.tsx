@@ -53,6 +53,7 @@ function PrimaryButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       className="portal-button portal-button-primary inline-flex items-center font-semibold text-white rounded-xl transition-all duration-150 px-4 py-2 text-sm gap-2"
@@ -80,6 +81,7 @@ function SecondaryButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className="portal-button portal-button-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-150"
       style={{
