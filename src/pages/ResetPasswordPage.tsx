@@ -82,6 +82,11 @@ export function ResetPasswordPage() {
         <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }}>
           <label htmlFor="reset-new-password" className="block text-sm font-medium text-slate-700">New Password</label>
           <input
+            id="reset-new-password"
+            name="newPassword"
+            autoComplete="new-password"
+            minLength={8}
+            required
             type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
@@ -90,20 +95,25 @@ export function ResetPasswordPage() {
           />
           <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-slate-700">Confirm Password</label>
           <input
+            id="reset-confirm-password"
+            name="confirmPassword"
+            autoComplete="new-password"
+            minLength={8}
+            required
             type="password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
             placeholder="Confirm new password"
           />
-        </div>
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={loading}
-          className="mt-6 w-full rounded-2xl bg-[#4E8050] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+          className="portal-button portal-button-primary mt-2 w-full px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {loading ? "Updating password..." : "Update Password"}
         </button>
+        </form>
       </div>
     </div>
   );
