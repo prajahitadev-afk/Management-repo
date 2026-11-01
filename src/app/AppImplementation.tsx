@@ -701,7 +701,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
     const menuWidth = 288;
     const menuHeight = 220;
     setMenuPosition({
-      top: Math.min(rect.bottom + 8, window.innerHeight - menuHeight - 16),
+      top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - menuHeight - 16)),
       left: Math.max(16, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 16)),
     });
   };
@@ -732,7 +732,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
       <button type="button" aria-label="Open navigation" onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
         <Menu size={20} />
       </button>
-      <div className="portal-global-search relative flex-1 max-w-md">
+      <div className="portal-global-search relative flex-1 max-w-md" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSearchOpen(false); }}>
         <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl"
           style={{ background: "#F7FAF8", border: "1px solid #E3EBE6", boxShadow: "inset 0 1px 2px rgba(22,45,35,0.025)" }}>
           <Search size={15} style={{ color: B.textFaint }} />
@@ -796,7 +796,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
             <ChevronDown size={13} style={{ color: B.textFaint }} />
           </button>
           {menuOpen && createPortal(
-            <div data-profile-menu-content className="w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl" style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 2147483647 }}>
+            <div data-profile-menu-content role="menu" aria-label="Account options" className="w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl" style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 2147483647 }}>
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
                 <div className="text-sm font-semibold text-slate-900">{user.name}</div>
                 <div className="text-xs mt-1 text-slate-500">Employee ID: {user.employeeId ?? user.id}</div>
