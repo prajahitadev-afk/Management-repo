@@ -623,7 +623,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
         {visibleNavItems.map(item => {
           const active = page === item.id;
           return (
-            <button key={item.id} type="button" aria-current={active ? "page" : undefined}
+            <button type="button" key={item.id} type="button" aria-current={active ? "page" : undefined}
               onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150"
               style={{
@@ -756,7 +756,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
         {searchOpen && searchQuery.trim() && (
           <div id="portal-module-search-results" role="listbox" aria-label="Matching modules" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
             {searchResults.length ? searchResults.map((item) => (
-              <button key={item.id} type="button" role="option" aria-selected="false"
+              <button type="button" key={item.id} type="button" role="option" aria-selected="false"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => runModuleSearch(item.id as Page)}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900">
@@ -1225,7 +1225,7 @@ function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStat
             { icon: Users,     label: "Team Attendance",desc: "Mark for your team",     color: CG, path: "/attendance" },
             { icon: Bell,      label: "Notifications",  desc: "View updates",           color: CR, path: "/notifications" },
           ].map(a => (
-            <button key={a.label} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all duration-200"
+            <button type="button" key={a.label} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all duration-200"
               onClick={() => navigateDashboardAction(a.path)}
               style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
@@ -1403,7 +1403,7 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
             ...(user.department === "Marketing" ? [{ icon: ShoppingCart, label: "Orders", desc: "View orders", color: CB, path: "/orders" }] : []),
             ...(ROLE_LEVEL[user.role] >= ROLE_LEVEL.Manager ? [{ icon: BarChart2, label: "Reports", desc: "View reports", color: CGo, path: "/reports" }] : []),
           ].map(a => (
-            <button key={a.label} onClick={() => navigateDashboardAction(a.path)} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all"
+            <button type="button" key={a.label} onClick={() => navigateDashboardAction(a.path)} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all"
               style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center"
                 style={{ background: `${a.color}18`, border: `1px solid ${a.color}30` }}>
@@ -1552,7 +1552,7 @@ function AttendancePage({ user }: { user: AppUser }) {
           <div className="flex rounded-xl overflow-hidden"
             style={{ border: "1px solid rgba(255,255,255,0.50)", background: "rgba(255,255,255,0.20)" }}>
             {(["daily","weekly","monthly"] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
+              <button type="button" key={v} onClick={() => setView(v)}
                 className="px-4 py-2 text-sm font-medium capitalize transition-all"
                 style={{ background: view === v ? "rgba(255,255,255,0.60)" : "transparent",
                   color: view === v ? B.nav : B.textMuted, fontWeight: view === v ? 600 : 400,
@@ -1940,7 +1940,7 @@ function BillsPage({ user }: { user: AppUser }) {
 
   const BillDetail = () => (
     <div className="space-y-5">
-      <button onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
+      <button type="button" onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
         <ChevronLeft size={16} /> Back to Bills
       </button>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -1980,10 +1980,10 @@ function BillsPage({ user }: { user: AppUser }) {
                       style={{ background: "rgba(255,255,255,0.30)", border: "1px solid rgba(255,255,255,0.45)" }}>
                       <span className="truncate">{attachment.file_name}</span>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => void handleViewAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
+                        <button type="button" onClick={() => void handleViewAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
                           <Eye size={13} /> View
                         </button>
-                        <button onClick={() => void handleDownloadAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
+                        <button type="button" onClick={() => void handleDownloadAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
                           <Download size={13} /> Download
                         </button>
                       </div>
@@ -2053,7 +2053,7 @@ function BillsPage({ user }: { user: AppUser }) {
                 <SecondaryButton icon={RefreshCw} onClick={handleReturn}>Return for Correction</SecondaryButton>
               )}
               {billActions.canReject && (
-                <button onClick={handleReject} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
+                <button type="button" onClick={handleReject} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
                   style={{ background: B.redLight, border: "1px solid rgba(239,68,68,0.20)", color: CR }}>
                   <XCircle size={15} /> Reject Bill
                 </button>
@@ -2065,7 +2065,7 @@ function BillsPage({ user }: { user: AppUser }) {
                     value={approvalCancelReason}
                     onChange={(e) => setApprovalCancelReason(e.target.value)}
                     style={{ background: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.50)", color: B.text }} />
-                  <button onClick={() => handleCancelApproval()} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
+                  <button type="button" onClick={() => handleCancelApproval()} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
                     style={{ background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.20)", color: "#b45309" }}>
                     <XCircle size={15} /> Cancel Approval
                   </button>
@@ -2074,7 +2074,7 @@ function BillsPage({ user }: { user: AppUser }) {
             </div>
           )}
           <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-            <button onClick={() => { if (selectedBill) void exportBillToPDF(selectedBill); }} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
+            <button type="button" onClick={() => { if (selectedBill) void exportBillToPDF(selectedBill); }} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
               <Printer size={14} /> Print Bill
             </button>
           </div>
@@ -2085,7 +2085,7 @@ function BillsPage({ user }: { user: AppUser }) {
 
   const SubmitForm = () => (
     <div>
-      <button onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
+      <button type="button" onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
         <ChevronLeft size={16} /> Back
       </button>
       <GlassCard className="p-6 max-w-2xl">
@@ -2468,7 +2468,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
         {(["orders","customers","payments","collaboration"] as const).map(t => (
-          <button key={t} onClick={() => setActiveTab(t)}
+          <button type="button" key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium capitalize transition-all"
             style={{
               background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
@@ -2620,7 +2620,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                 <h2 className="text-lg font-bold" style={{ color: B.text }}>Order Details</h2>
                 <p className="text-xs mt-1" style={{ color: B.textMuted }}>{selectedOrder.ref}</p>
               </div>
-              <button onClick={() => { setSelectedOrder(null); setOrderDetails(null); }} className="p-2 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><X size={18} /></button>
+              <button type="button" onClick={() => { setSelectedOrder(null); setOrderDetails(null); }} className="p-2 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><X size={18} /></button>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm mb-6">
               <div><span className="font-semibold" style={{ color: B.text }}>Order Number:</span> {selectedOrder.ref}</div>
@@ -2859,7 +2859,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
         <GlassCard className="p-5">
           <div className="flex items-center justify-between mb-4 gap-3">
             <h3 className="font-semibold text-base" style={{ color: B.text }}>Delivery Details</h3>
-            <button onClick={() => { setSelectedDeliveryId(null); setDeliveryDetails(null); }} className="text-xs font-semibold" style={{ color: B.textMuted }}>Close</button>
+            <button type="button" onClick={() => { setSelectedDeliveryId(null); setDeliveryDetails(null); }} className="text-xs font-semibold" style={{ color: B.textMuted }}>Close</button>
           </div>
           {detailsLoading && <div className="text-sm" style={{ color: B.textMuted }}>Loading delivery details…</div>}
           {!detailsLoading && deliveryDetails && (
@@ -3004,7 +3004,7 @@ function AdminPage({ user }: { user: AppUser }) {
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
         {(["roles","audit"] as const).map(t => (
-          <button key={t} onClick={() => setActiveTab(t)}
+          <button type="button" key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium transition-all"
             style={{ background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
               color: activeTab === t ? B.nav : B.textMuted, fontWeight: activeTab === t ? 600 : 400,
@@ -3122,7 +3122,7 @@ function ReportsPage({ user }: { user: AppUser }) {
         <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Report Builder</h3>
         <div className="flex flex-wrap gap-2 mb-5">
           {REPORT_TYPES.map(t => (
-            <button key={t} onClick={() => setReportType(t)}
+            <button type="button" key={t} onClick={() => setReportType(t)}
               className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
               style={{
                 background: reportType === t ? B.nav : "rgba(255,255,255,0.35)",
@@ -3260,7 +3260,7 @@ function NotificationsPage({
 
       <div className="flex gap-2 flex-wrap">
         {["all","unread","approval","order","attendance","recruit","suspension","delivery","bill"].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
+          <button type="button" key={f} onClick={() => setFilter(f)}
             className="px-4 py-2 text-sm font-medium rounded-xl capitalize transition-all"
             style={{ background: filter === f ? B.nav : "rgba(255,255,255,0.30)", border: filter === f ? `1px solid ${B.navLight}` : "1px solid rgba(255,255,255,0.50)",
               color: filter === f ? "white" : B.textMuted, fontWeight: filter === f ? 600 : 400,
@@ -3412,7 +3412,7 @@ export default function App() {
             <Lock size={24} className="mx-auto mb-4" style={{ color: B.textFaint }} />
             <h2 className="text-lg font-bold mb-2" style={{ color: B.text }}>Access Denied</h2>
             <p className="text-sm" style={{ color: B.textSub }}>Your role does not have permission to access this module.</p>
-            <button onClick={() => setPage("dashboard")} className="mt-4 text-sm font-medium hover:underline" style={{ color: B.green }}>
+            <button type="button" onClick={() => setPage("dashboard")} className="mt-4 text-sm font-medium hover:underline" style={{ color: B.green }}>
               Go to Dashboard
             </button>
           </GlassCard>
