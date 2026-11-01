@@ -623,7 +623,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
         {visibleNavItems.map(item => {
           const active = page === item.id;
           return (
-            <button type="button" key={item.id} type="button" aria-current={active ? "page" : undefined}
+            <button type="button" key={item.id} aria-current={active ? "page" : undefined}
               onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150"
               style={{
@@ -756,7 +756,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
         {searchOpen && searchQuery.trim() && (
           <div id="portal-module-search-results" role="listbox" aria-label="Matching modules" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
             {searchResults.length ? searchResults.map((item) => (
-              <button type="button" key={item.id} type="button" role="option" aria-selected="false"
+              <button type="button" key={item.id} role="option" aria-selected="false"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => runModuleSearch(item.id as Page)}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900">
@@ -2396,6 +2396,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
         </div>
 
         <button
+          type="button"
           onClick={() => setActiveTab("collaboration")}
           className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 whitespace-nowrap transition-all"
         >
@@ -2525,6 +2526,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4">
                       <div className="flex flex-wrap gap-2">
                         <button
+                          type="button"
                           onClick={(event) => { event.stopPropagation(); void handleApproveOrder(o); }}
                           disabled={actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status)}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
@@ -2538,6 +2540,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                           Approve
                         </button>
                         <button
+                          type="button"
                           onClick={(event) => { event.stopPropagation(); void handleRejectOrder(o); }}
                           disabled={actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status)}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
