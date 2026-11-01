@@ -302,7 +302,8 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
           </div>
           {currentUser.role !== "Worker" && (
             <button
-              onClick={() => {
+              type="button"
+              onClick={() => {}
                 setSelectedRole(allowedRoles[0] ?? "Worker");
                 setFormOpen(true);
               }}
