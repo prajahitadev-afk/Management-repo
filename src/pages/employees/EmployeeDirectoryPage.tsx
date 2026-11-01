@@ -293,7 +293,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-feature-page p-6 space-y-5">
       <div className="rounded-2xl border border-white/50 bg-white/40 p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
