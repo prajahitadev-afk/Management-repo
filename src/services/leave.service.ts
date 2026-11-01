@@ -124,9 +124,8 @@ export async function cancelLeaveRequest(leaveId: string): Promise<LeaveRequest>
 
 export async function getLeaveBalance(employeeId: string): Promise<LeaveBalance | null> {
   const authenticatedId = await resolveAuthenticatedEmployeeId(employeeId, "balance lookup");
-  const { data, error } = await supabase.from("leave_balances").select("*").eq("employee_id", authenticatedId).single();
+  const { data, error } = await supabase.from("leave_balances").select("*").eq("employee_id", authenticatedId).maybeSingle();
   if (error) throw error;
-  console.info("[Leave] balance lookup rows", data ? 1 : 0);
   return (data as LeaveBalance | null) ?? null;
 }
 

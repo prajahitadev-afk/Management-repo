@@ -93,14 +93,17 @@ export async function getEmployeeHierarchyTree(): Promise<EmployeeHierarchyNode[
 export async function getHierarchyEmployees(): Promise<HierarchyEmployee[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, employee_code, employee_id, name, role, department, hierarchy_level, status")
+    .select("id, employee_code, employee_id, name, email, role, department, hierarchy_level, status")
     .not("role", "is", null)
     .neq("role", "Customer")
     .order("hierarchy_level", { ascending: true })
     .order("name", { ascending: true });
   if (error) throw error;
 
-  return ((data ?? []) as Array<Record<string, unknown>>).map((profile) => ({
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .filter((profile) => String(profile.email ?? "").trim().toLowerCase() !== "admin@company.com"
+      && String(profile.role ?? "").trim().toLowerCase() !== "admin")
+    .map((profile) => ({
     id: String(profile.id),
     employeeCode: String(profile.employee_code ?? profile.employee_id ?? profile.id),
     name: String(profile.name ?? "Unnamed Employee"),
