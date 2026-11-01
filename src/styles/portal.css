@@ -129,3 +129,119 @@ body { background: #f4f7f5; color: var(--portal-ink); }
   .portal-spinner { animation: none; }
   .portal-sidebar nav button, .portal-button { transition: none !important; }
 }
+
+
+/* Cross-module interaction and layout polish */
+.portal-main { color: #17231f !important; }
+.portal-main h1, .portal-main h2, .portal-main h3 { color: #17231f; letter-spacing: -.025em; }
+.portal-main p { text-wrap: pretty; }
+.portal-main [class*="bg-white/"] {
+  background-color: #fff !important;
+}
+.portal-main [class*="border-white/"] {
+  border-color: #e3ebe6 !important;
+}
+.portal-main [class*="shadow-sm"] {
+  box-shadow: 0 2px 8px rgba(22,45,35,.04), 0 10px 26px rgba(22,45,35,.035) !important;
+}
+.portal-main [class*="rounded-2xl"] { border-radius: 16px; }
+.portal-main [class*="rounded-xl"] { border-radius: 11px; }
+.portal-main button:not(:disabled) { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.portal-main button:focus-visible, .portal-sidebar button:focus-visible, .portal-topbar button:focus-visible {
+  outline: 3px solid rgba(23,107,82,.34) !important;
+  outline-offset: 2px;
+}
+.portal-main button[class*="bg-emerald-700"],
+.portal-main button[class*="bg-[#4e8050]"] {
+  background-color: #176b52 !important;
+  box-shadow: 0 4px 12px rgba(23,107,82,.14);
+}
+.portal-main button[class*="bg-emerald-700"]:hover,
+.portal-main button[class*="bg-[#4e8050]"]:hover {
+  background-color: #125941 !important;
+}
+.portal-main button[class*="border-rose-300"] { border-color: #e7b9bb !important; }
+.portal-main button[class*="text-rose-700"] { color: #b43d48 !important; }
+.portal-main table { width: 100%; }
+.portal-main table th { border-bottom: 1px solid #e7eee9; }
+.portal-main table tbody tr { transition: background-color .14s ease; }
+.portal-main table tbody tr:hover { background: #f8fbf9; }
+.portal-main label { color: #52645a; }
+.portal-main input:not([type="checkbox"]):not([type="radio"]),
+.portal-main select, .portal-main textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: .55rem .75rem;
+  border: 1px solid #dfe8e2 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #24372e !important;
+  font-size: .875rem;
+}
+.portal-main input[type="checkbox"], .portal-main input[type="radio"] { accent-color: #176b52; }
+.portal-main textarea { min-height: 96px; resize: vertical; }
+.portal-main input:disabled, .portal-main select:disabled, .portal-main textarea:disabled { background: #f3f6f4 !important; color: #87938c !important; }
+.portal-main [role="alert"] { border-radius: 12px; }
+.portal-global-search { min-width: 0; }
+.portal-global-search input { min-width: 0; }
+.portal-sidebar-brand { min-height: 42px; }
+.portal-login-screen {
+  min-height: 100vh;
+  background: #f4f7f5 !important;
+}
+.portal-login-screen > .hidden.lg\:flex {
+  width: min(40vw, 520px) !important;
+  min-width: 360px;
+  background: linear-gradient(155deg, #153a32 0%, #1e5a47 100%) !important;
+}
+.portal-login-card {
+  width: 100%;
+  background: #fff !important;
+  border: 1px solid #e3ebe6 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 64px rgba(20,48,37,.11) !important;
+  backdrop-filter: none !important;
+}
+.portal-login-card input {
+  min-height: 46px;
+  padding: .7rem .85rem;
+  background: #fbfdfb !important;
+  border: 1px solid #dfe8e2 !important;
+  border-radius: 10px !important;
+}
+.portal-reset-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: #f4f7f5 !important;
+}
+.portal-reset-card {
+  width: min(100%, 440px);
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  background: #fff !important;
+  border: 1px solid #e3ebe6 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 64px rgba(20,48,37,.10) !important;
+}
+.portal-form-page { min-height: 100%; background: #f4f7f5 !important; padding: clamp(1rem, 2.5vw, 2rem); }
+.portal-form-page [class*="bg-white/"] { background-color: #fff !important; }
+.portal-form-page input, .portal-form-page select, .portal-form-page textarea {
+  border: 1px solid #dfe8e2 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+}
+.portal-form-page button { border-radius: 10px !important; }
+@media (max-width: 767px) {
+  .portal-main > div { padding: 1rem !important; }
+  .portal-login-screen { display: flex; align-items: center; justify-content: center; }
+  .portal-login-screen > .hidden.lg\:flex { display: none !important; }
+  .portal-login-card { padding: 1.5rem !important; }
+  .portal-main table { min-width: 640px; }
+  .portal-form-page { padding: 1rem; }
+}
+@media (max-width: 420px) {
+  .portal-topbar { gap: .5rem !important; }
+  .portal-global-search { max-width: none; }
+  .portal-login-card { border-radius: 16px !important; }
+}
