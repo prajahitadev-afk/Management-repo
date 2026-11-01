@@ -680,8 +680,8 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
-function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: {
-  user: AppUser; onMenuClick: () => void; notifCount: number; onNotifClick: () => void; onViewProfile: () => void;
+function TopBar({ user, onMenuClick, onNav, notifCount, onNotifClick, onViewProfile }: {
+  user: AppUser; onMenuClick: () => void; onNav: (page: Page) => void; notifCount: number; onNotifClick: () => void; onViewProfile: () => void;
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
