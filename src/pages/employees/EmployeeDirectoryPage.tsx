@@ -13,6 +13,7 @@ import {
   updateEmployee,
 } from "../../services/employee.service";
 import type { Employee } from "../../types/employee.types";
+import { supabase } from "../../lib/supabase";
 import { ASSIGNABLE_DEPARTMENTS } from "../../types/department.types";
 
 const EMPLOYEE_ROLES = [
@@ -98,6 +99,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [joiningDate, setJoiningDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [cleanupInProgress, setCleanupInProgress] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [reportingChain, setReportingChain] = useState<Employee[] | null>(null);
   const [reportingChainEmployeeId, setReportingChainEmployeeId] = useState<string | null>(null);
@@ -266,6 +268,32 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     }
   }
 
+  async function handleKeepOnlyAdmin() {
+    const confirmed = window.confirm(
+      "This permanently removes every Auth account except admin@company.com, employee-linked records, and employee-owned Storage files. Administrator-owned records and the database structure will be kept. Continue?",
+    );
+    if (!confirmed) return;
+
+    try {
+      setCleanupInProgress(true);
+      setMessage(null);
+      const { data, error } = await supabase.functions.invoke("cleanup-employee-accounts", {
+        method: "POST",
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error ?? "Employee cleanup did not complete");
+      setMessage(`Cleanup complete. Preserved ${data.preservedAccount}; removed ${data.deletedAccounts} accounts and ${data.removedStorageObjects} employee-owned files.`);
+      await refresh();
+      const remaining = await getEmployeesForUser(currentUser.id);
+      setAllEmployees(remaining);
+    } catch (err) {
+      console.error("Employee account cleanup failed", err);
+      setMessage(err instanceof Error ? err.message : "Employee account cleanup failed");
+    } finally {
+      setCleanupInProgress(false);
+    }
+  }
+
   async function handleDelete(employee: Employee) {
     const confirmed = window.confirm(`Archive ${employee.name}? They will no longer appear as an active employee, but their historical records will be retained.`);
     if (!confirmed) return;
@@ -304,6 +332,16 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
             <h1 className="text-xl font-semibold text-slate-800">Employee Directory</h1>
             <p className="text-sm text-slate-600">Search, filter, and manage employees from the database.</p>
           </div>
+          {currentUser.role === "Vice Chairman" && (
+            <button
+              type="button"
+              onClick={() => void handleKeepOnlyAdmin()}
+              disabled={cleanupInProgress}
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {cleanupInProgress ? "Cleaning accounts..." : "Keep only admin@company.com"}
+            </button>
+          )}
           {currentUser.role !== "Worker" && (
             <button
               type="button"
