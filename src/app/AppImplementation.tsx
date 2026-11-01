@@ -784,7 +784,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
           )}
         </button>
         <div className="relative overflow-visible" data-profile-menu>
-          <button type="button" ref={triggerRef} aria-label="Open account menu" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => {}
+          <button type="button" ref={triggerRef} aria-label="Open account menu" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => {
             if (menuOpen) {
               setMenuOpen(false);
               return;
