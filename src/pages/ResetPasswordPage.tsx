@@ -73,37 +73,47 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#F7E7CB" }}>
-      <div className="w-full max-w-md rounded-3xl p-8" style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 24px 80px rgba(0,0,0,0.08)" }}>
+    <div className="portal-reset-screen">
+      <div className="portal-reset-card">
         <h1 className="text-2xl font-bold mb-4">Reset Password</h1>
         <p className="text-sm mb-6 text-slate-600">Enter a new password to complete your recovery.</p>
         {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
         {message && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
-        <div className="space-y-4">
-          <label className="block text-sm font-medium text-slate-700">New Password</label>
+        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }}>
+          <label htmlFor="reset-new-password" className="block text-sm font-medium text-slate-700">New Password</label>
           <input
+            id="reset-new-password"
+            name="newPassword"
+            autoComplete="new-password"
+            minLength={8}
+            required
             type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
             placeholder="Enter new password"
           />
-          <label className="block text-sm font-medium text-slate-700">Confirm Password</label>
+          <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-slate-700">Confirm Password</label>
           <input
+            id="reset-confirm-password"
+            name="confirmPassword"
+            autoComplete="new-password"
+            minLength={8}
+            required
             type="password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none"
             placeholder="Confirm new password"
           />
-        </div>
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={loading}
-          className="mt-6 w-full rounded-2xl bg-[#4E8050] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+          className="portal-button portal-button-primary mt-2 w-full px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {loading ? "Updating password..." : "Update Password"}
         </button>
+        </form>
       </div>
     </div>
   );

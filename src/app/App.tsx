@@ -208,7 +208,8 @@ export default function App() {
     await markAllNotificationsRead();
   };
   const safeNavAccess = (currentPage: Page) => {
-    const item = NAV_ITEMS.find((navItem) => navItem.id === currentPage);
+    const accessPage = currentPage === "organization" ? "employees" : currentPage;
+    const item = NAV_ITEMS.find((navItem) => navItem.id === accessPage);
     return item ? navAccess(item, profile) : false;
   };
 
@@ -261,7 +262,7 @@ export default function App() {
             <Lock size={24} className="mx-auto mb-4" style={{ color: "#9CA3AF" }} />
             <h2 className="text-lg font-bold mb-2" style={{ color: B.text }}>Access Denied</h2>
             <p className="text-sm" style={{ color: B.textSub }}>Your role does not have permission to access this module.</p>
-            <button onClick={() => setPage("dashboard")} className="mt-4 text-sm font-medium hover:underline" style={{ color: B.green }}>
+            <button type="button" onClick={() => setPage("dashboard")} className="mt-4 text-sm font-medium hover:underline" style={{ color: B.green }}>
               Go to Dashboard
             </button>
           </GlassCard>
@@ -323,6 +324,7 @@ export default function App() {
         <TopBar
           user={profile}
           onMenuClick={() => setMobileOpen(true)}
+          onNav={handleNav}
           notifCount={notifCount}
           onNotifClick={() => handleNav("notifications")}
           onViewProfile={() => handleNav("profile")}

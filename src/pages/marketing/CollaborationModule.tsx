@@ -8,6 +8,93 @@ import {
 import { useCollaboration } from "../../hooks/useCollaboration";
 import { CollaborationApplication, ApproverRole } from "../../services/collaboration.service";
 
+
+function downloadGeneratedBillCopy(bill: {
+  bill_number: string;
+  collaborator_company_name: string;
+  customer_name: string;
+  product_name: string;
+  total_amount: number;
+  currency: string;
+  status: string;
+  generated_at: string;
+}) {
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+
+  const generatedAt = new Date(bill.generated_at);
+  const dateLabel = Number.isNaN(generatedAt.getTime())
+    ? "Date unavailable"
+    : generatedAt.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+  const amount = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(bill.total_amount) || 0);
+  const document = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(bill.bill_number)} — Generated bill copy</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 36px; color: #17231f; background: #f4f7f5; font: 14px/1.55 Inter, Arial, sans-serif; }
+    .sheet { max-width: 760px; margin: 0 auto; padding: 44px; background: #fff; border: 1px solid #e3ebe6; border-radius: 18px; }
+    .brand { color: #176b52; font-size: 12px; font-weight: 800; letter-spacing: .16em; }
+    h1 { margin: 26px 0 4px; font-size: 28px; letter-spacing: -.04em; }
+    .muted { color: #718078; }
+    .notice { margin-top: 18px; padding: 12px 14px; border: 1px solid #ead9b5; border-radius: 10px; color: #805b1b; background: #fbf5e9; font-size: 12px; }
+    dl { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; margin: 32px 0; }
+    dt { color: #718078; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    dd { margin: 4px 0 0; font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
+    .total { margin-top: 32px; padding: 22px; border-radius: 12px; color: #fff; background: #153a32; }
+    .total span { display: block; color: #c4d8ce; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+    .total strong { display: block; margin-top: 4px; font-size: 30px; }
+    footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e3ebe6; color: #718078; font-size: 11px; }
+    @media print { body { padding: 0; background: #fff; } .sheet { border: 0; border-radius: 0; } }
+    @media (max-width: 560px) { body { padding: 12px; } .sheet { padding: 22px; } dl { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="brand">PRAJAHITA · MANAGEMENT PORTAL</div>
+    <h1>Collaboration bill</h1>
+    <p class="muted">Bill reference: <strong>${escapeHtml(bill.bill_number)}</strong></p>
+    <div class="notice"><strong>Generated copy.</strong> This printable document is generated from the saved collaboration bill record. It is not an uploaded or digitally signed tax invoice.</div>
+    <dl>
+      <div><dt>Collaborator company</dt><dd>${escapeHtml(bill.collaborator_company_name)}</dd></div>
+      <div><dt>Customer</dt><dd>${escapeHtml(bill.customer_name)}</dd></div>
+      <div><dt>Product / service</dt><dd>${escapeHtml(bill.product_name || "—")}</dd></div>
+      <div><dt>Generated date</dt><dd>${escapeHtml(dateLabel)}</dd></div>
+      <div><dt>Status</dt><dd>${escapeHtml(bill.status)}</dd></div>
+    </dl>
+    <section class="total">
+      <span>Total amount</span>
+      <strong>${escapeHtml(bill.currency)} ${escapeHtml(amount)}</strong>
+    </section>
+    <footer>Generated from the collaboration bill record stored in Prajahita Management Portal.</footer>
+  </main>
+  <script>window.addEventListener("load", () => window.print());</script>
+</body>
+</html>`;
+
+  const printableWindow = window.open("", "_blank", "noopener,noreferrer,width=900,height=760");
+  if (!printableWindow) {
+    const blob = new Blob([document], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement("a");
+    link.href = url;
+    link.download = `${bill.bill_number}-generated-copy.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+  printableWindow.document.write(document);
+  printableWindow.document.close();
+}
+
 interface AppUser {
   id: string;
   name: string;
@@ -234,7 +321,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
       {error && (
         <div role="alert" className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span className="flex items-center gap-2"><AlertCircle size={16} /> {error}</span>
-          <button onClick={() => void refresh()} className="inline-flex shrink-0 items-center gap-2 font-semibold hover:underline">
+          <button type="button" onClick={() => void refresh()} className="inline-flex shrink-0 items-center gap-2 font-semibold hover:underline">
             <RefreshCw size={14} /> Retry
           </button>
         </div>
@@ -339,7 +426,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
       {/* ─── CONTROLS & NAVIGATION TABS ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4 bg-white/60 rounded-2xl px-3 py-2">
         <div className="flex items-center gap-2 overflow-x-auto">
-          <button
+          <button type="button"
             onClick={() => setActiveTab("applications")}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "applications"
@@ -350,7 +437,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             <Layers size={16} /> Applications & Approvals
           </button>
           
-          <button
+          <button type="button"
             onClick={() => setActiveTab("bills")}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "bills"
@@ -361,7 +448,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             <FileCheck size={16} /> Generated Bills ({bills.length})
           </button>
 
-          <button
+          <button type="button"
             onClick={() => setActiveTab("audit")}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "audit"
@@ -373,7 +460,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           </button>
 
           {!isExternalCollaborator && (
-            <button
+            <button type="button"
               onClick={() => setActiveTab("admin")}
               className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === "admin"
@@ -388,7 +475,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
 
         {/* Action: + Apply Bill (PDF Section 6 requirement) */}
         {!isExternalCollaborator && (
-          <button
+          <button type="button"
             onClick={() => setShowApplyModal(true)}
             className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:via-emerald-800 hover:to-teal-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all"
           >
@@ -551,7 +638,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                           </div>
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <button
+                          <button type="button"
                             onClick={() => setSelectedApp(app)}
                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1"
                           >
@@ -610,10 +697,10 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => alert(`Downloading official bill document: ${bill.bill_number}.pdf`)}
+                      <button type="button"
+                        onClick={() => downloadGeneratedBillCopy(bill)}
                         className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all"
-                        title="Download Bill PDF"
+                        title="Print generated bill copy"
                       >
                         <Download size={16} />
                       </button>
@@ -675,7 +762,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               <h2 className="text-lg font-bold text-slate-800">Collaboration Admin Panel</h2>
               <p className="text-xs text-slate-500">Manage registered partner companies, assign Collaborator Heads, and manage sector access.</p>
             </div>
-            <button
+            <button type="button"
               onClick={() => setShowAddCompanyModal(true)}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all"
             >
@@ -708,7 +795,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 </div>
 
                 <div className="pt-2 border-t flex justify-end">
-                  <button
+                  <button type="button"
                     onClick={() => toggleCompany(comp.id)}
                     className="px-3 py-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg transition-all"
                   >
@@ -730,7 +817,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 <h3 className="text-xl font-black text-slate-900">Apply Bill (Collaboration Application)</h3>
                 <p className="text-xs text-slate-500">Generates a unique Collaboration ID (e.g. PRJ-COL-2026-XXXXXX)</p>
               </div>
-              <button onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button type="button" onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={20} />
               </button>
             </div>
@@ -907,7 +994,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 <h3 className="text-2xl font-black text-slate-900 mt-1">{selectedApp.customer_name}</h3>
                 <p className="text-xs text-slate-500">Collaborator: {selectedApp.collaborator_company_name}</p>
               </div>
-              <button onClick={() => setSelectedApp(null)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button type="button" onClick={() => setSelectedApp(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={24} />
               </button>
             </div>
@@ -1022,14 +1109,18 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
             {selectedApp.generated_bill_number && (
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-300 flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-bold text-emerald-700 uppercase block">Official Generated Bill</span>
+                  <span className="text-xs font-bold text-emerald-700 uppercase block">Generated Bill Copy</span>
                   <span className="font-mono font-black text-emerald-900 text-lg">{selectedApp.generated_bill_number}</span>
                 </div>
-                <button
-                  onClick={() => alert(`Downloading Generated Bill: ${selectedApp.generated_bill_number}.pdf`)}
+                <button type="button"
+                  onClick={() => {
+                    const generatedBill = bills.find((bill) => bill.bill_number === selectedApp.generated_bill_number);
+                    if (generatedBill) downloadGeneratedBillCopy(generatedBill);
+                    else setActionError("The saved bill record could not be found. Refresh the page and try again.");
+                  }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow"
                 >
-                  <Download size={14} /> Download Final Bill
+                  <Download size={14} /> Print Generated Copy
                 </button>
               </div>
             )}
@@ -1062,7 +1153,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                       || (selectedApp.current_approver_role === "MD-Marketing"
                         && activeUser.role === "Managing Director"
                         && activeUser.department === "Marketing")) && (
-                      <button
+                      <button type="button"
                         onClick={() => void handleApproveSelected()}
                         disabled={actionPending}
                         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
@@ -1080,7 +1171,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                       || (selectedApp.current_approver_role === "MD-Marketing"
                         && activeUser.role === "Managing Director"
                         && activeUser.department === "Marketing")) && (
-                      <button
+                      <button type="button"
                         onClick={() => setShowRejectModal(true)}
                         disabled={actionPending}
                         className="px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1"
@@ -1094,14 +1185,14 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 {/* EXTERNAL COLLABORATOR HANDSHAKE BUTTONS (SECTION 8) */}
                 {selectedApp.status === "AWAITING COLLABORATOR ACCEPTANCE" && isExternalCollaborator && (
                   <>
-                    <button
+                    <button type="button"
                       onClick={() => void handleAcceptSelected()}
                       disabled={actionPending}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
                     >
                       <CheckCircle2 size={16} /> {actionPending ? "Saving Decision..." : "Approve Offer & Generate Bill"}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => setShowDeclineModal(true)}
                       className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1"
                     >
@@ -1110,7 +1201,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                   </>
                 )}
 
-                <button
+                <button type="button"
                   onClick={() => setSelectedApp(null)}
                   className="px-4 py-2.5 border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
@@ -1141,13 +1232,13 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               className="w-full p-3 bg-slate-50 border rounded-xl text-xs focus:ring-2 focus:ring-red-500"
             />
             <div className="flex justify-end gap-2 pt-2">
-              <button
+              <button type="button"
                 onClick={() => setShowRejectModal(false)}
                 className="px-4 py-2 border text-xs font-bold rounded-xl text-slate-600"
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleRejectConfirm}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow"
               >
@@ -1177,13 +1268,13 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               className="w-full p-3 bg-slate-50 border rounded-xl text-xs focus:ring-2 focus:ring-red-500"
             />
             <div className="flex justify-end gap-2 pt-2">
-              <button
+              <button type="button"
                 onClick={() => setShowDeclineModal(false)}
                 className="px-4 py-2 border text-xs font-bold rounded-xl text-slate-600"
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleDeclineConfirm}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow"
               >

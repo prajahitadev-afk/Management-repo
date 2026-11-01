@@ -293,7 +293,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-feature-page p-6 space-y-5">
       <div className="rounded-2xl border border-white/50 bg-white/40 p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -302,6 +302,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
           </div>
           {currentUser.role !== "Worker" && (
             <button
+              type="button"
               onClick={() => {
                 setSelectedRole(allowedRoles[0] ?? "Worker");
                 setFormOpen(true);
@@ -439,27 +440,27 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                     <td className="px-4 py-3 text-slate-600">{employee.joiningDate ?? "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <button onClick={() => onSelectEmployee?.(employee.id)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Profile">
+                        <button type="button" onClick={() => onSelectEmployee?.(employee.id)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Profile">
                           <Eye size={15} />
                         </button>
-                        <button onClick={() => void toggleReportingChain(employee)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Reporting Chain">
+                        <button type="button" onClick={() => void toggleReportingChain(employee)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="View Reporting Chain">
                           <span className="text-xs font-semibold">{reportingChainEmployeeId === employee.id ? "Hide" : "Chain"}</span>
                         </button>
                         {canManageEmployee(currentUser, employee) && (
                           <>
-                            <button onClick={() => openEditModal(employee)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="Edit Employee">
+                            <button type="button" onClick={() => openEditModal(employee)} className="rounded-lg p-2 text-slate-600 hover:bg-white/70" title="Edit Employee">
                               <Pencil size={15} />
                             </button>
                             {employee.status === "Active" ? (
-                              <button onClick={() => void toggleStatus(employee, "Suspended")} className="rounded-lg p-2 text-amber-700 hover:bg-white/70" title="Suspend">
+                              <button type="button" onClick={() => void toggleStatus(employee, "Suspended")} className="rounded-lg p-2 text-amber-700 hover:bg-white/70" title="Suspend">
                                 <UserX size={15} />
                               </button>
                             ) : (
-                              <button onClick={() => void toggleStatus(employee, "Active")} className="rounded-lg p-2 text-emerald-700 hover:bg-white/70" title="Activate">
+                              <button type="button" onClick={() => void toggleStatus(employee, "Active")} className="rounded-lg p-2 text-emerald-700 hover:bg-white/70" title="Activate">
                                 <UserCheck size={15} />
                               </button>
                             )}
-                            <button onClick={() => void handleDelete(employee)} className="rounded-lg p-2 text-rose-700 hover:bg-white/70" title="Delete">
+                            <button type="button" onClick={() => void handleDelete(employee)} className="rounded-lg p-2 text-rose-700 hover:bg-white/70" title="Delete">
                               <Trash2 size={15} />
                             </button>
                           </>
@@ -488,10 +489,10 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
           <div className="flex items-center justify-between border-t border-white/40 bg-white/40 px-4 py-3 text-sm text-slate-600">
             <span>Page {page} of {totalPages}</span>
             <div className="flex gap-2">
-              <button disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg px-3 py-1 disabled:opacity-40">
+              <button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg px-3 py-1 disabled:opacity-40">
                 Previous
               </button>
-              <button disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg px-3 py-1 disabled:opacity-40">
+              <button type="button" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg px-3 py-1 disabled:opacity-40">
                 Next
               </button>
             </div>
@@ -507,7 +508,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                 <h2 className="text-lg font-semibold text-slate-800">Add New Employee</h2>
                 <p className="text-sm text-slate-600">Create a new employee record in the database.</p>
               </div>
-              <button onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+              <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
                 ✕
               </button>
             </div>
@@ -586,7 +587,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                 <h2 className="text-lg font-semibold text-slate-800">Edit Employee</h2>
                 <p className="text-sm text-slate-600">Update employee profile details and reporting information.</p>
               </div>
-              <button onClick={() => { setEditOpen(false); setEditingEmployee(null); }} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+              <button type="button" onClick={() => { setEditOpen(false); setEditingEmployee(null); }} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
                 ✕
               </button>
             </div>

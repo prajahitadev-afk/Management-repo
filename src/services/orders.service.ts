@@ -86,8 +86,6 @@ export async function getOrders() {
     .select("id, order_number, customer_id, order_date, expected_delivery, status, total_amount, created_by, created_at")
     .order("created_at", { ascending: false });
 
-  console.log("ORDERS RAW", data);
-  console.log("ORDERS ERROR", error);
 
   if (error) throw error;
 

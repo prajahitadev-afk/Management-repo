@@ -106,7 +106,7 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-feature-page p-6 space-y-5">
       <div className="rounded-2xl border border-white/50 bg-white/40 p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -120,7 +120,7 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
           </div>
           <div className="flex items-center gap-2">
             {editable && canEditProfile && (
-              <button onClick={() => setIsEditing((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-white/60 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-700">
+              <button type="button" onClick={() => setIsEditing((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-white/60 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-700">
                 <Pencil size={14} /> {isEditing ? "Cancel" : "Edit Profile"}
               </button>
             )}
@@ -142,7 +142,7 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-800">Profile Details</h2>
             {isEditing && canEditProfile && (
-              <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">
+              <button type="button" onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">
                 <Save size={14} /> {saving ? "Saving..." : "Save"}
               </button>
             )}

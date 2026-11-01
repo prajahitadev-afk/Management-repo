@@ -228,7 +228,16 @@ function GlassCard({ children, className = "", hover = false, onClick, style = {
   children: React.ReactNode; className?: string; hover?: boolean; onClick?: () => void; style?: React.CSSProperties;
 }) {
   return (
-    <div onClick={onClick}
+    <div
+      onClick={onClick}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={`portal-card rounded-2xl transition-all duration-200 ${onClick || hover ? "cursor-pointer" : ""} ${className}`}
       style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
         border: `1px solid ${B.glassBorder}`, boxShadow: B.glassShadow, ...style }}
@@ -330,14 +339,14 @@ function RoleBadge({ role }: { role: Role }) {
 }
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
-function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disabled = false, gold = false, danger = false }: {
+function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disabled = false, gold = false, danger = false, type = "button" }: {
   children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; size?: "sm" | "md" | "lg";
-  disabled?: boolean; gold?: boolean; danger?: boolean;
+  disabled?: boolean; gold?: boolean; danger?: boolean; type?: "button" | "submit";
 }) {
   const sizes = { sm: "px-3 py-1.5 text-xs gap-1.5", md: "px-4 py-2 text-sm gap-2", lg: "px-5 py-2.5 text-sm gap-2" };
   const bg = danger ? B.red : gold ? B.gold : B.green;
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type={type} onClick={onClick} disabled={disabled}
       className={`portal-button portal-button-primary inline-flex items-center font-semibold text-white rounded-xl transition-all duration-150 ${sizes[sz]} ${disabled ? "opacity-40 cursor-not-allowed" : "hover:opacity-90 active:scale-95"}`}
       style={{ background: disabled ? "#9CA3AF" : bg, fontFamily: "Inter, sans-serif", boxShadow: disabled ? "none" : `0 4px 14px ${bg}40` }}>
       {Icon && <Icon size={sz === "sm" ? 13 : 15} />}
@@ -346,11 +355,11 @@ function PrimaryButton({ children, onClick, icon: Icon, size: sz = "md", disable
   );
 }
 
-function SecondaryButton({ children, onClick, icon: Icon, disabled = false }: {
-  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; disabled?: boolean;
+function SecondaryButton({ children, onClick, icon: Icon, disabled = false, type = "button" }: {
+  children: React.ReactNode; onClick?: () => void; icon?: ComponentType<{ size?: number; style?: React.CSSProperties }>; disabled?: boolean; type?: "button" | "submit";
 }) {
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type={type} onClick={onClick} disabled={disabled}
       className={`portal-button portal-button-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-150 ${disabled ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`}
       style={{ background: B.glass, backdropFilter: B.glassBlur, WebkitBackdropFilter: B.glassBlur,
         border: `1px solid ${B.glassBorder}`, color: B.textSub, fontFamily: "Inter, sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
@@ -386,17 +395,38 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [forgot, setForgot] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
-  async function doLogin() {
+  async function doLogin(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setLoginError(null);
     try {
       setLoading(true);
-      await login(email, password);
+      await login(email.trim(), password);
       onLogin?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Login failed");
+      setLoginError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendResetLink(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setResetError(null);
+    setResetSuccess(null);
+    try {
+      setLoading(true);
+      if (!email.trim()) throw new Error("Please enter your email address.");
+      const redirectTo = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      if (error) throw error;
+      setResetSuccess("Password reset link sent to your email.");
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : "Unable to send password reset link.");
     } finally {
       setLoading(false);
     }
@@ -431,7 +461,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
             border: "1px solid rgba(255,255,255,0.55)", boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
           }}>
             {!forgot ? (
-              <>
+              <form onSubmit={doLogin} noValidate={false}>
                 <h2 className="text-xl font-bold mb-1" style={{ color: B.text }}>Welcome back</h2>
                 <p className="text-sm mb-5" style={{ color: B.textMuted }}>Sign in with your Prajahita Trust account</p>
                 {profileError && (
@@ -442,80 +472,58 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                     </button>
                   </div>
                 )}
+                {loginError && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{loginError}</div>}
                 <div className="mb-4">
-                  <label
-                    className="block text-xs font-bold mb-1.5 uppercase tracking-widest"
-                    style={{ color: B.textMuted }}
-                  >
-                    Email
-                  </label>
-
-                  <input
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    type="email"
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{
-                      background: "rgba(255,255,255,0.50)",
-                      border: "1px solid rgba(255,255,255,0.55)",
-                      color: B.text
-                    }}
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Password</label>
-                  <input value={password} onChange={e => setPassword(e.target.value)} type="password"
+                  <label htmlFor="portal-login-email" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Email</label>
+                  <input id="portal-login-email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} type="email"
+                    autoComplete="username" inputMode="email" required aria-required="true"
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                     style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
                 </div>
-                <PrimaryButton onClick={doLogin} size="lg" icon={loading ? RefreshCw : ArrowRight}>
+                <div className="mb-4">
+                  <label htmlFor="portal-login-password" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Password</label>
+                  <input id="portal-login-password" name="password" value={password} onChange={e => setPassword(e.target.value)} type="password"
+                    autoComplete="current-password" required aria-required="true"
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
+                </div>
+                <PrimaryButton type="submit" disabled={loading || !email.trim() || !password} size="lg" icon={loading ? RefreshCw : ArrowRight}>
                   {loading ? "Authenticating…" : "Sign In"}
                 </PrimaryButton>
-                <button onClick={() => setForgot(true)} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
+                <button type="button" onClick={() => { setLoginError(null); setForgot(true); }} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
                   Forgot password?
                 </button>
-              </>
+              </form>
             ) : (
               <>
-                <button onClick={() => setForgot(false)} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
+                <button type="button" onClick={() => setForgot(false)} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
                   <ChevronLeft size={16} /> Back
                 </button>
                 <h2 className="text-xl font-bold mb-2" style={{ color: B.text }}>Reset Password</h2>
                 <p className="text-sm mb-4" style={{ color: B.textMuted }}>
                   Enter your email and we will send you a password reset link.
                 </p>
-                <input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  placeholder="your@prajahita.org"
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none mb-4"
-                  style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}
-                />
-                {resetError && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{resetError}</div>}
-                {resetSuccess && <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{resetSuccess}</div>}
-                <PrimaryButton onClick={async () => {
-                  setResetError(null);
-                  setResetSuccess(null);
-                  try {
-                    setLoading(true);
-                    if (!email.trim()) {
-                      throw new Error("Please enter your email address.");
-                    }
-                    const redirectTo = `${window.location.origin}/reset-password`;
-                    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                      redirectTo,
-                    });
-                    if (error) throw error;
-                    setResetSuccess("Password reset link sent to your email.");
-                  } catch (err) {
-                    setResetError(err instanceof Error ? err.message : "Unable to send password reset link.");
-                  } finally {
-                    setLoading(false);
-                  }
-                }} size="lg" icon={Send}>
-                  {loading ? "Sending…" : "Send reset link"}
-                </PrimaryButton>
+                <form onSubmit={sendResetLink}>
+                  <label htmlFor="portal-reset-email" className="mb-1.5 block text-xs font-bold uppercase tracking-widest" style={{ color: B.textMuted }}>Email</label>
+                  <input
+                    id="portal-reset-email"
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    required
+                    placeholder="your@prajahita.org"
+                    className="mb-4 w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }}
+                  />
+                  {resetError && <div role="alert" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{resetError}</div>}
+                  {resetSuccess && <div role="status" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{resetSuccess}</div>}
+                  <PrimaryButton type="submit" disabled={loading || !email.trim()} size="lg" icon={Send}>
+                    {loading ? "Sending…" : "Send reset link"}
+                  </PrimaryButton>
+                </form>
               </>
             )}
           </div>
@@ -540,6 +548,7 @@ const NAV_ITEMS = [
   { id: "orders",        label: "Orders",            icon: ShoppingCart,    minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Marketing" },
   { id: "transport",     label: "Transport",        icon: Truck,           minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Transport" },
   { id: "admin",         label: "Admin / RBAC",     icon: Shield,          adminOnly: true },
+  { id: "audit",          label: "Audit Log",         icon: ClipboardList,   adminOnly: true },
 ];
 
 function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
@@ -567,8 +576,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 
       {/* Brand */}
       <div className="relative z-10 flex-shrink-0 px-4 pt-5 pb-4" style={{ borderBottom: `1px solid ${B.navBorder}` }}>
-        <div className="flex items-center gap-3" onClick={!mobile ? onToggle : undefined}
-          style={{ cursor: !mobile ? "pointer" : "default" }}>
+        <div className="portal-sidebar-brand flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
             style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", backdropFilter: "blur(10px)" }}>
             <img src={logoSrc} alt="Prajahita logo" className="w-full h-full object-cover" />
@@ -580,13 +588,13 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
             </div>
           )}
           {!mobile && (
-            <button onClick={onToggle} className="ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}
+            <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={onToggle} className="ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "white"}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"}>
               {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
           )}
-          {mobile && <button onClick={onMobileClose} style={{ color: "rgba(255,255,255,0.5)" }}><X size={18} /></button>}
+          {mobile && <button type="button" aria-label="Close navigation" onClick={onMobileClose} style={{ color: "rgba(255,255,255,0.5)" }}><X size={18} /></button>}
         </div>
         {(!collapsed || mobile) && (
           <div className="mt-3 pt-3 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.09)" }}>
@@ -620,9 +628,9 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
       {/* Nav */}
       <nav className="relative z-10 flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
         {visibleNavItems.map(item => {
-          const active = page === item.id;
+          const active = page === item.id || (item.id === "employees" && page === "organization");
           return (
-            <button key={item.id}
+            <button type="button" key={item.id} aria-current={active ? "page" : undefined}
               onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150"
               style={{
@@ -645,9 +653,9 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
       </nav>
 
       <div className="relative z-10 px-2.5 py-3 flex-shrink-0" style={{ borderTop: `1px solid ${B.navBorder}` }}>
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+        <button type="button" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
           style={{ color: "rgba(255,255,255,0.38)" }}
-          onClick={() => logout()}
+          onClick={() => { void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "white"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.38)"; }}>
           <LogOut size={16} />
@@ -672,11 +680,22 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
-function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: {
-  user: AppUser; onMenuClick: () => void; notifCount: number; onNotifClick: () => void; onViewProfile: () => void;
+function TopBar({ user, onMenuClick, onNav, notifCount, onNotifClick, onViewProfile }: {
+  user: AppUser; onMenuClick: () => void; onNav: (page: Page) => void; notifCount: number; onNotifClick: () => void; onViewProfile: () => void;
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchResults = NAV_ITEMS
+    .filter((item) => navAccess(item, user) && item.label.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    .slice(0, 6);
+  const runModuleSearch = (target?: Page) => {
+    if (!target) return;
+    onNav(target);
+    setSearchQuery("");
+    setSearchOpen(false);
+  };
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -689,7 +708,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
     const menuWidth = 288;
     const menuHeight = 220;
     setMenuPosition({
-      top: Math.min(rect.bottom + 8, window.innerHeight - menuHeight - 16),
+      top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - menuHeight - 16)),
       left: Math.max(16, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 16)),
     });
   };
@@ -717,19 +736,46 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
     <header className="portal-topbar flex items-center gap-3 px-5 flex-shrink-0 overflow-visible"
       style={{ background: "rgba(255,255,255,0.30)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(255,255,255,0.40)", height: 64, boxShadow: "0 2px 16px rgba(0,0,0,0.05)", overflow: "visible" }}>
-      <button onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
+      <button type="button" aria-label="Open navigation" onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
         <Menu size={20} />
       </button>
-      <div className="flex-1 max-w-md">
+      <div className="portal-global-search relative flex-1 max-w-md" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSearchOpen(false); }}>
         <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl"
-          style={{ background: "rgba(255,255,255,0.40)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.50)", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)" }}>
+          style={{ background: "#F7FAF8", border: "1px solid #E3EBE6", boxShadow: "inset 0 1px 2px rgba(22,45,35,0.025)" }}>
           <Search size={15} style={{ color: B.textFaint }} />
-          <input placeholder="Search staff, bills, orders, programs…" className="flex-1 bg-transparent text-sm outline-none" style={{ color: B.text }} />
+          <input
+            aria-label="Find a portal module"
+            aria-controls="portal-module-search-results"
+            aria-expanded={searchOpen && Boolean(searchQuery.trim())}
+            placeholder="Find a module…"
+            value={searchQuery}
+            onFocus={() => setSearchOpen(true)}
+            onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true); }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") { event.preventDefault(); runModuleSearch(searchResults[0]?.id as Page | undefined); }
+              if (event.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+            }}
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: B.text }}
+          />
+          {searchQuery && <button type="button" aria-label="Clear module search" onClick={() => setSearchQuery("")} className="rounded-md p-1 text-slate-400 hover:bg-slate-100"><X size={13} /></button>}
         </div>
+        {searchOpen && searchQuery.trim() && (
+          <div id="portal-module-search-results" role="listbox" aria-label="Matching modules" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+            {searchResults.length ? searchResults.map((item) => (
+              <button type="button" key={item.id} role="option" aria-selected="false"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => runModuleSearch(item.id as Page)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900">
+                <item.icon size={15} className="text-emerald-700" />
+                <span>{item.label}</span>
+              </button>
+            )) : <p className="px-3 py-3 text-xs text-slate-500">No matching modules available for your role.</p>}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2 ml-auto">
-        <button onClick={onNotifClick} className="relative p-2 rounded-xl transition-colors hover:bg-white/20"
+        <button type="button" aria-label={`Open notifications${notifCount ? `, ${notifCount} unread` : ""}`} onClick={onNotifClick} className="relative p-2 rounded-xl transition-colors hover:bg-white/20"
           style={{ border: "1px solid rgba(255,255,255,0.40)", background: "rgba(255,255,255,0.25)", backdropFilter: "blur(10px)" }}>
           <Bell size={17} style={{ color: B.textSub }} />
           {notifCount > 0 && (
@@ -738,7 +784,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
           )}
         </button>
         <div className="relative overflow-visible" data-profile-menu>
-          <button ref={triggerRef} onClick={() => {
+          <button type="button" ref={triggerRef} aria-label="Open account menu" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => {
             if (menuOpen) {
               setMenuOpen(false);
               return;
@@ -757,7 +803,7 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
             <ChevronDown size={13} style={{ color: B.textFaint }} />
           </button>
           {menuOpen && createPortal(
-            <div data-profile-menu-content className="w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl" style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 2147483647 }}>
+            <div data-profile-menu-content role="menu" aria-label="Account options" className="w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl" style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 2147483647 }}>
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
                 <div className="text-sm font-semibold text-slate-900">{user.name}</div>
                 <div className="text-xs mt-1 text-slate-500">Employee ID: {user.employeeId ?? user.id}</div>
@@ -765,10 +811,10 @@ function TopBar({ user, onMenuClick, notifCount, onNotifClick, onViewProfile }: 
                 <div className="text-xs mt-1 text-slate-500">Department: {user.department}</div>
               </div>
               <div className="mt-2 space-y-1">
-                <button onClick={() => { setMenuOpen(false); onViewProfile(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-slate-900 hover:bg-slate-50">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onViewProfile(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-slate-900 hover:bg-slate-50">
                   <User size={14} /> Profile
                 </button>
-                <button onClick={() => { setMenuOpen(false); void logout(); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50">
                   <LogOut size={14} /> Logout
                 </button>
               </div>
@@ -1186,7 +1232,7 @@ function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStat
             { icon: Users,     label: "Team Attendance",desc: "Mark for your team",     color: CG, path: "/attendance" },
             { icon: Bell,      label: "Notifications",  desc: "View updates",           color: CR, path: "/notifications" },
           ].map(a => (
-            <button key={a.label} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all duration-200"
+            <button type="button" key={a.label} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all duration-200"
               onClick={() => navigateDashboardAction(a.path)}
               style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
@@ -1364,7 +1410,7 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
             ...(user.department === "Marketing" ? [{ icon: ShoppingCart, label: "Orders", desc: "View orders", color: CB, path: "/orders" }] : []),
             ...(ROLE_LEVEL[user.role] >= ROLE_LEVEL.Manager ? [{ icon: BarChart2, label: "Reports", desc: "View reports", color: CGo, path: "/reports" }] : []),
           ].map(a => (
-            <button key={a.label} onClick={() => navigateDashboardAction(a.path)} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all"
+            <button type="button" key={a.label} onClick={() => navigateDashboardAction(a.path)} className="flex flex-col items-center gap-2.5 p-4 rounded-xl text-center transition-all"
               style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center"
                 style={{ background: `${a.color}18`, border: `1px solid ${a.color}30` }}>
@@ -1513,7 +1559,7 @@ function AttendancePage({ user }: { user: AppUser }) {
           <div className="flex rounded-xl overflow-hidden"
             style={{ border: "1px solid rgba(255,255,255,0.50)", background: "rgba(255,255,255,0.20)" }}>
             {(["daily","weekly","monthly"] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
+              <button type="button" key={v} onClick={() => setView(v)}
                 className="px-4 py-2 text-sm font-medium capitalize transition-all"
                 style={{ background: view === v ? "rgba(255,255,255,0.60)" : "transparent",
                   color: view === v ? B.nav : B.textMuted, fontWeight: view === v ? 600 : 400,
@@ -1901,7 +1947,7 @@ function BillsPage({ user }: { user: AppUser }) {
 
   const BillDetail = () => (
     <div className="space-y-5">
-      <button onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
+      <button type="button" onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
         <ChevronLeft size={16} /> Back to Bills
       </button>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -1941,10 +1987,10 @@ function BillsPage({ user }: { user: AppUser }) {
                       style={{ background: "rgba(255,255,255,0.30)", border: "1px solid rgba(255,255,255,0.45)" }}>
                       <span className="truncate">{attachment.file_name}</span>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => void handleViewAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
+                        <button type="button" onClick={() => void handleViewAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
                           <Eye size={13} /> View
                         </button>
-                        <button onClick={() => void handleDownloadAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
+                        <button type="button" onClick={() => void handleDownloadAttachment(attachment)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: B.text }}>
                           <Download size={13} /> Download
                         </button>
                       </div>
@@ -2014,7 +2060,7 @@ function BillsPage({ user }: { user: AppUser }) {
                 <SecondaryButton icon={RefreshCw} onClick={handleReturn}>Return for Correction</SecondaryButton>
               )}
               {billActions.canReject && (
-                <button onClick={handleReject} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
+                <button type="button" onClick={handleReject} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
                   style={{ background: B.redLight, border: "1px solid rgba(239,68,68,0.20)", color: CR }}>
                   <XCircle size={15} /> Reject Bill
                 </button>
@@ -2026,7 +2072,7 @@ function BillsPage({ user }: { user: AppUser }) {
                     value={approvalCancelReason}
                     onChange={(e) => setApprovalCancelReason(e.target.value)}
                     style={{ background: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.50)", color: B.text }} />
-                  <button onClick={() => handleCancelApproval()} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
+                  <button type="button" onClick={() => handleCancelApproval()} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl"
                     style={{ background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.20)", color: "#b45309" }}>
                     <XCircle size={15} /> Cancel Approval
                   </button>
@@ -2035,7 +2081,7 @@ function BillsPage({ user }: { user: AppUser }) {
             </div>
           )}
           <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-            <button onClick={() => { if (selectedBill) void exportBillToPDF(selectedBill); }} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
+            <button type="button" onClick={() => { if (selectedBill) void exportBillToPDF(selectedBill); }} className="flex items-center gap-2 text-sm font-medium" style={{ color: B.textMuted }}>
               <Printer size={14} /> Print Bill
             </button>
           </div>
@@ -2046,7 +2092,7 @@ function BillsPage({ user }: { user: AppUser }) {
 
   const SubmitForm = () => (
     <div>
-      <button onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
+      <button type="button" onClick={() => setTab("list")} className="flex items-center gap-2 text-sm font-medium mb-5" style={{ color: B.textMuted }}>
         <ChevronLeft size={16} /> Back
       </button>
       <GlassCard className="p-6 max-w-2xl">
@@ -2357,6 +2403,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
         </div>
 
         <button
+          type="button"
           onClick={() => setActiveTab("collaboration")}
           className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 whitespace-nowrap transition-all"
         >
@@ -2429,7 +2476,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
         {(["orders","customers","payments","collaboration"] as const).map(t => (
-          <button key={t} onClick={() => setActiveTab(t)}
+          <button type="button" key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium capitalize transition-all"
             style={{
               background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
@@ -2486,6 +2533,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                     <td className="py-3.5 px-4">
                       <div className="flex flex-wrap gap-2">
                         <button
+                          type="button"
                           onClick={(event) => { event.stopPropagation(); void handleApproveOrder(o); }}
                           disabled={actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status)}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
@@ -2499,6 +2547,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                           Approve
                         </button>
                         <button
+                          type="button"
                           onClick={(event) => { event.stopPropagation(); void handleRejectOrder(o); }}
                           disabled={actionLoadingOrderId === o.id || ["Approved", "Rejected", "Delivered"].includes(o.status)}
                           className="px-3 py-2 text-xs font-semibold rounded-xl"
@@ -2581,7 +2630,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                 <h2 className="text-lg font-bold" style={{ color: B.text }}>Order Details</h2>
                 <p className="text-xs mt-1" style={{ color: B.textMuted }}>{selectedOrder.ref}</p>
               </div>
-              <button onClick={() => { setSelectedOrder(null); setOrderDetails(null); }} className="p-2 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><X size={18} /></button>
+              <button type="button" onClick={() => { setSelectedOrder(null); setOrderDetails(null); }} className="p-2 rounded-lg hover:bg-white/30" style={{ color: B.textMuted }}><X size={18} /></button>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm mb-6">
               <div><span className="font-semibold" style={{ color: B.text }}>Order Number:</span> {selectedOrder.ref}</div>
@@ -2820,7 +2869,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
         <GlassCard className="p-5">
           <div className="flex items-center justify-between mb-4 gap-3">
             <h3 className="font-semibold text-base" style={{ color: B.text }}>Delivery Details</h3>
-            <button onClick={() => { setSelectedDeliveryId(null); setDeliveryDetails(null); }} className="text-xs font-semibold" style={{ color: B.textMuted }}>Close</button>
+            <button type="button" onClick={() => { setSelectedDeliveryId(null); setDeliveryDetails(null); }} className="text-xs font-semibold" style={{ color: B.textMuted }}>Close</button>
           </div>
           {detailsLoading && <div className="text-sm" style={{ color: B.textMuted }}>Loading delivery details…</div>}
           {!detailsLoading && deliveryDetails && (
@@ -2965,7 +3014,7 @@ function AdminPage({ user }: { user: AppUser }) {
       <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
         {(["roles","audit"] as const).map(t => (
-          <button key={t} onClick={() => setActiveTab(t)}
+          <button type="button" key={t} onClick={() => setActiveTab(t)}
             className="px-5 py-2.5 text-sm font-medium transition-all"
             style={{ background: activeTab === t ? "rgba(255,255,255,0.55)" : "transparent",
               color: activeTab === t ? B.nav : B.textMuted, fontWeight: activeTab === t ? 600 : 400,
@@ -3083,7 +3132,7 @@ function ReportsPage({ user }: { user: AppUser }) {
         <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Report Builder</h3>
         <div className="flex flex-wrap gap-2 mb-5">
           {REPORT_TYPES.map(t => (
-            <button key={t} onClick={() => setReportType(t)}
+            <button type="button" key={t} onClick={() => setReportType(t)}
               className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
               style={{
                 background: reportType === t ? B.nav : "rgba(255,255,255,0.35)",
@@ -3221,7 +3270,7 @@ function NotificationsPage({
 
       <div className="flex gap-2 flex-wrap">
         {["all","unread","approval","order","attendance","recruit","suspension","delivery","bill"].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
+          <button type="button" key={f} onClick={() => setFilter(f)}
             className="px-4 py-2 text-sm font-medium rounded-xl capitalize transition-all"
             style={{ background: filter === f ? B.nav : "rgba(255,255,255,0.30)", border: filter === f ? `1px solid ${B.navLight}` : "1px solid rgba(255,255,255,0.50)",
               color: filter === f ? "white" : B.textMuted, fontWeight: filter === f ? 600 : 400,
@@ -3373,7 +3422,7 @@ export default function App() {
             <Lock size={24} className="mx-auto mb-4" style={{ color: B.textFaint }} />
             <h2 className="text-lg font-bold mb-2" style={{ color: B.text }}>Access Denied</h2>
             <p className="text-sm" style={{ color: B.textSub }}>Your role does not have permission to access this module.</p>
-            <button onClick={() => setPage("dashboard")} className="mt-4 text-sm font-medium hover:underline" style={{ color: B.green }}>
+            <button type="button" onClick={() => setPage("dashboard")} className="mt-4 text-sm font-medium hover:underline" style={{ color: B.green }}>
               Go to Dashboard
             </button>
           </GlassCard>
@@ -3429,7 +3478,7 @@ export default function App() {
         onViewProfile={() => handleNav("profile")}
       />
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden" style={{ background: B.bg }}>
-        <TopBar user={profile} onMenuClick={() => setMobileOpen(true)} notifCount={notifCount} onNotifClick={() => handleNav("notifications")} onViewProfile={() => handleNav("profile")} />
+        <TopBar user={profile} onMenuClick={() => setMobileOpen(true)} onNav={handleNav} notifCount={notifCount} onNotifClick={() => handleNav("notifications")} onViewProfile={() => handleNav("profile")} />
         <main className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           <style>{`main::-webkit-scrollbar{display:none}`}</style>
           {renderPage()}
