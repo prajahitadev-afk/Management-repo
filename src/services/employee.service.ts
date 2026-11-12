@@ -468,16 +468,32 @@ export async function updateEmployee(actorId: string, employeeId: string, update
   if (error) throw error;
   const auditValues = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
   if (Object.keys(auditValues).length > 0) {
-    // Match the deployed audit_logs schema: user_id/action/entity_type/entity_id/created_at.
-    // The previous actor_id/new_values fields do not exist in this database and caused
-    // the profile update to be reported as failed after the profile row had already changed.
-    const { error: auditError } = await supabase.from("audit_logs").insert({
-      user_id: actorId,
-      action: "employee_updated",
-      entity_type: "profile",
-      entity_id: employeeId,
-    });
-    if (auditError) throw auditError;
+    // audit_logs RLS requires user_id = auth.uid(). The UI actorId is a profile ID,
+    // which normally matches auth.users.id, but the session is the source of truth.
+    const { data: authUserData, error: authUserError } = await supabase.auth.getUser();
+    const authenticatedUserId = authUserData.user?.id;
+
+    if (authUserError || !authenticatedUserId) {
+      console.warn("Employee update succeeded, but the audit actor could not be resolved.", authUserError);
+    } else {
+      const { error: auditError } = await supabase.from("audit_logs").insert({
+        user_id: authenticatedUserId,
+        action: "employee_updated",
+        entity_type: "profile",
+        entity_id: employeeId,
+      });
+
+      // Audit logging is secondary to the employee update. Never report a successful
+      // profile update as failed because the audit INSERT was rejected by RLS/API.
+      if (auditError) {
+        console.warn("Employee update succeeded, but audit logging failed.", {
+          auditError,
+          actorId,
+          authenticatedUserId,
+          employeeId,
+        });
+      }
+    }
   }
   return toEmployee(data as Record<string, unknown>);
 }
