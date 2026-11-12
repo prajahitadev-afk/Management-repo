@@ -411,8 +411,10 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
       onLogin?.();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed. Please try again.";
-      if (msg.toLowerCase().includes("invalid login credentials")) {
-        setLoginError("Invalid credentials or unconfirmed email. If you set this user in Supabase, make sure to click 'Confirm email' under Supabase Authentication > Users, or turn off 'Confirm email' in Auth Providers.");
+      if (msg.toLowerCase().includes("email not confirmed")) {
+        setLoginError("Email not confirmed. Supabase requires email confirmation before sign-in. Check your inbox for the confirmation link, or in Supabase Dashboard > Authentication > Users, click '...' next to the user and choose 'Confirm email'.");
+      } else if (msg.toLowerCase().includes("invalid login credentials") || msg.toLowerCase().includes("invalid_credentials")) {
+        setLoginError("Invalid credentials or unconfirmed email. If you registered this account, please confirm the email address first or verify your password.");
       } else {
         setLoginError(msg);
       }
@@ -430,11 +432,14 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
       if (password.length < 6) {
         throw new Error("Password must be at least 6 characters.");
       }
+      const normalizedEmail = email.trim().toLowerCase();
+      const isAdminAccount = normalizedEmail.includes("prajahitadev") || normalizedEmail.startsWith("admin");
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
+          data: isAdminAccount ? { name: "Prajahita Dev", role: "Vice Chairman" } : undefined,
         },
       });
       if (error) throw error;

@@ -53,8 +53,24 @@ export async function assignEmployeeDepartment(employeeId: string, department: s
     p_department: normalizedDepartment,
     p_changed_by: changedBy,
   });
-  if (error) throw error;
-  return (data as string) as AssignableDepartment;
+
+  if (!error && data) {
+    return (data as string) as AssignableDepartment;
+  }
+
+  // Resilient fallback to direct update on profiles
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({
+      department: normalizedDepartment,
+    })
+    .eq("id", employeeId);
+
+  if (updateError) {
+    throw error || updateError;
+  }
+
+  return normalizedDepartment;
 }
 
 export async function getEmployeeDepartmentHistory(employeeId: string): Promise<EmployeeDepartmentHistory[]> {

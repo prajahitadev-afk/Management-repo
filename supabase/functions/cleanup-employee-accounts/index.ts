@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const ADMIN_EMAIL = "admin@company.com";
+const ADMIN_EMAILS = ["prajahitadev@gmail.com", "admin@company.com"];
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -28,8 +28,8 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: callerData, error: callerError } = await callerClient.auth.getUser();
-  if (callerError || !callerData.user || callerData.user.email?.toLowerCase() !== ADMIN_EMAIL) {
-    return json({ error: "Only admin@company.com may run this cleanup" }, 403);
+  if (callerError || !callerData.user || !ADMIN_EMAILS.map((e: string) => e.toLowerCase()).includes(callerData.user.email?.toLowerCase() ?? "")) {
+    return json({ error: "Only authorized administrators may run this cleanup" }, 403);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {

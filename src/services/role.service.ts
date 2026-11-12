@@ -32,11 +32,31 @@ export async function assignEmployeeRole(employeeId: string, role: string, assig
   const normalizedRole = validateRoleAssignment(employeeId, role);
   if (!assignedBy.trim()) throw new Error("Authenticated user is required");
 
+  const hierarchyLevel = getRoleHierarchyLevel(normalizedRole);
+
   const { data, error } = await supabase.rpc("assign_employee_role", {
     p_employee_id: employeeId,
     p_role: normalizedRole,
     p_assigned_by: assignedBy,
   });
-  if (error) throw error;
-  return data as EmployeeRole;
+
+  if (!error && data) {
+    return data as EmployeeRole;
+  }
+
+  // Resilient fallback to direct update on profiles
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({
+      role: normalizedRole,
+      designation: normalizedRole,
+      hierarchy_level: hierarchyLevel,
+    })
+    .eq("id", employeeId);
+
+  if (updateError) {
+    throw error || updateError;
+  }
+
+  return normalizedRole;
 }

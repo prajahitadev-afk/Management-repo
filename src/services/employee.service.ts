@@ -569,9 +569,9 @@ async function authorizeEmployeeAction(
 
   if (action === "create") {
     const role = normalizeRoleName(targetRole ?? "Worker");
-    if (role === "Vice Chairman" || role === "Vice President") {
-      if (actorRole !== "Vice Chairman") throw new Error("Operation not permitted for this role");
-    } else if (actorRole !== "Vice Chairman" && actorRole !== "Vice President") {
+    if (role === "Vice Chairman" || role === "Vice President" || role === "President" || role === "Admin") {
+      if (actorRole !== "Vice Chairman" && actorRole !== "Admin") throw new Error("Operation not permitted for this role");
+    } else if (actorRole !== "Vice Chairman" && actorRole !== "Admin" && actorRole !== "Vice President") {
       if (!targetReportsTo) throw new Error("Employee must be assigned within your reporting hierarchy");
       await assertCanManageRole(actorId, actorRole, readString(actor.department) ?? "", role, targetReportsTo, targetDepartment ?? "");
     }
@@ -592,11 +592,11 @@ async function authorizeEmployeeAction(
   if (!target) throw new Error("Target employee not found");
 
   const targetRoleName = normalizeRoleName(readString(target.role) ?? "Worker");
-  if (targetRoleName === "Vice Chairman") throw new Error("Operation not permitted on protected account");
+  if ((targetRoleName === "Vice Chairman" || targetRoleName === "Admin") && actorRole !== "Vice Chairman" && actorRole !== "Admin") throw new Error("Operation not permitted on protected account");
   if (actorRole === "Vice President" && targetRoleName === "Vice President") {
     throw new Error("Vice Presidents cannot modify peer Vice Presidents");
   }
-  if (actorRole !== "Vice Chairman" && actorRole !== "Vice President") {
+  if (actorRole !== "Vice Chairman" && actorRole !== "Admin" && actorRole !== "Vice President") {
     await assertCanManageRole(actorId, actorRole, readString(actor.department) ?? "", targetRoleName, targetId, readString(target.department) ?? "");
   }
 }
@@ -794,7 +794,7 @@ async function resolveManagerName(managerId: string): Promise<string | null> {
 
 export function getAllowedEmployeeRoles(actorRole?: string | null): string[] {
   const normalizedActorRole = normalizeRoleName(actorRole ?? "Worker");
-  if (normalizedActorRole === "Vice Chairman") {
+  if (normalizedActorRole === "Vice Chairman" || normalizedActorRole === "Admin") {
     return [...ROLE_ORDER];
   }
 
@@ -820,6 +820,7 @@ function normalizeRoleName(value: string): string {
 function roleRank(value: string): number {
   const roleName = normalizeRoleName(value);
   const rankMap: Record<string, number> = {
+    Admin: 9,
     "Vice Chairman": 8,
     "Vice President": 7,
     "Managing Director": 6,

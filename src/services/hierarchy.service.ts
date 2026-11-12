@@ -87,7 +87,7 @@ export async function getVisibleProfilesForUser(employeeId: string, role: string
     return profiles.filter((profile) => profile.id === employeeId || (supervisorId && profile.reports_to === supervisorId && profile.role === "Worker"));
   }
 
-  if (["Managing Director", "President", "Vice Chairman"].includes(roleName)) {
+  if (["Managing Director", "President", "Vice Chairman", "Admin"].includes(roleName) || roleName.startsWith("MD-")) {
     return profiles;
   }
 

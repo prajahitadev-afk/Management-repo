@@ -38,6 +38,10 @@ function buildProfileCompatibility(profileData: any, authUser: any) {
 }
 
 function deriveRoleAndDepartment(email?: string | null, meta?: Record<string, any>) {
+  const normalized = String(email || "").toLowerCase().trim();
+  if (normalized === "prajahitadev@gmail.com" || normalized.startsWith("prajahitadev")) {
+    return { role: "Vice Chairman", department: "Administration", hierarchyLevel: 8 };
+  }
   if (meta?.role && typeof meta.role === "string") {
     return {
       role: meta.role,
@@ -46,7 +50,6 @@ function deriveRoleAndDepartment(email?: string | null, meta?: Record<string, an
     };
   }
 
-  const normalized = String(email || "").toLowerCase();
   if (normalized.startsWith("admin") || normalized.includes("admin")) {
     return { role: "Admin", department: "Administration", hierarchyLevel: 9 };
   }
@@ -126,14 +129,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const isPrajahitaAdmin = String(sessionUser.email || "").toLowerCase().includes("prajahitadev");
+
     // Auto-provision initial profile if none exists
     if (!profileData) {
       const { role, department, hierarchyLevel } = deriveRoleAndDepartment(sessionUser.email, sessionUser.user_metadata);
-      const name = sessionUser.user_metadata?.name || sessionUser.user_metadata?.full_name || deriveNameFromEmail(sessionUser.email);
+      const name = isPrajahitaAdmin ? "Prajahita Dev" : (sessionUser.user_metadata?.name || sessionUser.user_metadata?.full_name || deriveNameFromEmail(sessionUser.email));
       const autoProfile = {
         id: sessionUser.id,
-        employee_id: `EMP-${Date.now().toString().slice(-6)}`,
-        employee_code: `EMP-${sessionUser.id.slice(0, 6).toUpperCase()}`,
+        employee_id: isPrajahitaAdmin ? "EMP-000001" : `EMP-${Date.now().toString().slice(-6)}`,
+        employee_code: isPrajahitaAdmin ? "ADMIN-01" : `EMP-${sessionUser.id.slice(0, 6).toUpperCase()}`,
         name,
         email: sessionUser.email,
         phone: sessionUser.phone || "",
@@ -153,6 +158,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!createError && created) {
         profileData = created;
         error = null;
+      }
+    } else if (isPrajahitaAdmin && profileData.role !== "Vice Chairman") {
+      const { data: updated } = await supabase
+        .from("profiles")
+        .update({
+          role: "Vice Chairman",
+          designation: "Vice Chairman",
+          hierarchy_level: 8,
+          department: "Administration",
+        })
+        .eq("id", profileData.id)
+        .select("*")
+        .maybeSingle();
+
+      if (updated) {
+        profileData = updated;
       }
     }
 

@@ -268,9 +268,9 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   }
 
   async function handleDelete(employee: Employee) {
-    const isAdministrator = currentUser.role === "Vice Chairman";
+    const isAdministrator = currentUser.role === "Vice Chairman" || currentUser.role === "Admin";
     if (isAdministrator) {
-      if (employee.id === currentUser.id || employee.email.toLowerCase() === "admin@company.com" || employee.role === "Vice Chairman") {
+      if (employee.id === currentUser.id || employee.email.toLowerCase() === "prajahitadev@gmail.com" || employee.email.toLowerCase() === "admin@company.com" || employee.role === "Vice Chairman" || employee.role === "Admin") {
         setMessage("The administrator account is protected and cannot be deleted.");
         return;
       }
