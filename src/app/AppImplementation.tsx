@@ -392,23 +392,59 @@ const TT = {
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginPage({ onLogin }: { onLogin?: () => void }) {
   const { login, logout, profileError } = useAuth();
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [forgot, setForgot] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   async function doLogin(event?: React.FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setLoginError(null);
+    setSignupSuccess(null);
     try {
       setLoading(true);
       await login(email.trim(), password);
       onLogin?.();
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Login failed. Please try again.");
+      const msg = err instanceof Error ? err.message : "Login failed. Please try again.";
+      if (msg.toLowerCase().includes("invalid login credentials")) {
+        setLoginError("Invalid credentials or unconfirmed email. If you set this user in Supabase, make sure to click 'Confirm email' under Supabase Authentication > Users, or turn off 'Confirm email' in Auth Providers.");
+      } else {
+        setLoginError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function doSignUp(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setLoginError(null);
+    setSignupSuccess(null);
+    try {
+      setLoading(true);
+      if (password.length < 6) {
+        throw new Error("Password must be at least 6 characters.");
+      }
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
+      if (data?.session) {
+        onLogin?.();
+      } else {
+        setSignupSuccess("User account registered! In Supabase Dashboard > Authentication > Users, confirm the email (or click the link sent to your inbox), then switch to Sign In.");
+      }
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : "Sign up failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -460,44 +496,10 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
             background: "rgba(255,255,255,0.45)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
             border: "1px solid rgba(255,255,255,0.55)", boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
           }}>
-            {!forgot ? (
-              <form onSubmit={doLogin} noValidate={false}>
-                <h2 className="text-xl font-bold mb-1" style={{ color: B.text }}>Welcome back</h2>
-                <p className="text-sm mb-5" style={{ color: B.textMuted }}>Sign in with your Prajahita Trust account</p>
-                {profileError && (
-                  <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                    <p>{profileError}</p>
-                    <button type="button" onClick={() => { void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }} className="mt-2 font-semibold underline">
-                      Sign out and try another account
-                    </button>
-                  </div>
-                )}
-                {loginError && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{loginError}</div>}
-                <div className="mb-4">
-                  <label htmlFor="portal-login-email" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Email</label>
-                  <input id="portal-login-email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} type="email"
-                    autoComplete="username" inputMode="email" required aria-required="true"
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
-                </div>
-                <div className="mb-4">
-                  <label htmlFor="portal-login-password" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Password</label>
-                  <input id="portal-login-password" name="password" value={password} onChange={e => setPassword(e.target.value)} type="password"
-                    autoComplete="current-password" required aria-required="true"
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
-                </div>
-                <PrimaryButton type="submit" disabled={loading || !email.trim() || !password} size="lg" icon={loading ? RefreshCw : ArrowRight}>
-                  {loading ? "Authenticating…" : "Sign In"}
-                </PrimaryButton>
-                <button type="button" onClick={() => { setLoginError(null); setForgot(true); }} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
-                  Forgot password?
-                </button>
-              </form>
-            ) : (
+            {mode === "forgot" ? (
               <>
-                <button type="button" onClick={() => setForgot(false)} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
-                  <ChevronLeft size={16} /> Back
+                <button type="button" onClick={() => { setMode("signin"); setResetError(null); setResetSuccess(null); }} className="flex items-center gap-1.5 mb-5 text-sm" style={{ color: B.textMuted }}>
+                  <ChevronLeft size={16} /> Back to Sign In
                 </button>
                 <h2 className="text-xl font-bold mb-2" style={{ color: B.text }}>Reset Password</h2>
                 <p className="text-sm mb-4" style={{ color: B.textMuted }}>
@@ -525,6 +527,69 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                   </PrimaryButton>
                 </form>
               </>
+            ) : (
+              <form onSubmit={mode === "signup" ? doSignUp : doLogin} noValidate={false}>
+                <div className="flex gap-4 border-b border-slate-200/60 pb-3 mb-5">
+                  <button
+                    type="button"
+                    onClick={() => { setMode("signin"); setLoginError(null); setSignupSuccess(null); }}
+                    className={`text-base font-bold pb-1 transition-colors ${mode === "signin" ? "border-b-2 text-[#4e8050] border-[#4e8050]" : "text-slate-400 hover:text-slate-600"}`}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode("signup"); setLoginError(null); setSignupSuccess(null); }}
+                    className={`text-base font-bold pb-1 transition-colors ${mode === "signup" ? "border-b-2 text-[#4e8050] border-[#4e8050]" : "text-slate-400 hover:text-slate-600"}`}
+                  >
+                    Create Account
+                  </button>
+                </div>
+
+                <h2 className="text-xl font-bold mb-1" style={{ color: B.text }}>
+                  {mode === "signup" ? "Create your account" : "Welcome back"}
+                </h2>
+                <p className="text-sm mb-5" style={{ color: B.textMuted }}>
+                  {mode === "signup" ? "Register with your company email" : "Sign in with your Prajahita Trust account"}
+                </p>
+
+                {profileError && (
+                  <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                    <p>{profileError}</p>
+                    <button type="button" onClick={() => { void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }} className="mt-2 font-semibold underline">
+                      Sign out and try another account
+                    </button>
+                  </div>
+                )}
+                {loginError && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{loginError}</div>}
+                {signupSuccess && <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{signupSuccess}</div>}
+
+                <div className="mb-4">
+                  <label htmlFor="portal-login-email" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Email</label>
+                  <input id="portal-login-email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} type="email"
+                    autoComplete="username" inputMode="email" required aria-required="true"
+                    placeholder="name@company.com"
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="portal-login-password" className="block text-xs font-bold mb-1.5 uppercase tracking-widest" style={{ color: B.textMuted }}>Password</label>
+                  <input id="portal-login-password" name="password" value={password} onChange={e => setPassword(e.target.value)} type="password"
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"} required aria-required="true"
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.55)", color: B.text }} />
+                </div>
+
+                <PrimaryButton type="submit" disabled={loading || !email.trim() || !password} size="lg" icon={loading ? RefreshCw : ArrowRight}>
+                  {loading ? (mode === "signup" ? "Creating account…" : "Authenticating…") : (mode === "signup" ? "Create Account" : "Sign In")}
+                </PrimaryButton>
+
+                {mode === "signin" && (
+                  <button type="button" onClick={() => { setLoginError(null); setMode("forgot"); }} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
+                    Forgot password?
+                  </button>
+                )}
+              </form>
             )}
           </div>
           <p className="text-center mt-4 text-xs" style={{ color: "rgba(0,0,0,0.30)" }}>© {new Date().getFullYear()} Prajahita Charitable Trust</p>

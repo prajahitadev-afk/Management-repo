@@ -37,6 +37,48 @@ function buildProfileCompatibility(profileData: any, authUser: any) {
   };
 }
 
+function deriveRoleAndDepartment(email?: string | null, meta?: Record<string, any>) {
+  if (meta?.role && typeof meta.role === "string") {
+    return {
+      role: meta.role,
+      department: meta.department || "Administration",
+      hierarchyLevel: meta.hierarchyLevel || 6,
+    };
+  }
+
+  const normalized = String(email || "").toLowerCase();
+  if (normalized.startsWith("admin") || normalized.includes("admin")) {
+    return { role: "Admin", department: "Administration", hierarchyLevel: 9 };
+  }
+  if (normalized.includes("vice") || normalized.includes("chairman")) {
+    return { role: "Vice Chairman", department: "Administration", hierarchyLevel: 8 };
+  }
+  if (normalized.includes("president")) {
+    return { role: "President", department: "Administration", hierarchyLevel: 7 };
+  }
+  if (normalized.includes("mdmar") || normalized.includes("marketing") || normalized.includes("mktg")) {
+    return { role: "MD-Marketing", department: "Marketing", hierarchyLevel: 6 };
+  }
+  if (normalized.includes("mdmfg") || normalized.includes("manufacturing") || normalized.includes("factory")) {
+    return { role: "MD-Manufacturing", department: "Manufacturing", hierarchyLevel: 6 };
+  }
+  if (normalized.includes("transport")) {
+    return { role: "MD-Transport", department: "Transport", hierarchyLevel: 6 };
+  }
+  if (normalized.includes("rd") || normalized.includes("research")) {
+    return { role: "MD-RD", department: "Research & Development", hierarchyLevel: 6 };
+  }
+  return { role: "Worker", department: "Administration", hierarchyLevel: 1 };
+}
+
+function deriveNameFromEmail(email?: string | null): string {
+  if (!email) return "Employee";
+  const userPart = email.split("@")[0] || "User";
+  return userPart
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function getProfileLoadError(error: { code?: string; message?: string } | null, profileData: unknown) {
   if (!error && !profileData) {
     return "Your account is signed in, but no employee profile is linked to it. Ask an administrator to link your Auth account to an employee profile.";
@@ -65,11 +107,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUser(sessionUser);
 
-    const { data: profileData, error } = await supabase
+    let { data: profileData, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", sessionUser.id)
       .maybeSingle();
+
+    // Check by email if id was not found
+    if (!profileData && sessionUser.email) {
+      const { data: byEmail } = await supabase
+        .from("profiles")
+        .select("*")
+        .ilike("email", sessionUser.email)
+        .maybeSingle();
+
+      if (byEmail) {
+        profileData = byEmail;
+      }
+    }
+
+    // Auto-provision initial profile if none exists
+    if (!profileData) {
+      const { role, department, hierarchyLevel } = deriveRoleAndDepartment(sessionUser.email, sessionUser.user_metadata);
+      const name = sessionUser.user_metadata?.name || sessionUser.user_metadata?.full_name || deriveNameFromEmail(sessionUser.email);
+      const autoProfile = {
+        id: sessionUser.id,
+        employee_id: `EMP-${Date.now().toString().slice(-6)}`,
+        employee_code: `EMP-${sessionUser.id.slice(0, 6).toUpperCase()}`,
+        name,
+        email: sessionUser.email,
+        phone: sessionUser.phone || "",
+        role,
+        department,
+        designation: role,
+        hierarchy_level: hierarchyLevel,
+        joining_date: new Date().toISOString().split("T")[0],
+      };
+
+      const { data: created, error: createError } = await supabase
+        .from("profiles")
+        .upsert(autoProfile, { onConflict: "id" })
+        .select("*")
+        .maybeSingle();
+
+      if (!createError && created) {
+        profileData = created;
+        error = null;
+      }
+    }
 
     if (error || !profileData) {
       const message = getProfileLoadError(error, profileData);
@@ -227,4 +312,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
