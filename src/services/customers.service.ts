@@ -5,8 +5,6 @@ export async function getCustomers() {
     .from("customers")
     .select("*");
 
-  console.log("CUSTOMERS RAW", data);
-  console.log("CUSTOMERS ERROR", error);
 
   if (error) throw error;
 

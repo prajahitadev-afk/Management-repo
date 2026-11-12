@@ -388,11 +388,12 @@ export async function createEmployee(actorId: string, input: EmployeeInput): Pro
   const tempPassword = buildTemporaryPassword(normalizedEmail);
 
   const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : "/reset-password";
-  const { data: authData, error: authError } = await (supabase.auth as any).signUp({
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email: normalizedEmail,
     password: tempPassword,
-  }, {
-    redirectTo,
+    options: {
+      emailRedirectTo: redirectTo,
+    },
   });
 
   if (authError || !authData?.user?.id) {

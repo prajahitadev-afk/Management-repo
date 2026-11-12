@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "../lib/supabase";
 
 export function ResetPasswordPage() {
@@ -7,24 +7,6 @@ export function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const [recoveryParams, setRecoveryParams] = useState<{ hasRecovery: boolean; accessToken?: string }>({ hasRecovery: false });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const params = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ""));
-    for (const [key, value] of hashParams.entries()) {
-      if (!params.has(key)) {
-        params.set(key, value);
-      }
-    }
-
-    const type = params.get("type");
-    const accessToken = params.get("access_token") ?? undefined;
-    setRecoveryParams({ hasRecovery: type === "recovery" && !!accessToken, accessToken });
-  }, []);
 
   async function handleSubmit() {
     setError(null);
@@ -45,7 +27,7 @@ export function ResetPasswordPage() {
       if (updateError) {
         throw updateError;
       }
-      setMessage("Password reset successful. Signing out temporary recovery session...");
+      setMessage("Password reset successful! Redirecting to login...");
       await supabase.auth.signOut();
       if (typeof window !== "undefined") {
         const keysToRemove: string[] = [];
@@ -62,8 +44,9 @@ export function ResetPasswordPage() {
           window.sessionStorage.removeItem(key);
           window.localStorage.removeItem(key);
         });
-        window.history.replaceState({}, "", "/login");
-        window.location.replace("/login");
+        setTimeout(() => {
+          window.location.replace("/login");
+        }, 1500);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to reset password.");

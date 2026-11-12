@@ -142,7 +142,6 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       totalRevenue,
     };
   } catch (error) {
-    console.error("QUERY FAILED", error);
     throw error;
   }
 }
@@ -151,26 +150,17 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
 export async function getMarketingOrders(): Promise<MarketingOrder[]> {
   const { data: orders, error: ordersError } = await supabase.from("orders").select("*");
-  console.log("ORDERS RAW", orders);
-  console.log("ORDERS ERROR", ordersError);
   if (ordersError) {
-    console.error("QUERY FAILED", ordersError);
     throw ordersError;
   }
 
   const { data: customers, error: customersError } = await supabase.from("customers").select("*");
-  console.log("CUSTOMERS RAW", customers);
-  console.log("CUSTOMERS ERROR", customersError);
   if (customersError) {
-    console.error("QUERY FAILED", customersError);
     throw customersError;
   }
 
   const { data: orderItems, error: orderItemsError } = await supabase.from("order_items").select("*");
-  console.log("ORDER_ITEMS RAW", orderItems);
-  console.log("ORDER_ITEMS ERROR", orderItemsError);
   if (orderItemsError) {
-    console.error("QUERY FAILED", orderItemsError);
     throw orderItemsError;
   }
 
@@ -182,7 +172,6 @@ export async function getMarketingOrders(): Promise<MarketingOrder[]> {
   typedOrderItems.forEach((item) => itemsByOrder.set(String(item.order_id), [...(itemsByOrder.get(String(item.order_id)) ?? []), item]));
 
   return typedOrders.map((order) => {
-      console.log("STATUS FROM DB", order.status);
       const customer = customerMap.get(String(order.customer_id ?? ""));
       const items = itemsByOrder.get(order.id) ?? [];
       const orderDto = {
@@ -212,20 +201,14 @@ export async function getMarketingOrders(): Promise<MarketingOrder[]> {
 
 export async function getMarketingCustomers(): Promise<MarketingCustomer[]> {
   const { data: customers, error: customersError } = await supabase.from("customers").select("*");
-  console.log("CUSTOMERS RAW", customers);
-  console.log("CUSTOMERS ERROR", customersError);
   if (customersError) {
-    console.error("QUERY FAILED", customersError);
     throw customersError;
   }
 
     // Get orders for each customer to calculate totals
     const { data: orders, error: ordersError } = await supabase.from("orders").select("*");
-    console.log("ORDERS RAW", orders);
-    console.log("ORDERS ERROR", ordersError);
 
     if (ordersError) {
-      console.error("QUERY FAILED", ordersError);
       throw ordersError;
     }
 
@@ -295,7 +278,6 @@ export async function getMonthlyRevenue(): Promise<RevenuePoint[]> {
 
     return result;
   } catch (error) {
-    console.error("QUERY FAILED", error);
     throw error;
   }
 }
@@ -305,33 +287,22 @@ export async function getMonthlyRevenue(): Promise<RevenuePoint[]> {
 export async function getDepartmentPerformance(): Promise<DepartmentPerformance[]> {
   try {
     const { data: orderItems, error: itemsError } = await supabase.from("order_items").select("*");
-    console.log("ORDER_ITEMS RAW", orderItems);
-    console.log("ORDER_ITEMS ERROR", itemsError);
 
     if (itemsError) throw itemsError;
 
     // Group by product
     const productIds = Array.from(new Set((orderItems ?? []).map((item) => item.product_id).filter(Boolean))) as string[];
     const { data: products, error: productsError } = await supabase.from("products").select("*");
-    console.log("PRODUCTS RAW", products);
-    console.log("PRODUCTS ERROR", productsError);
     if (productsError) {
-      console.error("QUERY FAILED", productsError);
       throw productsError;
     }
     const productsMap = new Map((products ?? []).map((product) => [String(product.id).trim(), product]));
-    console.log("PRODUCT MAP SIZE", productsMap.size);
-    console.log("PRODUCT MAP KEYS", [...productsMap.keys()]);
     const productMap = new Map<string, { name: string; revenue: number; unitsSold: number; orderIds: Set<string> }>();
 
     ((orderItems || []) as OrderItemRow[]).forEach((item) => {
       if (!item.product_id) return;
       const productId = String(item.product_id).trim();
       const product = productsMap.get(productId);
-      console.log("ORDER ITEM PRODUCT ID", item.product_id);
-      console.log("ORDER ITEM PRODUCT ID TYPE", typeof item.product_id);
-      console.log("PRODUCT ID SAMPLE", products?.[0]?.id, "TYPE", typeof products?.[0]?.id);
-      console.log("PRODUCT MAP LOOKUP", productId, product);
       const productName = product?.name || "Unknown Product";
       const existing = productMap.get(productId) || { name: productName, revenue: 0, unitsSold: 0, orderIds: new Set<string>() };
       productMap.set(productId, {
@@ -360,7 +331,6 @@ export async function getDepartmentPerformance(): Promise<DepartmentPerformance[
 
     return result;
   } catch (error) {
-    console.error("QUERY FAILED", error);
     throw error;
   }
 }

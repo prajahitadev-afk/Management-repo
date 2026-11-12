@@ -5,7 +5,17 @@ export function usePrograms() {
   const [programs, setPrograms] = useState<Program[]>([]);
 
   useEffect(() => {
-    getPrograms().then(setPrograms);
+    let active = true;
+    getPrograms()
+      .then((data) => {
+        if (active && data) setPrograms(data);
+      })
+      .catch((err) => {
+        console.warn("Failed to load programs:", err);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return { programs };

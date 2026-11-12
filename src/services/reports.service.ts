@@ -336,7 +336,7 @@ export async function generateReport(type: ReportType, options: ReportQueryOptio
     };
   }
 
-  const { data: programsRows, error: programsError } = await supabase.from("programs").select("id, name").order("name", { ascending: true });
+  const { data: programsRows, error: programsError } = await supabase.from("programs").select("id, title").order("title", { ascending: true });
   if (programsError) throw programsError;
 
   const { data: impactRows, error: impactError } = await supabase

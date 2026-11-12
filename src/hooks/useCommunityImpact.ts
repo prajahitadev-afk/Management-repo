@@ -8,7 +8,17 @@ export function useCommunityImpact() {
   const [impact, setImpact] = useState<CommunityImpact[]>([]);
 
   useEffect(() => {
-    getCommunityImpact().then(setImpact);
+    let active = true;
+    getCommunityImpact()
+      .then((data) => {
+        if (active && data) setImpact(data);
+      })
+      .catch((err) => {
+        console.warn("Failed to load community impact:", err);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return { impact };
