@@ -25,7 +25,7 @@ export function EmployeeKpiWidget({ userId, role, department }: EmployeeKpiWidge
   const [assignment, setAssignment] = useState({ employeeId: "", metricName: "", targetValue: "", reviewMonth: String(new Date().getMonth() + 1), reviewYear: String(new Date().getFullYear()) });
   const canAssign = ["Manager", "Chief Manager", "General Manager", "Managing Director", "President", "Vice President", "Vice Chairman"].includes(role) || role.startsWith("MD-");
 
-  useEffect(() => { if (canAssign) void getHierarchyEmployees().then(setEmployees).catch(() => setEmployees([])); }, [canAssign]);
+  useEffect(() => { if (canAssign) void getHierarchyEmployees().then((list) => setEmployees(list.filter((e) => e.role !== "Vice Chairman" && e.role !== "Admin"))).catch(() => setEmployees([])); }, [canAssign]);
 
   async function handleAssign(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

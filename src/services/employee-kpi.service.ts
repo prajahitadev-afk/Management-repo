@@ -53,8 +53,24 @@ export async function assignEmployeeKpi(input: EmployeeKpiAssignment): Promise<s
     p_employee_id: input.employeeId, p_metric_name: input.metricName.trim(), p_target_value: input.targetValue,
     p_review_month: input.reviewMonth, p_review_year: input.reviewYear,
   });
-  if (error) throw error;
-  return String(data);
+  if (!error && data) return String(data);
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("employee_kpis")
+    .insert({
+      employee_id: input.employeeId,
+      metric_name: input.metricName.trim(),
+      target_value: input.targetValue,
+      achieved_value: 0,
+      review_month: input.reviewMonth,
+      review_year: input.reviewYear,
+      status: "Assigned",
+    })
+    .select("id")
+    .single();
+
+  if (insertError) throw error || insertError;
+  return String(inserted.id);
 }
 
 export async function updateEmployeeKpiProgress(kpiId: string, achievedValue: number): Promise<string> {

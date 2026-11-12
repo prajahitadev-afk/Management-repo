@@ -19,7 +19,7 @@ export function LeavePage({ employeeId, role }: LeavePageProps) {
   const isWorker = role === "Worker";
   const tabs = isWorker
     ? baseTabs
-    : [...baseTabs.filter((tab) => tab.id !== "apply" && tab.id !== "requests"), { id: "approvals" as const, label: "Approvals" }];
+    : [...baseTabs, { id: "approvals" as const, label: "Approvals" }];
   const [activeTab, setActiveTab] = useState<LeaveTab>("dashboard");
 
   return (
@@ -42,8 +42,8 @@ export function LeavePage({ employeeId, role }: LeavePageProps) {
           </nav>
         </div>
         {activeTab === "dashboard" && <LeaveDashboardPage employeeId={employeeId} role={role} />}
-        {activeTab === "apply" && isWorker && <ApplyLeavePage employeeId={employeeId} />}
-        {activeTab === "requests" && isWorker && <MyLeaveRequestsPage employeeId={employeeId} />}
+        {activeTab === "apply" && <ApplyLeavePage employeeId={employeeId} />}
+        {activeTab === "requests" && <MyLeaveRequestsPage employeeId={employeeId} />}
         {activeTab === "balance" && <LeaveBalancePage employeeId={employeeId} />}
         {activeTab === "approvals" && !isWorker && <LeaveApprovalsPage employeeId={employeeId} role={role} />}
       </div>

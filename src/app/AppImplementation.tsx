@@ -180,7 +180,7 @@ const ROLE_LEVEL: Record<Role, number> = {
 
 const isMD   = (r: Role) => r === "Managing Director" || r.startsWith("MD-");
 const isExec = (r: Role) => r === "Vice Chairman" || r === "President" || r === "Vice President";
-const canApproveBills = (r: Role) => ["Vice Chairman","MD-Manufacturing","MD-Marketing","MD-Transport","MD-RD","General Manager"].includes(r);
+const canApproveBills = (r: Role) => ["Vice Chairman", "Admin", "President", "Vice President", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "General Manager"].includes(r);
 const canSubmitBills  = (r: Role) => ROLE_LEVEL[r] >= ROLE_LEVEL["Supervisor"];
 const canViewReports  = (r: Role) => ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"].includes(r);
 const canViewAdmin    = (r: Role) => isExec(r) || r === "Admin";
@@ -611,7 +611,7 @@ const NAV_ITEMS = [
   { id: "employees",     label: "Employees",        icon: Users,           minLevel: 1, allowedRoles: EMPLOYEE_NAV_ROLES },
   { id: "department",    label: "Department",       icon: Building2,       minLevel: 1 },
   { id: "leave",         label: "Leave Dashboard",  icon: Calendar,        minLevel: 1 },
-  { id: "reports",       label: "Reports",          icon: BarChart2,       minLevel: 3, allowedRoles: ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD"] as Role[] },
+  { id: "reports",       label: "Reports",          icon: BarChart2,       minLevel: 3, allowedRoles: ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "President", "Vice Chairman", "Admin"] as Role[] },
   { id: "notifications", label: "Notifications",    icon: Bell,            minLevel: 1 },
   { id: "profile",       label: "My Profile",        icon: User,            minLevel: 1 },
   { id: "bills",         label: "Bill Management",  icon: FileText,        minLevel: 3, allowedRoles: MANAGEMENT_NAV_ROLES },
@@ -622,12 +622,13 @@ const NAV_ITEMS = [
 ];
 
 function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
+  if (user.role === "Vice Chairman" || user.role === "Admin" || user.role === "President" || user.role === "Vice President") return true;
   if (item.adminOnly) return canViewAdmin(user.role);
   if (item.allowedRoles && !item.allowedRoles.includes(user.role)) return false;
   if (item.id === "reports" && !canViewReports(user.role)) return false;
   const requiredDepartment = (item as { requiredDepartment?: string }).requiredDepartment;
   if (requiredDepartment && !canAccessDepartmentModule(user.department, requiredDepartment)) return false;
-  const lvl = ROLE_LEVEL[user.role];
+  const lvl = ROLE_LEVEL[user.role] ?? 1;
   return lvl >= (item.minLevel ?? 1);
 }
 
@@ -1784,7 +1785,7 @@ function BillsPage({ user }: { user: AppUser }) {
     };
     return departmentKeys[role]?.includes(normalizeDepartment(department)) ?? false;
   };
-  const canApprovePendingBill = (role: Role, department: string) => ["Vice Chairman", "Vice President", "General Manager"].includes(role) || isMDOfDepartment(role, department);
+  const canApprovePendingBill = (role: Role, department: string) => ["Vice Chairman", "Admin", "President", "Vice President", "General Manager"].includes(role) || isMDOfDepartment(role, department);
 
   interface BillActions {
     primaryLabel: string | null;

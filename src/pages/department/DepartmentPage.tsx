@@ -195,7 +195,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
       try {
         if (metadata.key === "manufacturing") {
           const role = profile.role;
-          if (role === "Admin") {
+          if (role === "Admin" || role === "Vice Chairman" || role === "President" || role === "Vice President") {
             const [outputs, defects, hours, supervisor, manager, cm, gm, md] = await Promise.all([
               getOutputsByWorker(profile.id), getDefectsByWorker(profile.id), getHoursByWorker(profile.id),
               getSupervisorDashboard(profile.id, profile.department), getManagerDashboard(profile.id, profile.department), getCMDashboard(profile.department), getGMDashboard(profile.department), getMDManufacturingDashboard(profile.department),
@@ -275,7 +275,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
           if (active) setTableData((current) => ({ ...current, defects: asRecords(defectQueue.data), batches: asRecords(batches.data) }));
         } else if (metadata.key === "marketing") {
           const role = profile.role;
-          if (role === "Admin") {
+          if (role === "Admin" || role === "Vice Chairman" || role === "President" || role === "Vice President") {
             const [worker, leads, conversions, supervisor, campaigns, manager, targetActual, cm, gm, md] = await Promise.all([
               getMarketingWorkerDashboard(profile.id), getLeadsByEmployee(profile.id), getConversionsByEmployee(profile.id),
               getMarketingSupervisorDashboard(profile.id), getCampaigns(), getMarketingManagerDashboard(profile.id, profile.department), calculateTargetVsActual(profile.id),
@@ -348,7 +348,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
           }
         } else if (metadata.key === "research") {
           const role = profile.role;
-          if (role === "Admin") {
+          if (role === "Admin" || role === "Vice Chairman" || role === "President" || role === "Vice President") {
             const [worker, experiments, samples, logs, supervisor, manager, projects, milestones, cm, gm, md] = await Promise.all([
               getResearchWorkerDashboard(profile.id), getExperimentsByEmployee(profile.id), getSamplesByEmployee(profile.id), getResearchLogsByEmployee(profile.id),
               getResearchSupervisorDashboard(profile.id), getResearchManagerDashboard(profile.id), getProjects(), getMilestones(),
@@ -450,7 +450,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
           }
         } else if (metadata.key === "transportation") {
           const role = profile.role;
-          if (role === "Admin") {
+          if (role === "Admin" || role === "Vice Chairman" || role === "President" || role === "Vice President") {
             const [worker, distance, fuel, trips, delays, supervisor, manager, cm, gm, md] = await Promise.all([
               getTransportationWorkerDashboard(profile.id), getDistanceLogsByDriver(profile.id), getFuelLogsByDriver(profile.id), getTripsByDriver(profile.id), getDelayLogsByDriver(profile.id),
               getTransportationSupervisorDashboard(profile.id), getTransportationManagerDashboard(profile.id), getTransportationCMDashboard(profile.department), getTransportationGMDashboard(profile.department), getMDTransportationDashboard(),
@@ -635,12 +635,14 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
         case "research-target": result = await createResearchTarget({ manager_id: profile.id, target_quantity: Number(value.target_quantity), period_start: value.period_start, period_end: value.period_end }); break;
         default: throw new Error("Unsupported department form");
       }
-      if (metadata.key === "administration") return <AdministrationDashboard profile={profile} />;
       if (result.error) throw result.error;
       setActiveForm(null); setSuccessMessage(`${activeForm.title} saved successfully`); setRefreshVersion((version) => version + 1);
     } catch (error) { setFormError(error instanceof Error ? error.message : "Unable to save record"); }
     finally { setSubmitting(false); }
   };
+  if (metadata.key === "administration") {
+    return <AdministrationDashboard profile={profile} />;
+  }
   return <main className="min-h-full p-4 sm:p-6" style={{ background: "linear-gradient(180deg, #F7E7CB 0%, #EFD7AF 100%)" }}><div className="mx-auto max-w-7xl space-y-5"><DepartmentHeader metadata={metadata} role={profile.role} /><div className="rounded-2xl border border-white/60 bg-white/45 p-2 shadow-sm"><DepartmentTabs tabs={tabs} activeTab={activeTab} onChange={changeTab} /></div>{successMessage && <div role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{successMessage}</div>}{dataError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{dataError}</div>}{loading ? <div className="rounded-2xl border border-white/60 bg-white/45 p-6 text-sm text-slate-600">Loading department data...</div> : activeTab === tabs[0] && !availableForm && !secondaryForm ? <DepartmentOverview metadata={metadata} tabs={tabs} metrics={activeMetrics} recentActivity={recentActivity} /> : <section className="rounded-2xl border border-white/60 bg-white/45 p-6 shadow-sm"><div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-slate-800">{activeTab}</h2><div className="flex gap-2">{availableForm && <button type="button" onClick={() => openForm(availableForm)} className="rounded-lg bg-[#4e8050] px-3 py-2 text-sm font-medium text-white">+ {availableForm.title}</button>}{secondaryForm && <button type="button" onClick={() => openForm(secondaryForm)} className="rounded-lg bg-[#4e8050] px-3 py-2 text-sm font-medium text-white">+ {secondaryForm.title}</button>}</div></div>{tableConfig ? <DepartmentDataTable loading={loading} error={dataError} rows={tableData[tableConfig.key] ?? []} columns={tableConfig.columns} onReviewDefect={handleReviewDefect} /> : <div className="mt-4 grid gap-3 sm:grid-cols-3">{metrics.slice(0, 3).map((metric) => <div key={metric.label} className="rounded-xl bg-white/45 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</p><p className="mt-2 text-2xl font-semibold text-slate-800">{metric.value}</p></div>)}</div>}</section>}</div>{activeForm && <DepartmentFormModal definition={activeForm} values={formValues} error={formError} submitting={submitting} onChange={(key, value) => setFormValues((current) => ({ ...current, [key]: value }))} onClose={() => { setActiveForm(null); setFormError(""); }} onSubmit={submitForm} />}</main>;
 }
 

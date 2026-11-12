@@ -250,7 +250,14 @@ function mapBatch(row: Record<string, unknown>): ManufacturingBatch {
 export async function getBatches(): Promise<ManufacturingResult<ManufacturingBatch[]>> {
   try {
     const { data, error } = await supabase.rpc("list_manufacturing_batches");
-    return error ? { data: null, error: asError(error) } : { data: (data ?? []).map((row: unknown) => mapBatch(row as Record<string, unknown>)), error: null };
+    if (!error && data) {
+      return { data: (data ?? []).map((row: unknown) => mapBatch(row as Record<string, unknown>)), error: null };
+    }
+    const { data: tableData, error: tableError } = await supabase.from("manufacturing_batches").select("*").order("created_at", { ascending: false });
+    if (!tableError) {
+      return { data: (tableData ?? []).map((row: unknown) => mapBatch(row as Record<string, unknown>)), error: null };
+    }
+    return { data: null, error: asError(error || tableError) };
   } catch (error) { return { data: null, error: asError(error) }; }
 }
 
@@ -276,7 +283,26 @@ export async function createBatch(batchData: CreateBatchInput): Promise<Manufact
       p_end_date: batchData.end_date ?? null,
       p_assigned_supervisor: batchData.supervisor_id ?? null,
     });
-    return error ? { data: null, error: asError(error) } : { data: data ? mapBatch(data as Record<string, unknown>) : null, error: data ? null : new Error("Batch was not created") };
+    if (!error && data) {
+      return { data: mapBatch(data as Record<string, unknown>), error: null };
+    }
+    const { data: inserted, error: insertError } = await supabase
+      .from("manufacturing_batches")
+      .insert({
+        batch_code: batchData.batch_number.trim(),
+        product_name: batchData.product_name.trim(),
+        planned_quantity: batchData.target_quantity,
+        start_date: batchData.start_date ?? null,
+        end_date: batchData.end_date ?? null,
+        assigned_supervisor: batchData.supervisor_id ?? null,
+        status: "Planned",
+      })
+      .select("*")
+      .single();
+    if (!insertError && inserted) {
+      return { data: mapBatch(inserted as Record<string, unknown>), error: null };
+    }
+    return { data: null, error: asError(error || insertError) };
   } catch (error) { return { data: null, error: asError(error) }; }
 }
 
@@ -330,7 +356,24 @@ export async function recordOutput(data: CreateOutputInput): Promise<Manufacturi
       p_production_date: data.production_date,
       p_remarks: data.remarks?.trim() || null,
     });
-    return error ? { data: null, error: asError(error) } : { data: row as ManufacturingOutput, error: row ? null : new Error("Production output was not recorded") };
+    if (!error && row) {
+      return { data: row as ManufacturingOutput, error: null };
+    }
+    const { data: inserted, error: insertError } = await supabase
+      .from("manufacturing_outputs")
+      .insert({
+        batch_id: data.batch_id,
+        worker_id: data.worker_id,
+        quantity_produced: data.quantity_produced,
+        production_date: data.production_date,
+        remarks: data.remarks?.trim() || null,
+      })
+      .select("*")
+      .single();
+    if (!insertError && inserted) {
+      return { data: inserted as ManufacturingOutput, error: null };
+    }
+    return { data: null, error: asError(error || insertError) };
   } catch (error) { return { data: null, error: asError(error) }; }
 }
 

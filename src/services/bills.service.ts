@@ -95,7 +95,7 @@ interface BillRow {
 }
 
 function isExec(role: string) {
-  return ["Vice Chairman", "Vice President"].includes(role);
+  return ["Vice Chairman", "Vice President", "Admin", "President"].includes(role);
 }
 
 async function getCurrentAuthenticatedUserId(): Promise<string | null> {
@@ -128,7 +128,7 @@ function isMDOfDepartment(role: string, department: string) {
 }
 
 function canApprovePendingBill(role: string, department: string) {
-  return ["Vice Chairman", "Vice President", "General Manager"].includes(role) || isMDOfDepartment(role, department);
+  return ["Vice Chairman", "Vice President", "Admin", "President", "General Manager"].includes(role) || isMDOfDepartment(role, department);
 }
 
 function normalizeBillStatus(status: string | null | undefined): BillStatus {
@@ -156,11 +156,11 @@ function getNextStatusForApproval(currentStatus: BillStatus, actorRole: string):
   }
 
   if (currentStatus === "Pending Approval") {
-    return ["Vice Chairman", "Vice President", "General Manager"].includes(actorRole) || isMD(actorRole) ? "Approved" : null;
+    return ["Vice Chairman", "Vice President", "Admin", "President", "General Manager"].includes(actorRole) || isMD(actorRole) ? "Approved" : null;
   }
 
   if (currentStatus === "Approved") {
-    return actorRole === "Vice Chairman" ? "Reviewed" : null;
+    return (actorRole === "Vice Chairman" || actorRole === "Admin") ? "Reviewed" : null;
   }
 
   return null;
@@ -534,7 +534,7 @@ export async function approveBill(id: string, actorId?: string | null, actorRole
 export async function reviewBill(id: string, actorId?: string | null, actorRole?: string, note?: string): Promise<BillRecord> {
   const bill = await getBillById(id);
   const role = actorRole ?? "";
-  if (role !== "Vice Chairman" || bill.status !== "Approved") {
+  if ((role !== "Vice Chairman" && role !== "Admin") || bill.status !== "Approved") {
     throw new Error("Only the Vice Chairman can review an approved bill.");
   }
 
@@ -549,8 +549,8 @@ export async function rejectBill(id: string, actorId?: string | null, actorRole?
     throw new Error("Only a higher-level approver in the bill creator's hierarchy can reject this bill.");
   }
   const canReject =
-    (bill.status === "Approved" && (isMDOfDepartment(role, bill.department) || role === "Vice Chairman")) ||
-    (bill.status === "Reviewed" && role === "Vice Chairman") ||
+    (bill.status === "Approved" && (isMDOfDepartment(role, bill.department) || role === "Vice Chairman" || role === "Admin")) ||
+    (bill.status === "Reviewed" && (role === "Vice Chairman" || role === "Admin")) ||
     (bill.status === "Pending Approval" && canApprovePendingBill(role, bill.department));
   if (!canReject) {
     throw new Error(`Cannot reject bill from ${bill.status} using role ${role}`);
@@ -581,8 +581,8 @@ export async function returnBill(id: string, actorId?: string | null, actorRole?
 
 export async function cancelApprovalBill(id: string, actorId?: string | null, actorRole?: string, reason?: string) {
   const bill = await getBillById(id);
-  if (actorRole !== "Vice Chairman") {
-    throw new Error("Only the Vice Chairman can cancel approval.");
+  if (actorRole !== "Vice Chairman" && actorRole !== "Admin") {
+    throw new Error("Only the Vice Chairman or Administrator can cancel approval.");
   }
 
   const resolvedActorId = actorId ?? (await getCurrentAuthenticatedUserId());

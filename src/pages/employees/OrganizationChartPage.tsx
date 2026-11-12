@@ -20,8 +20,8 @@ const MANAGEMENT_DIRECTOR_ROLES = [
 ] as const;
 
 const HIERARCHY_LEVELS = [
-  { title: "Vice Chairman", roles: ["Vice Chairman"] },
-  { title: "Trustee", roles: ["Trustee"] },
+  { title: "Vice Chairman", roles: ["Vice Chairman", "Admin"] },
+  { title: "Trustee", roles: ["Trustee", "President", "Vice President"] },
   { title: "Managing Directors", roles: ["Managing Director", ...MANAGEMENT_DIRECTOR_ROLES.map((item) => item.role)] },
   { title: "General Managers (GM)", roles: ["General Manager"] },
   { title: "Chief Managers (CM)", roles: ["Chief Manager"] },

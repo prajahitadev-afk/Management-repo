@@ -172,5 +172,5 @@ export async function rejectOrder(orderId: string, orderNumber: string, reason?:
 }
 
 function canApproveOrderRole(role?: string): boolean {
-  return ["Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "");
+  return ["Admin", "Vice Chairman", "Vice President", "MD-Marketing", "MD-Transport", "General Manager"].includes(role ?? "");
 }

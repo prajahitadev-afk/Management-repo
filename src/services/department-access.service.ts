@@ -28,7 +28,7 @@ const tabs: Record<DepartmentKey, Record<DepartmentRole, string[]>> = {
 
 export function getAllowedTabs(role: string | null | undefined, department: string | null | undefined): string[] {
   const departmentTabs = tabs[normalizeDepartment(department)];
-  if (role === "Admin") return [...new Set(Object.values(departmentTabs).flat())];
+  if (role === "Admin" || role === "Vice Chairman" || role === "President" || role === "Vice President") return [...new Set(Object.values(departmentTabs).flat())];
   const resolvedRole = roleKey(role);
   return departmentTabs[resolvedRole];
 }

@@ -71,7 +71,14 @@ export async function canApproveSubordinate(approverId: string, creatorId: strin
   const creator = profiles.find((profile) => profile.id === creatorId);
   if (!approver || !creator) return false;
   if (!isHigherInHierarchy(approver, creator)) return false;
-  return creator.reports_to === approverId;
+
+  const approverRole = String(approver.role ?? "");
+  if (["Vice Chairman", "Admin", "President", "Vice President"].includes(approverRole)) {
+    return true;
+  }
+
+  const subordinates = await getSubordinates(approverId);
+  return subordinates.includes(creatorId) || creator.reports_to === approverId;
 }
 
 export async function getVisibleProfilesForUser(employeeId: string, role: string, department?: string | null): Promise<HierarchyProfile[]> {

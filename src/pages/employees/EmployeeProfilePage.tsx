@@ -22,8 +22,8 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
   const [isEditing, setIsEditing] = useState(false);
   const [departmentHistory, setDepartmentHistory] = useState<EmployeeDepartmentHistory[]>([]);
 
-  const canEditProfile = editable && Boolean(currentUserId) && employeeId === currentUserId;
-  const canEditReportsTo = editable && Boolean(currentUserId) && employeeId !== currentUserId && Boolean(currentUserRole) && ["Vice Chairman", "Vice President", "Managing Director", "General Manager", "Chief Manager", "Manager"].includes(currentUserRole ?? "");
+  const canEditProfile = editable && Boolean(currentUserId) && (employeeId === currentUserId || currentUserRole === "Vice Chairman" || currentUserRole === "Admin");
+  const canEditReportsTo = editable && Boolean(currentUserId) && employeeId !== currentUserId && Boolean(currentUserRole) && ["Admin", "Vice Chairman", "Vice President", "Managing Director", "General Manager", "Chief Manager", "Manager"].includes(currentUserRole ?? "");
 
   const summaryCards = useMemo(() => {
     if (!profile) return [];

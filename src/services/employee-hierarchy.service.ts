@@ -101,8 +101,7 @@ export async function getHierarchyEmployees(): Promise<HierarchyEmployee[]> {
   if (error) throw error;
 
   return ((data ?? []) as Array<Record<string, unknown>>)
-    .filter((profile) => String(profile.email ?? "").trim().toLowerCase() !== "admin@company.com"
-      && String(profile.role ?? "").trim().toLowerCase() !== "admin")
+    .filter((profile) => String(profile.email ?? "").trim().toLowerCase() !== "admin@company.com")
     .map((profile) => ({
     id: String(profile.id),
     employeeCode: String(profile.employee_code ?? profile.employee_id ?? profile.id),

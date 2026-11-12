@@ -285,7 +285,14 @@ function mapTransportTarget(row: Record<string, unknown>): TransportTarget {
 export async function getTrips(): Promise<TransportationResult<TransportTrip[]>> {
   try {
     const { data, error } = await supabase.rpc("list_transport_trips");
-    return error ? { data: null, error: transportationError(error) } : { data: (data ?? []).map((row: unknown) => mapTrip(row as Record<string, unknown>)), error: null };
+    if (!error && data) {
+      return { data: (data ?? []).map((row: unknown) => mapTrip(row as Record<string, unknown>)), error: null };
+    }
+    const { data: tableData, error: tableError } = await supabase.from("transport_trips").select("*").order("created_at", { ascending: false });
+    if (!tableError) {
+      return { data: (tableData ?? []).map((row: unknown) => mapTrip(row as Record<string, unknown>)), error: null };
+    }
+    return { data: null, error: transportationError(error || tableError) };
   } catch (error) { return { data: null, error: transportationError(error) }; }
 }
 
