@@ -18,6 +18,7 @@ import { ASSIGNABLE_DEPARTMENTS } from "../../types/department.types";
 import { PortalModuleState } from "../../components/PortalModuleState";
 
 const EMPLOYEE_ROLES = [
+  "Admin",
   "Vice Chairman",
   "President",
   "Managing Director",
@@ -50,6 +51,7 @@ interface EmployeeDirectoryPageProps {
 const PAGE_SIZE = 10;
 
 const ROLE_LEVEL: Record<string, number> = {
+  Admin: 9,
   "Vice Chairman": 8,
   "Vice President": 7,
   "MD-Manufacturing": 6,
@@ -65,7 +67,8 @@ const ROLE_LEVEL: Record<string, number> = {
 
 function canManageEmployee(currentUser: CurrentUser, employee: Employee): boolean {
   if (currentUser.role === "Worker" || employee.id === currentUser.id) return false;
-  if (employee.role === "Vice Chairman") return false;
+  if (employee.role === "Vice Chairman" && currentUser.role !== "Admin") return false;
+  if (currentUser.role === "Admin") return true;
   if (currentUser.role === "Vice President" && employee.role === "Vice President") return false;
   if (currentUser.role === "Vice Chairman" || currentUser.role === "Vice President") return true;
   return (ROLE_LEVEL[employee.role] ?? 1) < (ROLE_LEVEL[currentUser.role] ?? 1);
@@ -379,7 +382,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <option value="All">All</option>
               {departmentOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {option === "Admin" ? "Administrator" : option}
                 </option>
               ))}
             </select>

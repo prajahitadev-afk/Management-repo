@@ -48,6 +48,7 @@ const ROLE_ORDER = [
   "Vice President",
   "President",
   "Vice Chairman",
+  "Admin",
 ] as const;
 
 function readString(value: unknown): string | null {
@@ -458,7 +459,9 @@ export async function updateEmployee(actorId: string, employeeId: string, update
     address: updates.address,
     employee_code: updates.employeeCode,
     designation: updates.designation,
-    hierarchy_level: updates.hierarchyLevel,
+    // The role RPC owns hierarchy_level whenever a role changes. Do not
+    // overwrite its canonical value with a stale value from the edit form.
+    hierarchy_level: updates.role === undefined ? updates.hierarchyLevel : undefined,
     reports_to: updates.reportsTo,
     status: updates.status,
     joining_date: updates.joiningDate,
@@ -799,7 +802,7 @@ export function getAllowedEmployeeRoles(actorRole?: string | null): string[] {
   }
 
   if (normalizedActorRole === "Vice President") {
-    return ROLE_ORDER.filter((role) => role !== "Vice Chairman" && role !== "Vice President");
+    return ROLE_ORDER.filter((role) => role !== "Vice Chairman" && role !== "Vice President" && role !== "Admin");
   }
 
   const actorLevel = ROLE_LEVEL[normalizedActorRole] ?? 1;
