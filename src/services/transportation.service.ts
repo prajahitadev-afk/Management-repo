@@ -139,14 +139,14 @@ export interface TransportCMDashboard {
 
 export interface TransportGMDashboard {
   logistics_analytics: number;
-  fleet_utilization: number;
-  department_comparison: number;
+  active_trip_rate: number;
+  average_distance_per_trip: number;
 }
 
 export interface TransportMDDashboard {
-  strategic_fleet_metrics: number;
+  annual_active_drivers: number;
   annual_delivery_achievement: number;
-  transportation_performance: number;
+  delay_free_trip_rate: number;
 }
 
 function transportationError(error: unknown): Error {
@@ -536,15 +536,27 @@ export async function getGMDashboard(department?: string | null): Promise<Transp
   const scopedTrips = trips.data!.filter((trip) => inDashboardScope(scope, trip.driver_id));
   const tripCount = scopedTrips.length;
   const scopedActive = active.data!.filter((trip) => inDashboardScope(scope, trip.driver_id));
-  return { data: { logistics_analytics: tripCount ? (scopedTrips.filter((trip) => ["Completed", "Delivered"].includes(trip.status)).length / tripCount) * 100 : 0, fleet_utilization: tripCount ? (scopedActive.length / tripCount) * 100 : 0, department_comparison: tripCount ? distance.data!.filter((row) => inDashboardScope(scope, row.driver_id)).reduce((sum, row) => sum + numberValue(row.distance), 0) / tripCount : 0 }, error: null };
+  return { data: { logistics_analytics: tripCount ? (scopedTrips.filter((trip) => ["Completed", "Delivered"].includes(trip.status)).length / tripCount) * 100 : 0, active_trip_rate: tripCount ? (scopedActive.length / tripCount) * 100 : 0, average_distance_per_trip: tripCount ? distance.data!.filter((row) => inDashboardScope(scope, row.driver_id)).reduce((sum, row) => sum + numberValue(row.distance), 0) / tripCount : 0 }, error: null };
 }
 
 export async function getMDTransportationDashboard(): Promise<TransportationResult<TransportMDDashboard>> {
   const [trips, targets, delays] = await Promise.all([getTrips(), getTargets(), getDelayLogs()]);
   const failure = [trips, targets, delays].find((result) => result.error);
   if (failure?.error) return { data: null, error: failure.error };
-  const completed = trips.data!.filter((trip) => ["Completed", "Delivered"].includes(trip.status)).length;
-  const annualTarget = targets.data!.reduce((sum, row) => sum + numberValue(row.target_deliveries), 0);
-  const tripCount = trips.data!.length;
-  return { data: { strategic_fleet_metrics: new Set(trips.data!.map((trip) => trip.vehicle_id).filter(Boolean)).size, annual_delivery_achievement: annualTarget ? (completed / annualTarget) * 100 : 0, transportation_performance: tripCount ? Math.max(0, 100 - (delays.data!.length / tripCount) * 100) : 0 }, error: null };
+  const year = new Date().getFullYear();
+  const annualTrips = trips.data!.filter((trip) => trip.trip_date.slice(0, 4) === String(year));
+  const annualTargets = targets.data!.filter((target) =>
+    target.period_start.slice(0, 4) <= String(year) && target.period_end.slice(0, 4) >= String(year),
+  );
+  const annualDelays = delays.data!.filter((delay) => delay.recorded_at.slice(0, 4) === String(year));
+  const completed = annualTrips.filter((trip) => ["Completed", "Delivered"].includes(trip.status)).length;
+  const annualTarget = annualTargets.reduce((sum, row) => sum + numberValue(row.target_deliveries), 0);
+  return {
+    data: {
+      annual_active_drivers: new Set(annualTrips.map((trip) => trip.driver_id).filter(Boolean)).size,
+      annual_delivery_achievement: annualTarget ? (completed / annualTarget) * 100 : 0,
+      delay_free_trip_rate: annualTrips.length ? Math.max(0, 100 - (annualDelays.length / annualTrips.length) * 100) : 0,
+    },
+    error: null,
+  };
 }

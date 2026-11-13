@@ -608,6 +608,52 @@ html.dark #portal-module-search-results button:hover,
 html.dark [data-profile-menu-content] button:hover {
   background: var(--portal-surface-hover) !important;
 }
+
+:root {
+  --portal-chart-glass: rgba(255, 255, 255, .70);
+  --portal-chart-glass-highlight: rgba(255, 255, 255, .88);
+  --portal-chart-border: rgba(255, 255, 255, .82);
+  --portal-chart-grid: rgba(35, 75, 53, .13);
+  --portal-chart-shadow: 0 14px 34px rgba(20, 47, 34, .075), inset 0 1px 0 rgba(255, 255, 255, .88);
+}
+
+html.dark {
+  --portal-chart-glass: rgba(24, 35, 30, .78);
+  --portal-chart-glass-highlight: rgba(36, 51, 43, .82);
+  --portal-chart-border: rgba(174, 205, 184, .17);
+  --portal-chart-grid: rgba(185, 210, 193, .14);
+  --portal-chart-shadow: 0 14px 34px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(220, 244, 227, .07);
+}
+
+.portal-main .portal-chart-panel,
+.portal-main .portal-card:has(.recharts-wrapper),
+.portal-main .portal-analytics-panel {
+  border-color: var(--portal-chart-border) !important;
+  background: linear-gradient(145deg, var(--portal-chart-glass-highlight), var(--portal-chart-glass)) !important;
+  box-shadow: var(--portal-chart-shadow) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  backdrop-filter: blur(18px) saturate(140%) !important;
+}
+
+.portal-main .recharts-cartesian-grid line {
+  stroke: var(--portal-chart-grid) !important;
+  stroke-dasharray: 4 6;
+}
+
+.portal-main .recharts-cartesian-axis-line,
+.portal-main .recharts-cartesian-axis-tick-line {
+  stroke: var(--portal-line) !important;
+}
+
+.portal-main .recharts-cartesian-axis-tick text {
+  fill: var(--portal-muted) !important;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.portal-main .recharts-default-legend .recharts-legend-item-text {
+  color: var(--portal-ink-soft) !important;
+}
 html.dark .portal-login-screen,
 html.dark .portal-reset-screen {
   background: var(--portal-canvas) !important;

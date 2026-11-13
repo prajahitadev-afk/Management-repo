@@ -36,7 +36,7 @@ import type { AppTheme } from "../lib/theme";
 import { approveOrder, rejectOrder, getOrderDetails, type OrderDetails } from "../services/orders.service";
 import { ORDER_STATUS } from "../services/order-statuses";
 import { exportShipmentsToCSV, getDeliveryDetails, getDeliveryEditableOptions, updateDeliveryDetails, type TransportShipment, type DeliveryOption } from "../services/transport.service";
-import { exportAttendanceToCSV } from "../services/attendance.service";
+import { exportAttendanceToCSV, getAttendanceForMonths, type AttendanceMonthTrend } from "../services/attendance.service";
 import { generateReport, exportReportToCSV, exportReportToExcel, exportReportToPDF, type GeneratedReport, type ReportExportFormat, type ReportType } from "../services/reports.service";
 import { supabase } from "../lib/supabase";
 import { usePrograms } from "../hooks/usePrograms";
@@ -81,7 +81,7 @@ interface DashboardStats {
   monthlyRevenue: number;
   weeklyAttendance: Array<{ day: string; present: number; absent: number }>;
   communityImpact: Array<{ month: string; beneficiaries: number; volunteers: number }>;
-  revenueTrend: Array<{ month: string; orders: number; delivered: number; revenue: number }>;
+  revenueTrend: Array<{ month: string; bills: number; approvedBills: number; revenue: number }>;
   managerCount: number;
   supervisorCount: number;
   teamResponsibilities: Array<{ id: string; name: string; role: string; department: string; status: string }>;
@@ -388,9 +388,13 @@ function SectionHeader({ title, subtitle, actions }: {
 }
 
 const TT = {
-  background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)",
-  border: "1px solid rgba(255,255,255,0.5)", borderRadius: 12, fontSize: 12,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.10)", color: B.text,
+  background: "var(--portal-surface)",
+  backdropFilter: "blur(18px) saturate(140%)",
+  border: "1px solid var(--portal-line)",
+  borderRadius: 12,
+  fontSize: 12,
+  boxShadow: "var(--portal-shadow-float)",
+  color: B.text,
 };
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -1351,8 +1355,8 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
         <GlassCard className="p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="font-semibold text-base" style={{ color: B.text }}>Orders & Deliveries</h3>
-              <p className="text-xs mt-0.5" style={{ color: B.textMuted }}>Jan – Jul 2025</p>
+              <h3 className="font-semibold text-base" style={{ color: B.text }}>Bills & Approvals</h3>
+              <p className="text-xs mt-0.5" style={{ color: B.textMuted }}>Last 7 months</p>
             </div>
             
           </div>
@@ -1372,8 +1376,8 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={TT} />
-              <Area id="vc-orders"    type="monotone" dataKey="orders"    stroke={CB} fill="url(#vc-gO)" strokeWidth={2} name="Orders" />
-              <Area id="vc-delivered" type="monotone" dataKey="delivered" stroke={CG} fill="url(#vc-gD)" strokeWidth={2} name="Delivered" />
+              <Area id="vc-bills" type="monotone" dataKey="bills" stroke={CB} fill="url(#vc-gO)" strokeWidth={2} name="Bills" />
+              <Area id="vc-approved-bills" type="monotone" dataKey="approvedBills" stroke={CG} fill="url(#vc-gD)" strokeWidth={2} name="Approved bills" />
               <Legend iconSize={8} iconType="circle" />
             </AreaChart>
           </ResponsiveContainer>
@@ -1408,16 +1412,25 @@ function VCDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
               <h3 className="font-semibold text-base" style={{ color: B.text }}>Monthly Community Impact</h3>
               <p className="text-xs mt-0.5" style={{ color: B.textMuted }}>Beneficiaries & Volunteer Participation</p>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: B.greenLight, color: CG }}>↑ 6.6% MoM</span>
           </div>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={communityData}>
+              <defs>
+                <linearGradient id="vc-beneficiary-bars" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CB} stopOpacity={1} />
+                  <stop offset="100%" stopColor={CB} stopOpacity={0.68} />
+                </linearGradient>
+                <linearGradient id="vc-volunteer-bars" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CGo} stopOpacity={1} />
+                  <stop offset="100%" stopColor={CGo} stopOpacity={0.68} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={TT} />
-              <Bar id="vc-ben" dataKey="beneficiaries" fill={CB}  radius={[4,4,0,0]} name="Beneficiaries" />
-              <Bar id="vc-vol" dataKey="volunteers"    fill={CGo} radius={[4,4,0,0]} name="Volunteers" />
+              <Bar id="vc-ben" dataKey="beneficiaries" fill="url(#vc-beneficiary-bars)" radius={[7,7,0,0]} name="Beneficiaries" />
+              <Bar id="vc-vol" dataKey="volunteers"    fill="url(#vc-volunteer-bars)" radius={[7,7,0,0]} name="Volunteers" />
               <Legend iconSize={8} iconType="circle" />
             </BarChart>
           </ResponsiveContainer>
@@ -1524,7 +1537,7 @@ function MDDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
       <div className="grid grid-cols-1 gap-5">
         <GlassCard className="p-5">
           <h3 className="font-semibold text-base mb-1" style={{ color: B.text }}>Monthly Revenue Trend — {dept}</h3>
-          <p className="text-xs mb-4" style={{ color: B.textMuted }}>Jan – Jul 2025</p>
+          <p className="text-xs mb-4" style={{ color: B.textMuted }}>Last 7 months</p>
           <ResponsiveContainer width="100%" height={190}>
             <LineChart data={stats.revenueTrend.length > 0 ? stats.revenueTrend : []}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
@@ -1564,12 +1577,22 @@ function GMDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
         <h3 className="font-semibold text-base mb-4" style={{ color: B.text }}>Weekly Attendance — {user.department}</h3>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={stats.weeklyAttendance.length > 0 ? stats.weeklyAttendance : ATTEND_WEEK}>
+            <defs>
+              <linearGradient id="gm-present-bars" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={CG} stopOpacity={1} />
+                <stop offset="100%" stopColor={CG} stopOpacity={0.68} />
+              </linearGradient>
+              <linearGradient id="gm-absent-bars" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={CR} stopOpacity={1} />
+                <stop offset="100%" stopColor={CR} stopOpacity={0.68} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={TT} />
-            <Bar id="gm-pres" dataKey="present" fill={CG} radius={[4,4,0,0]} name="Present" />
-            <Bar id="gm-abs"  dataKey="absent"  fill={CR} radius={[4,4,0,0]} name="Absent" />
+            <Bar id="gm-pres" dataKey="present" fill="url(#gm-present-bars)" radius={[7,7,0,0]} name="Present" />
+            <Bar id="gm-abs"  dataKey="absent"  fill="url(#gm-absent-bars)" radius={[7,7,0,0]} name="Absent" />
             <Legend iconSize={8} iconType="circle" />
           </BarChart>
         </ResponsiveContainer>
@@ -2026,8 +2049,33 @@ function AttendancePage({ user }: { user: AppUser }) {
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const attendanceScope = useMemo(() => ({ role: user.role, department: user.department, userId: user.id }), [user.role, user.department, user.id]);
+  const [monthlyAttendance, setMonthlyAttendance] = useState<AttendanceMonthTrend[]>([]);
+  const [monthlyAttendanceLoading, setMonthlyAttendanceLoading] = useState(false);
+  const [monthlyAttendanceError, setMonthlyAttendanceError] = useState("");
 
   const { rows, setRows, weekly, summary, loading, error, reloadAttendance } = useAttendance(selectedDate, attendanceScope);
+
+  useEffect(() => {
+    if (view !== "monthly") return;
+    let active = true;
+    setMonthlyAttendanceLoading(true);
+    setMonthlyAttendanceError("");
+
+    void getAttendanceForMonths(selectedDate, attendanceScope)
+      .then((result) => {
+        if (active) setMonthlyAttendance(result);
+      })
+      .catch((err) => {
+        if (active) setMonthlyAttendanceError(err instanceof Error ? err.message : "Failed to load monthly attendance");
+      })
+      .finally(() => {
+        if (active) setMonthlyAttendanceLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [attendanceScope, selectedDate, view]);
 
   const updateAttendanceStatus = (employeeId: string, status: string) => {
     setRows((prev) => prev.map((row) => (row.employee_id === employeeId ? { ...row, status: status as typeof row.status } : row)));
@@ -2217,12 +2265,22 @@ function AttendancePage({ user }: { user: AppUser }) {
             <h3 className="font-semibold text-sm mb-4" style={{ color: B.text }}>Weekly Attendance Trend</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={weekly}>
+                <defs>
+                  <linearGradient id="att-present-bars" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={CG} stopOpacity={1} />
+                    <stop offset="100%" stopColor={CG} stopOpacity={0.68} />
+                  </linearGradient>
+                  <linearGradient id="att-absent-bars" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={CR} stopOpacity={1} />
+                    <stop offset="100%" stopColor={CR} stopOpacity={0.68} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={TT} />
-                <Bar id="att-pres" dataKey="present" fill={CG} radius={[4,4,0,0]} name="Present" />
-                <Bar id="att-abs"  dataKey="absent"  fill={CR} radius={[4,4,0,0]} name="Absent" />
+                <Bar id="att-pres" dataKey="present" fill="url(#att-present-bars)" radius={[7,7,0,0]} name="Present" />
+                <Bar id="att-abs"  dataKey="absent"  fill="url(#att-absent-bars)" radius={[7,7,0,0]} name="Absent" />
                 <Legend iconSize={8} iconType="circle" />
               </BarChart>
             </ResponsiveContainer>
@@ -2231,22 +2289,36 @@ function AttendancePage({ user }: { user: AppUser }) {
 
         {view === "monthly" && (
           <div className="p-5">
-            <h3 className="font-semibold text-sm mb-4" style={{ color: B.text }}>Monthly Analytics — Jan to Jul 2025</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={weekly}>
-                <defs>
-                  <linearGradient id="att-gOrd" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={CG} stopOpacity={0.18}/>
-                    <stop offset="95%" stopColor={CG} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT} />
-                <Area id="att-monthly" type="monotone" dataKey="present" stroke={CG} fill="url(#att-gOrd)" strokeWidth={2} name="Avg Present" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <h3 className="font-semibold text-sm mb-4" style={{ color: B.text }}>Monthly Attendance Trend — Last 7 Months</h3>
+            {monthlyAttendanceLoading ? (
+              <div className="flex h-[200px] items-center justify-center text-sm" style={{ color: B.textMuted }}>Loading monthly attendance...</div>
+            ) : monthlyAttendanceError ? (
+              <div role="alert" className="flex h-[200px] items-center justify-center text-sm text-red-600">{monthlyAttendanceError}</div>
+            ) : !monthlyAttendance.some((month) => month.present > 0 || month.absent > 0) ? (
+              <div className="flex h-[200px] items-center justify-center text-sm" style={{ color: B.textMuted }}>No attendance records found for these months.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={monthlyAttendance}>
+                  <defs>
+                    <linearGradient id="att-month-present" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CG} stopOpacity={0.2} />
+                      <stop offset="95%" stopColor={CG} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="att-month-absent" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CR} stopOpacity={0.16} />
+                      <stop offset="95%" stopColor={CR} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={TT} />
+                  <Legend iconSize={8} iconType="circle" />
+                  <Area type="monotone" dataKey="present" stroke={CG} fill="url(#att-month-present)" strokeWidth={2} name="Present" />
+                  <Area type="monotone" dataKey="absent" stroke={CR} fill="url(#att-month-absent)" strokeWidth={2} name="Absent" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         )}
 
@@ -3824,12 +3896,22 @@ function ReportsPage({ user }: { user: AppUser }) {
                     </LineChart>
                   ) : (
                     <BarChart data={generatedReport.chartData}>
+                      <defs>
+                        <linearGradient id="report-primary-bars" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={CG} stopOpacity={1} />
+                          <stop offset="100%" stopColor={CG} stopOpacity={0.68} />
+                        </linearGradient>
+                        <linearGradient id="report-secondary-bars" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={CB} stopOpacity={1} />
+                          <stop offset="100%" stopColor={CB} stopOpacity={0.68} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                       <XAxis dataKey="label" tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 11, fill: B.textMuted }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={TT} />
-                      <Bar dataKey="value" fill={CG} radius={[4,4,0,0]} />
-                      {generatedReport.chartData.some((item) => item.secondaryValue != null) && <Bar dataKey="secondaryValue" fill={CB} radius={[4,4,0,0]} />}
+                      <Bar dataKey="value" fill="url(#report-primary-bars)" radius={[7,7,0,0]} />
+                      {generatedReport.chartData.some((item) => item.secondaryValue != null) && <Bar dataKey="secondaryValue" fill="url(#report-secondary-bars)" radius={[7,7,0,0]} />}
                     </BarChart>
                   )}
                 </ResponsiveContainer>

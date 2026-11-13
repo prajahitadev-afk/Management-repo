@@ -43,6 +43,11 @@ function isDone(row: Row): boolean {
 }
 function percent(value: number, total: number): number { return total > 0 ? Math.max(0, Math.min(100, (value / total) * 100)) : 0; }
 function departmentMatches(value: unknown, department: ExecutiveDepartment): boolean { const normalized = String(value ?? "").trim().toLowerCase(); return Boolean(normalized) && DEPARTMENT_ALIASES[department].includes(normalized); }
+function targetMatchesPeriod(row: Row, period: string): boolean {
+  const start = textValue(row, "start_date", "period_start").slice(0, 7);
+  const end = textValue(row, "end_date", "period_end").slice(0, 7);
+  return (!start || start <= period) && (!end || end >= period);
+}
 function monthKey(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 function attendanceHours(row: Row): number {
   const checkIn = Date.parse(String(row.check_in ?? ""));
@@ -103,9 +108,9 @@ export async function getExecutiveAnalytics(role: ExecutiveAnalyticsRole, depart
     : DEPARTMENTS;
   if ((role === "Chief Manager" || role === "General Manager") && !scopeDepartments.length) return { data: { role, scope: [], departments: [], trend: [] }, error: null };
   const [manufacturingOutputs, attendance, manufacturingTargets, leads, conversions, campaigns, marketingTargets, trips, delays, transportTargets, projects, experiments, samples, milestones, researchTargets] = await Promise.all([
-    read("manufacturing_outputs", "quantity_produced,production_date,worker_id,remarks"), read("attendance", "employee_id,attendance_date,check_in,check_out,status"), read("manufacturing_targets", "target_quantity,manager_id"),
-    read("marketing_leads", "status,created_at,assigned_to"), read("marketing_conversions", "conversion_value,conversion_date,converted_by,campaign_id"), read("marketing_campaigns", "status,manager_id,id"), read("marketing_targets", "target_quantity,actual_quantity,manager_id,start_date,end_date,target_period"), read("transport_trips", "status,trip_date,driver_id"), read("transport_delay_logs", "trip_id,delay_minutes,reason,recorded_at"), read("transport_targets", "target_deliveries,manager_id"),
-    read("research_projects", "status,created_at,manager_id"), read("research_experiments", "status,created_at,owner_id"), read("research_samples", "created_at,collected_by"), read("research_milestones", "status,created_at,project_id"), read("research_targets", "target_quantity,manager_id"),
+    read("manufacturing_outputs", "quantity_produced,production_date,worker_id,remarks"), read("attendance", "employee_id,attendance_date,check_in,check_out,status"), read("manufacturing_targets", "target_quantity,manager_id,start_date,end_date"),
+    read("marketing_leads", "status,created_at,assigned_to"), read("marketing_conversions", "conversion_value,conversion_date,converted_by,campaign_id"), read("marketing_campaigns", "status,manager_id,id"), read("marketing_targets", "target_quantity,actual_quantity,manager_id,start_date,end_date,target_period"), read("transport_trips", "status,trip_date,driver_id"), read("transport_delay_logs", "trip_id,delay_minutes,reason,recorded_at"), read("transport_targets", "target_deliveries,manager_id,start_date,end_date"),
+    read("research_projects", "status,created_at,manager_id"), read("research_experiments", "status,created_at,owner_id"), read("research_samples", "created_at,collected_by"), read("research_milestones", "status,created_at,project_id"), read("research_targets", "target_quantity,manager_id,period_start,period_end"),
   ]);
   const results = [profiles, attendance, manufacturingOutputs, manufacturingTargets, leads, conversions, campaigns, marketingTargets, trips, delays, transportTargets, projects, experiments, samples, milestones, researchTargets];
   const failure = results.find((result) => result.error);
@@ -148,16 +153,63 @@ export async function getExecutiveAnalytics(role: ExecutiveAnalyticsRole, depart
     const periodTrips = trendTrips.filter((row) => dateValue(row).slice(0, 7) === period);
     const periodProjects = trendProjects.filter((row) => dateValue(row).slice(0, 7) === period);
     const periodMilestones = all(milestones).filter((row) => new Set(trendProjects.map((project) => String(project.id))).has(String(row.project_id))).filter((row) => dateValue(row).slice(0, 7) === period);
-    const manufacturingPerformance = percent(periodOutputs.reduce((sum, row) => sum + numberValue(row.quantity_produced), 0), periodOutputs.reduce((sum, row) => sum + numberValue(row.quantity_produced), 0));
+    const periodManufacturingTargets = scoped(manufacturingTargets, ["manager_id"]).filter((row) => targetMatchesPeriod(row, period));
+    const periodMarketingTargets = scoped(marketingTargets, ["manager_id"]).filter((row) => targetMatchesPeriod(row, period));
+    const periodTransportTargets = scoped(transportTargets, ["manager_id"]).filter((row) => targetMatchesPeriod(row, period));
+    const periodResearchTargets = scoped(researchTargets, ["manager_id"]).filter((row) => targetMatchesPeriod(row, period));
+    const periodManufacturingTarget = periodManufacturingTargets.reduce((sum, row) => sum + numberValue(row.target_quantity), 0);
+    const periodManufacturingOutput = periodOutputs.reduce((sum, row) => sum + numberValue(row.quantity_produced), 0);
+    const manufacturingPerformance = percent(periodManufacturingOutput, periodManufacturingTarget);
     const marketingPerformance = percent(periodConversions.length, periodLeads.length);
     const transportPerformance = percent(periodTrips.filter(isDone).length, periodTrips.length);
     const researchPerformance = percent(periodProjects.filter(isDone).length, periodProjects.length);
-    const periodPerformance = [manufacturingPerformance, marketingPerformance, transportPerformance, researchPerformance];
-    const periodAchievement = [percent(periodOutputs.reduce((sum, row) => sum + numberValue(row.quantity_produced), 0), scoped(manufacturingTargets, ["manager_id"]).reduce((sum, row) => sum + numberValue(row.target_quantity), 0)), percent(scoped(marketingTargets, ["manager_id"]).reduce((sum, row) => sum + numberValue(row.actual_quantity), 0), scoped(marketingTargets, ["manager_id"]).reduce((sum, row) => sum + numberValue(row.target_quantity), 0)), percent(periodTrips.filter(isDone).length, scoped(transportTargets, ["manager_id"]).reduce((sum, row) => sum + numberValue(row.target_deliveries), 0)), percent(periodProjects.filter(isDone).length, scoped(researchTargets, ["manager_id"]).reduce((sum, row) => sum + numberValue(row.target_quantity), 0))];
-    const periodProductivity = [percent(periodOutputs.reduce((sum, row) => sum + numberValue(row.quantity_produced), 0), periodHours.reduce((sum, row) => sum + attendanceHours(row), 0)), marketingPerformance, transportPerformance, percent(periodProjects.filter(isDone).length, periodProjects.length)];
-    const periodEfficiency = [manufacturingPerformance, marketingPerformance, percent(Math.max(0, periodTrips.length - all(delays).filter((row) => dateValue(row).slice(0, 7) === period).length), periodTrips.length), percent(periodMilestones.filter(isDone).length, periodMilestones.length)];
-    const averageOf = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
-    return { period, performance: averageOf(periodPerformance), achievement: averageOf(periodAchievement), productivity: averageOf(periodProductivity), efficiency: averageOf(periodEfficiency) };
+    const periodMetrics: Record<ExecutiveDepartment, { performance: number; achievement: number; productivity: number; efficiency: number }> = {
+      Manufacturing: {
+        performance: manufacturingPerformance,
+        achievement: manufacturingPerformance,
+        productivity: percent(periodManufacturingOutput, periodHours.reduce((sum, row) => sum + attendanceHours(row), 0)),
+        efficiency: manufacturingPerformance,
+      },
+      Marketing: {
+        performance: marketingPerformance,
+        achievement: percent(
+          periodMarketingTargets.reduce((sum, row) => sum + numberValue(row.actual_quantity), 0),
+          periodMarketingTargets.reduce((sum, row) => sum + numberValue(row.target_quantity), 0),
+        ),
+        productivity: marketingPerformance,
+        efficiency: marketingPerformance,
+      },
+      Transportation: {
+        performance: transportPerformance,
+        achievement: percent(
+          periodTrips.filter(isDone).length,
+          periodTransportTargets.reduce((sum, row) => sum + numberValue(row.target_deliveries), 0),
+        ),
+        productivity: transportPerformance,
+        efficiency: percent(
+          Math.max(0, periodTrips.length - all(delays).filter((row) => dateValue(row).slice(0, 7) === period).length),
+          periodTrips.length,
+        ),
+      },
+      Research: {
+        performance: researchPerformance,
+        achievement: percent(
+          periodProjects.filter(isDone).length,
+          periodResearchTargets.reduce((sum, row) => sum + numberValue(row.target_quantity), 0),
+        ),
+        productivity: percent(periodProjects.filter(isDone).length, periodProjects.length),
+        efficiency: percent(periodMilestones.filter(isDone).length, periodMilestones.length),
+      },
+    };
+    const averageOf = (key: keyof typeof periodMetrics.Manufacturing) =>
+      scopeDepartments.reduce((sum, department) => sum + periodMetrics[department][key], 0) / scopeDepartments.length;
+    return {
+      period,
+      performance: averageOf("performance"),
+      achievement: averageOf("achievement"),
+      productivity: averageOf("productivity"),
+      efficiency: averageOf("efficiency"),
+    };
   });
   return { data: { role, scope: scopeDepartments, departments: metrics, trend }, error: null };
 }
