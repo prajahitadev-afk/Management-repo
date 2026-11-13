@@ -1,0 +1,218 @@
+/* Premium shared-shell refinements.
+   This layer is intentionally presentation-only: routing, permissions, data and
+   Supabase workflows remain owned by the existing React components/services. */
+
+:root {
+  --portal-focus: rgba(23, 107, 82, .34);
+  --portal-border-strong: #d5e2d9;
+  --portal-surface-hover: #f7faf8;
+}
+
+.portal-sidebar {
+  flex: 0 0 272px;
+  min-width: 272px;
+  transition: width .22s ease, min-width .22s ease, flex-basis .22s ease,
+    box-shadow .22s ease;
+}
+
+/* The sidebar's collapsed state is expressed by its existing Tailwind class.
+   Keep that state authoritative over the desktop width tokens above. */
+.portal-sidebar[class~="w-[60px]"] {
+  width: 68px !important;
+  min-width: 68px !important;
+  flex-basis: 68px !important;
+}
+
+.portal-sidebar nav {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.22) transparent;
+}
+
+.portal-sidebar nav button {
+  min-height: 44px;
+  padding-inline: 12px;
+  text-align: left;
+}
+
+.portal-sidebar nav button:focus-visible,
+.portal-topbar button:focus-visible,
+.portal-main button:focus-visible,
+.portal-main a:focus-visible {
+  outline: 3px solid var(--portal-focus) !important;
+  outline-offset: 2px;
+}
+
+.portal-sidebar nav button[aria-current="page"] {
+  position: relative;
+  color: #fff;
+}
+
+.portal-sidebar nav button[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 9px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--portal-gold, #c59a4a);
+}
+
+.portal-sidebar-brand img {
+  display: block;
+  object-fit: cover;
+}
+
+.portal-topbar {
+  flex: 0 0 auto;
+  isolation: isolate;
+}
+
+.portal-global-search {
+  width: min(100%, 440px);
+}
+
+.portal-global-search > div:first-child {
+  min-height: 42px;
+  border: 1px solid var(--portal-line);
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.portal-global-search:focus-within > div:first-child {
+  border-color: #79a88e !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgba(23,107,82,.10);
+}
+
+.portal-global-search input {
+  width: 100%;
+  min-width: 0;
+}
+
+.portal-main {
+  min-width: 0;
+  overscroll-behavior-y: contain;
+}
+
+.portal-main :where(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+.portal-main :where(p, li) {
+  text-wrap: pretty;
+}
+
+.portal-card,
+.portal-kpi-card,
+.portal-analytics-panel,
+.portal-analytics-metric,
+.portal-kpi-workspace {
+  min-width: 0;
+}
+
+.portal-card {
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.portal-main .portal-card:focus-within {
+  border-color: var(--portal-border-strong) !important;
+}
+
+.portal-main :where(button, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.portal-main :where(input, select, textarea) {
+  max-width: 100%;
+}
+
+.portal-main :where(input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: .72;
+}
+
+.portal-main .overflow-x-auto {
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.portal-main table th,
+.portal-main table td {
+  vertical-align: middle;
+}
+
+.portal-main table tbody tr:focus-within {
+  background: #f4f8f5;
+}
+
+.portal-main [role="status"],
+.portal-main [role="alert"] {
+  line-height: 1.5;
+}
+
+.portal-login-screen {
+  min-height: 100svh;
+}
+
+@media (max-width: 1023px) {
+  .portal-sidebar:not(.fixed) {
+    flex-basis: 248px;
+    min-width: 248px;
+  }
+
+  .portal-sidebar[class~="w-[60px]"] {
+    width: 68px !important;
+    min-width: 68px !important;
+    flex-basis: 68px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .portal-sidebar.fixed {
+    width: min(88vw, 288px) !important;
+    min-width: 0 !important;
+    max-width: 288px;
+    box-shadow: 24px 0 56px rgba(8, 28, 20, .24);
+  }
+
+  .portal-topbar {
+    min-width: 0;
+  }
+
+  .portal-global-search {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+  }
+
+  .portal-main :where(.portal-module-page, .portal-role-dashboard) {
+    min-width: 0;
+  }
+
+  .portal-main .overflow-x-auto {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .portal-topbar {
+    gap: 6px !important;
+  }
+
+  .portal-global-search > div:first-child {
+    padding-inline: 9px;
+  }
+
+  .portal-global-search input {
+    font-size: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-sidebar,
+  .portal-sidebar nav button,
+  .portal-topbar,
+  .portal-card {
+    transition: none !important;
+  }
+}
