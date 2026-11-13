@@ -4,6 +4,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
 import { updateEmployee } from "../../services/employee.service";
 import { getEmployeeDepartmentHistory } from "../../services/department.service";
+import { getRoleHierarchyLevel } from "../../services/role.service";
 import type { EmployeeDepartmentHistory } from "../../types/department.types";
 
 interface EmployeeProfilePageProps {
@@ -16,7 +17,7 @@ interface EmployeeProfilePageProps {
 export function EmployeeProfilePage({ employeeId, editable = false, currentUserId, currentUserRole }: EmployeeProfilePageProps) {
   const { refreshProfile } = useAuth();
   const { profile, loading, error, refresh } = useEmployeeProfile(employeeId);
-  const [form, setForm] = useState({ name: "", employeeCode: "", designation: "", hierarchyLevel: "1", email: "", phone: "", address: "", department: "", status: "Active", reportsTo: "" });
+  const [form, setForm] = useState({ name: "", employeeCode: "", designation: "", email: "", phone: "", address: "", department: "", status: "Active", reportsTo: "" });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -72,7 +73,6 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
         name: profile.name ?? "",
         employeeCode: profile.employeeCode ?? "",
         designation: profile.designation ?? "",
-        hierarchyLevel: profile.hierarchyLevel ? String(profile.hierarchyLevel) : "1",
         email: profile.email ?? "",
         phone: profile.phone ?? "",
         address: profile.address ?? "",
@@ -153,8 +153,8 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
               <div className="mt-2 font-medium text-slate-800">{profile.name}</div>
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee ID</div>
-              <div className="mt-2 font-medium text-slate-800">{profile.employeeId}</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee Code</div>
+              <div className="mt-2 font-medium text-slate-800">{profile.employeeCode || "—"}</div>
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee Code</div>
@@ -166,7 +166,7 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</div>
-              <div className="mt-2 font-medium text-slate-800">{profile.hierarchyLevel ?? "—"}</div>
+              <div className="mt-2 font-medium text-slate-800">{getRoleHierarchyLevel(profile.role) || 1}</div>
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</div>
@@ -242,8 +242,8 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
           <h2 className="mb-4 text-lg font-semibold text-slate-800">Company Information</h2>
           <div className="space-y-3 text-sm text-slate-700">
             <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/70 px-4 py-3">
-              <span className="font-medium">Employee ID</span>
-              <span>{profile.employeeId}</span>
+              <span className="font-medium">Employee Code</span>
+              <span>{profile.employeeCode || "—"}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/70 px-4 py-3">
               <span className="font-medium">Department</span>
