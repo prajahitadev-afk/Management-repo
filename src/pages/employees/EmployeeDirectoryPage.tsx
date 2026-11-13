@@ -382,7 +382,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <option value="All">All</option>
               {departmentOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option === "Admin" ? "Administrator" : option}
+                  {option}
                 </option>
               ))}
             </select>
