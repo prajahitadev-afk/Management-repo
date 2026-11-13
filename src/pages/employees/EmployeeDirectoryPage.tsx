@@ -627,10 +627,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                 <input required maxLength={100} value={designation} onChange={(event) => setDesignation(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
               <label className="text-sm text-slate-700">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level (based on role)</span>
-                <input type="number" value={getRoleHierarchyLevel(selectedRole) || 1} readOnly aria-readonly="true" className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500" />
-              </label>
-              <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span>
                 <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
