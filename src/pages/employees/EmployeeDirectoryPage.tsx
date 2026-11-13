@@ -16,8 +16,10 @@ import type { Employee } from "../../types/employee.types";
 import { supabase } from "../../lib/supabase";
 import { ASSIGNABLE_DEPARTMENTS } from "../../types/department.types";
 import { PortalModuleState } from "../../components/PortalModuleState";
+import { getRoleHierarchyLevel } from "../../services/role.service";
 
 const EMPLOYEE_ROLES = [
+  "Admin",
   "Vice Chairman",
   "President",
   "Managing Director",
@@ -49,26 +51,13 @@ interface EmployeeDirectoryPageProps {
 
 const PAGE_SIZE = 10;
 
-const ROLE_LEVEL: Record<string, number> = {
-  "Vice Chairman": 8,
-  "Vice President": 7,
-  "MD-Manufacturing": 6,
-  "MD-Marketing": 6,
-  "MD-Transport": 6,
-  "MD-RD": 6,
-  "General Manager": 5,
-  "Chief Manager": 4,
-  Manager: 3,
-  Supervisor: 2,
-  Worker: 1,
-};
-
 function canManageEmployee(currentUser: CurrentUser, employee: Employee): boolean {
   if (currentUser.role === "Worker" || employee.id === currentUser.id) return false;
-  if (employee.role === "Vice Chairman") return false;
+  if (employee.role === "Vice Chairman" && currentUser.role !== "Admin") return false;
+  if (currentUser.role === "Admin") return true;
   if (currentUser.role === "Vice President" && employee.role === "Vice President") return false;
   if (currentUser.role === "Vice Chairman" || currentUser.role === "Vice President") return true;
-  return (ROLE_LEVEL[employee.role] ?? 1) < (ROLE_LEVEL[currentUser.role] ?? 1);
+  return (getRoleHierarchyLevel(employee.role) || 1) < (getRoleHierarchyLevel(currentUser.role) || 1);
 }
 
 export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCreate }: EmployeeDirectoryPageProps) {
@@ -83,7 +72,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   const [name, setName] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
   const [designation, setDesignation] = useState("");
-  const [hierarchyLevel, setHierarchyLevel] = useState("1");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedRole, setSelectedRole] = useState("Worker");
@@ -144,19 +132,19 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   }, [allowedRoles, selectedRole]);
 
   const supervisorOptions = useMemo(() => {
-    const selectedLevel = ROLE_LEVEL[selectedRole] ?? 1;
-    const higher = allEmployees.filter((employee) => (ROLE_LEVEL[employee.role] ?? 1) > selectedLevel);
+    const selectedLevel = getRoleHierarchyLevel(selectedRole) || 1;
+    const higher = allEmployees.filter((employee) => (getRoleHierarchyLevel(employee.role) || 1) > selectedLevel);
     if (selectedLevel === 1) {
       return higher;
     }
-    const nextLevel = higher.reduce((min, employee) => Math.min(min, ROLE_LEVEL[employee.role] ?? 99), 99);
-    const minimalHigher = higher.filter((employee) => (ROLE_LEVEL[employee.role] ?? 1) === nextLevel);
+    const nextLevel = higher.reduce((min, employee) => Math.min(min, getRoleHierarchyLevel(employee.role) || 99), 99);
+    const minimalHigher = higher.filter((employee) => (getRoleHierarchyLevel(employee.role) || 1) === nextLevel);
     return minimalHigher.length > 0 ? minimalHigher : higher;
   }, [allEmployees, selectedRole]);
 
   async function handleCreateEmployee(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!name || !employeeCode || !designation || !hierarchyLevel || !email || !phone || !selectedRole || !selectedDepartment) {
+    if (!name || !employeeCode || !designation || !email || !phone || !selectedRole || !selectedDepartment) {
       setMessage("Please complete the required fields.");
       return;
     }
@@ -168,7 +156,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
         name,
         employeeCode,
         designation,
-        hierarchyLevel: Number(hierarchyLevel),
         email,
         phone,
         role: selectedRole,
@@ -180,7 +167,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       setName("");
       setEmployeeCode("");
       setDesignation("");
-      setHierarchyLevel("1");
       setEmail("");
       setPhone("");
       setSelectedRole("Worker");
@@ -215,7 +201,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
     setName(employee.name);
     setEmployeeCode(employee.employeeCode);
     setDesignation(employee.designation);
-    setHierarchyLevel(employee.hierarchyLevel ? String(employee.hierarchyLevel) : "1");
     setEmail(employee.email);
     setPhone(employee.phone);
     setSelectedRole(employee.role);
@@ -228,7 +213,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
   async function handleUpdateEmployee(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingEmployee) return;
-    if (!name || !employeeCode || !designation || !hierarchyLevel || !email || !phone || !selectedRole || !selectedDepartment) {
+    if (!name || !employeeCode || !designation || !email || !phone || !selectedRole || !selectedDepartment) {
       setMessage("Please complete the required fields.");
       return;
     }
@@ -240,7 +225,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
         name,
         employeeCode,
         designation,
-        hierarchyLevel: Number(hierarchyLevel),
         email,
         phone,
         role: selectedRole,
@@ -434,15 +418,15 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
             <span>Showing {Math.min(filteredEmployees.length, (page - 1) * PAGE_SIZE + 1)}–{Math.min(filteredEmployees.length, page * PAGE_SIZE)} of {filteredEmployees.length}</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[900px] table-fixed text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Role &amp; Department</th>
-                  <th className="px-4 py-3">Contact</th>
-                  <th className="px-4 py-3">Reports To</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                                    <th scope="col" className="w-[20%] px-4 py-3">Employee</th>
+                  <th scope="col" className="w-[22%] px-4 py-3">Role &amp; Department</th>
+                  <th scope="col" className="w-[22%] px-4 py-3">Contact</th>
+                  <th scope="col" className="w-[14%] px-4 py-3">Reports To</th>
+                  <th scope="col" className="w-[10%] px-4 py-3">Status</th>
+                  <th scope="col" className="w-[12%] px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -450,9 +434,8 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                   <Fragment key={employee.id}>
                     <tr className="bg-white/70 transition-colors hover:bg-white">
                       <td className="px-4 py-3">
-                        <div className="min-w-[190px]">
+                        <div className="min-w-0">
                           <div className="font-semibold text-slate-800">{employee.name}</div>
-                          <div className="mt-0.5 text-xs text-slate-500">{employee.employeeId}</div>
                           <div className="mt-0.5 text-xs text-slate-400">
                             {employee.employeeCode || "No employee code"}
                             {employee.designation ? ` · ${employee.designation}` : ""}
@@ -569,10 +552,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                 <input required maxLength={100} value={designation} onChange={(event) => setDesignation(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
               <label className="text-sm text-slate-700">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</span>
-                <input required min={1} step={1} type="number" value={hierarchyLevel} onChange={(event) => setHierarchyLevel(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
-              </label>
-              <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span>
                 <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
@@ -646,10 +625,6 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Designation</span>
                 <input required maxLength={100} value={designation} onChange={(event) => setDesignation(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
-              </label>
-              <label className="text-sm text-slate-700">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</span>
-                <input required min={1} step={1} type="number" value={hierarchyLevel} onChange={(event) => setHierarchyLevel(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" />
               </label>
               <label className="text-sm text-slate-700">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span>

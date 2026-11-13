@@ -169,6 +169,7 @@ function getNotificationCategory(type: NotificationEventType) {
 
 function formatRoleLabel(roleName: string): string {
   const normalized = normalizeRoleName(roleName);
+  if (normalized === "Admin") return "Administrator";
   return normalized.startsWith("MD-") ? `MD – ${MD_DEPT[normalized]}` : normalized;
 }
 
@@ -182,11 +183,11 @@ const ROLE_LEVEL: Record<Role, number> = {
 };
 
 const isMD   = (r: Role) => r === "Managing Director" || r.startsWith("MD-");
-const isExec = (r: Role) => r === "Vice Chairman" || r === "President" || r === "Vice President";
-const canApproveBills = (r: Role) => ["Vice Chairman","MD-Manufacturing","MD-Marketing","MD-Transport","MD-RD","General Manager"].includes(r);
+const isExec = (r: Role) => r === "Vice Chairman" || r === "President" || r === "Vice President" || r === "Admin";
+const canApproveBills = (r: Role) => ["Admin","Vice Chairman","MD-Manufacturing","MD-Marketing","MD-Transport","MD-RD","General Manager"].includes(r);
 const canSubmitBills  = (r: Role) => ROLE_LEVEL[r] >= ROLE_LEVEL["Supervisor"];
-const canViewReports  = (r: Role) => ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"].includes(r);
-const canViewAdmin    = (r: Role) => isExec(r) || r === "Admin";
+const canViewReports  = (r: Role) => ["Admin","Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"].includes(r);
+const canViewAdmin    = (r: Role) => isExec(r);
 
 const MD_DEPT: Partial<Record<Role, string>> = {
   "MD-Manufacturing": "Manufacturing",
@@ -195,9 +196,9 @@ const MD_DEPT: Partial<Record<Role, string>> = {
   "MD-RD":            "Research & Development",
 };
 
-const EMPLOYEE_NAV_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
-const MANAGEMENT_NAV_ROLES: Role[] = ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
-const DEPARTMENT_MODULE_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"];
+const EMPLOYEE_NAV_ROLES: Role[] = ["Admin", "Worker", "Supervisor", "Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
+const MANAGEMENT_NAV_ROLES: Role[] = ["Admin", "Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
+const DEPARTMENT_MODULE_ROLES: Role[] = ["Admin", "Worker", "Supervisor", "Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"];
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const B = {
