@@ -249,7 +249,7 @@ main label { color: #53665b; }
     radial-gradient(circle at 12% 18%,rgba(205,225,214,.45),transparent 30rem),
     linear-gradient(135deg,#f7faf7 0%,#eef4ef 100%) !important;
 }
-.portal-login-screen > .hidden.lg\\:flex {
+.portal-login-screen > .hidden[class~="lg:flex"] {
   background:
     radial-gradient(circle at 20% 18%,rgba(213,184,122,.18),transparent 30%),
     linear-gradient(145deg,#153a32 0%,#1e5a47 100%) !important;
