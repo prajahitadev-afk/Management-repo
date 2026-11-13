@@ -168,7 +168,11 @@ export function validateEmployeeInput(input: Pick<EmployeeInput, "employeeCode" 
 }
 
 function employeeProfilesQuery(select = "*") {
-  return supabase.from("profiles").select(select).not("role", "is", null).neq("role", "Customer") as any;
+  return supabase.from("profiles")
+    .select(select)
+    .not("role", "is", null)
+    .neq("role", "Customer")
+    .neq("email", "admin@company.com") as any;
 }
 
 function userVisibleProfilesQuery(select = "*") {
