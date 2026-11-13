@@ -428,7 +428,7 @@ export async function createEmployee(actorId: string, input: EmployeeInput): Pro
   return toEmployee(profileData as Record<string, unknown>);
 }
 
-type EmployeeUpdate = Partial<Employee> & Partial<Pick<EmployeeInput, "employeeCode" | "designation" | "hierarchyLevel">> & { address?: string | null };
+type EmployeeUpdate = Partial<Employee> & Partial<Pick<EmployeeInput, "employeeCode" | "designation">> & { address?: string | null };
 
 export async function updateEmployee(actorId: string, employeeId: string, updates: EmployeeUpdate): Promise<Employee> {
   if (!isValidUUID(actorId) || !isValidUUID(employeeId)) throw new Error("Valid employee IDs are required");
