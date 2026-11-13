@@ -421,7 +421,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
             <table className="w-full min-w-[900px] table-fixed text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th scope="col" className="w-[20%] px-4 py-3">Employee</th>
+                                    <th scope="col" className="w-[20%] px-4 py-3">Employee</th>
                   <th scope="col" className="w-[22%] px-4 py-3">Role &amp; Department</th>
                   <th scope="col" className="w-[22%] px-4 py-3">Contact</th>
                   <th scope="col" className="w-[14%] px-4 py-3">Reports To</th>
@@ -434,7 +434,7 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
                   <Fragment key={employee.id}>
                     <tr className="bg-white/70 transition-colors hover:bg-white">
                       <td className="px-4 py-3">
-                        <div className="min-w-[190px]">
+                        <div className="min-w-0">
                           <div className="font-semibold text-slate-800">{employee.name}</div>
                           <div className="mt-0.5 text-xs text-slate-400">
                             {employee.employeeCode || "No employee code"}
