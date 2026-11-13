@@ -50,7 +50,7 @@ export function EmployeeKpiWidget({ userId, role, department }: EmployeeKpiWidge
   }
 
   return (
-    <div className="rounded-2xl border border-white/50 bg-white/40 p-5 shadow-sm">
+    <div className="portal-kpi-workspace rounded-2xl border border-white/50 bg-white/40 p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-3"><Target size={18} className="text-emerald-700" /><div><h2 className="font-semibold text-base text-slate-800">KPI Progress</h2><p className="text-xs text-slate-500">Role-scoped employee KPI data</p></div></div>
       {loading && <p className="text-sm text-slate-600">Loading KPI data...</p>}
       {error && <p className="text-sm text-rose-700">{error}</p>}

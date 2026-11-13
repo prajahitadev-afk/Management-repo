@@ -73,3 +73,30 @@ html{scroll-behavior:smooth}body{background:var(--portal-canvas);color:var(--por
 .portal-department-tabs button{min-height:38px;border-radius:9px!important}
 .portal-department-table table{background:#fff}
 @media(max-width:640px){.portal-executive-dashboard,.portal-administration-dashboard,.portal-employee-profile-page{padding:15px!important}.portal-department-tabs{gap:4px}.portal-department-tabs button{white-space:nowrap}}
+
+
+/* Role-aware dashboard layouts — data and permissions remain owned by existing hooks/services. */
+.portal-role-dashboard{display:grid;gap:clamp(18px,2vw,26px);padding:clamp(20px,2.4vw,36px)!important;color:var(--portal-ink)}
+.portal-role-dashboard>:first-child{position:relative;display:flex;flex-direction:column;gap:7px;padding:clamp(20px,2.5vw,30px);overflow:hidden;border:1px solid #dce8df;border-radius:20px;background:linear-gradient(112deg,#fff 0%,#f5faf6 68%,#edf5ef 100%);box-shadow:0 8px 24px rgba(20,47,34,.045)}
+.portal-role-dashboard>:first-child:after{content:"";position:absolute;right:-42px;top:-76px;width:210px;height:210px;border:1px solid rgba(23,107,82,.09);border-radius:50%;box-shadow:0 0 0 24px rgba(23,107,82,.025),0 0 0 48px rgba(23,107,82,.018);pointer-events:none}
+.portal-role-dashboard>:first-child h1{position:relative;z-index:1;max-width:24ch;color:#173b30!important;font-size:clamp(1.75rem,3vw,2.35rem)!important;font-weight:760!important;letter-spacing:-.055em!important;line-height:1.12!important}
+.portal-role-dashboard>:first-child p{position:relative;z-index:1;color:#6c7d73!important;font-size:.9rem;line-height:1.5}
+.portal-role-dashboard .portal-kpi-card,.portal-role-dashboard>.grid>div{min-width:0;border-radius:17px!important}
+.portal-role-dashboard .portal-kpi-card>div{padding:clamp(17px,1.8vw,23px)!important}
+.portal-role-dashboard .portal-card{overflow:hidden;border:1px solid var(--portal-line)!important;border-radius:17px!important;background:#fff!important;box-shadow:var(--portal-shadow-card)!important}
+.portal-role-dashboard .portal-card>div:first-child{padding:18px 22px;background:linear-gradient(180deg,#fff,#fbfdfb);border-bottom:1px solid #eaf0eb!important}
+.portal-role-dashboard .portal-card h2{color:#213b2f!important;font-size:.98rem;font-weight:700!important;letter-spacing:-.02em}
+.portal-role-dashboard .portal-card button:not(.portal-button){border-color:#e4ece6!important;background:#f9fbf9!important;border-radius:12px!important;transition:border-color .18s ease,background .18s ease,transform .18s ease}
+.portal-role-dashboard .portal-card button:not(.portal-button):hover{border-color:#c8dacf!important;background:#f1f7f3!important}
+.portal-manager-dashboard>.grid,.portal-supervisor-dashboard>.grid,.portal-worker-dashboard>.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.portal-executive-dashboard{gap:22px!important}
+.portal-executive-dashboard>div:first-child{padding:24px 26px;border:1px solid #dce8df;border-radius:18px;background:linear-gradient(112deg,#fff,#f2f8f3);box-shadow:var(--portal-shadow-card)}
+.portal-executive-dashboard>div:first-child h1{color:#173b30!important;font-size:clamp(1.65rem,2.5vw,2.15rem)!important;font-weight:760!important;letter-spacing:-.05em}
+.portal-analytics-metric{min-height:112px;border-color:#e2ebe4!important;border-radius:15px!important;background:#fff!important;box-shadow:var(--portal-shadow-card)}
+.portal-analytics-metric p:first-child{color:#738178!important;font-weight:700;letter-spacing:.07em}
+.portal-analytics-metric p:last-child{color:#173b30!important;font-size:clamp(1.5rem,2vw,1.9rem);font-variant-numeric:tabular-nums;letter-spacing:-.045em}
+.portal-analytics-panel{border-color:#e2ebe4!important;border-radius:17px!important;background:#fff!important;box-shadow:var(--portal-shadow-card)}
+.portal-analytics-panel h2{color:#203a2e!important;font-size:.96rem;font-weight:700!important}
+.portal-kpi-workspace{border-color:#e1e9e3!important;border-radius:17px!important;background:#fff!important;box-shadow:var(--portal-shadow-card)!important}
+.portal-kpi-workspace input,.portal-kpi-workspace select{border-color:#dce7df!important;border-radius:10px!important}
+@media(max-width:767px){.portal-role-dashboard{padding:16px!important;gap:17px}.portal-role-dashboard>:first-child{padding:20px;border-radius:16px}.portal-role-dashboard>:first-child:after{right:-115px}.portal-manager-dashboard>.grid,.portal-supervisor-dashboard>.grid,.portal-worker-dashboard>.grid{grid-template-columns:repeat(1,minmax(0,1fr))}.portal-executive-dashboard>div:first-child{padding:19px}.portal-analytics-metric{min-height:98px;padding:14px!important}}
