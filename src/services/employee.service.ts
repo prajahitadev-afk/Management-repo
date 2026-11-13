@@ -3,7 +3,7 @@ import { getVisibleProfilesForUser } from "./hierarchy.service";
 import { isValidUUID } from "../utils/uuid";
 import { normalizeDepartmentName } from "../constants/departments";
 import { assignEmployeeDepartment } from "./department.service";
-import { assignEmployeeRole } from "./role.service";
+import { assignEmployeeRole, getRoleHierarchyLevel } from "./role.service";
 import type {
   AttendanceStatus,
   AttendanceSummary,
@@ -70,9 +70,7 @@ function toEmployee(record: Record<string, unknown>): Employee {
   const department = normalizeDepartmentName(readString(record.department) ?? readString(record.department_name));
   const role = readString(record.role) ?? readString(record.role_name) ?? "Worker";
   const designation = readString(record.designation) ?? "";
-  const hierarchyLevel = typeof record.hierarchy_level === "number" && Number.isInteger(record.hierarchy_level)
-    ? record.hierarchy_level
-    : null;
+  const hierarchyLevel = getRoleHierarchyLevel(role) || 1;
   const reportsTo = readString(record.reports_to) ?? readString(record.manager_id) ?? null;
   const status = readString(record.status) ?? "Active";
   const joiningDate = readDate(record.joining_date) ?? readDate(record.created_at);
@@ -160,17 +158,13 @@ export interface EmployeeInput {
   joiningDate: string | null;
   employeeCode: string;
   designation: string;
-  hierarchyLevel: number;
 }
 
-export function validateEmployeeInput(input: Pick<EmployeeInput, "employeeCode" | "designation" | "hierarchyLevel">): void {
+export function validateEmployeeInput(input: Pick<EmployeeInput, "employeeCode" | "designation">): void {
   if (!input.employeeCode.trim()) throw new Error("Employee code is required");
   if (input.employeeCode.trim().length > 50) throw new Error("Employee code must be 50 characters or fewer");
   if (!input.designation.trim()) throw new Error("Designation is required");
   if (input.designation.trim().length > 100) throw new Error("Designation must be 100 characters or fewer");
-  if (!Number.isInteger(input.hierarchyLevel) || input.hierarchyLevel < 1) {
-    throw new Error("Hierarchy level must be a positive whole number");
-  }
 }
 
 function employeeProfilesQuery(select = "*") {
@@ -411,7 +405,7 @@ export async function createEmployee(actorId: string, input: EmployeeInput): Pro
     phone: input.phone.trim(),
     role: input.role,
     designation: input.designation.trim(),
-    hierarchyLevel: input.hierarchyLevel,
+    hierarchyLevel: getRoleHierarchyLevel(input.role) || 1,
     department: input.department,
     reportsTo: input.reportsTo,
     joiningDate: input.joiningDate,
@@ -438,11 +432,10 @@ type EmployeeUpdate = Partial<Employee> & Partial<Pick<EmployeeInput, "employeeC
 
 export async function updateEmployee(actorId: string, employeeId: string, updates: EmployeeUpdate): Promise<Employee> {
   if (!isValidUUID(actorId) || !isValidUUID(employeeId)) throw new Error("Valid employee IDs are required");
-  if (updates.employeeCode !== undefined || updates.designation !== undefined || updates.hierarchyLevel !== undefined) {
+  if (updates.employeeCode !== undefined || updates.designation !== undefined) {
     validateEmployeeInput({
       employeeCode: updates.employeeCode ?? "existing",
       designation: updates.designation ?? "existing",
-      hierarchyLevel: updates.hierarchyLevel ?? 1,
     });
   }
   await authorizeEmployeeAction(actorId, employeeId, "update", updates.role, updates.reportsTo, updates.department, updates);
@@ -459,9 +452,6 @@ export async function updateEmployee(actorId: string, employeeId: string, update
     address: updates.address,
     employee_code: updates.employeeCode,
     designation: updates.designation,
-    // The role RPC owns hierarchy_level whenever a role changes. Do not
-    // overwrite its canonical value with a stale value from the edit form.
-    hierarchy_level: updates.role === undefined ? updates.hierarchyLevel : undefined,
     reports_to: updates.reportsTo,
     status: updates.status,
     joining_date: updates.joiningDate,
