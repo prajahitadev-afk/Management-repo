@@ -23,7 +23,7 @@ export function LeavePage({ employeeId, role }: LeavePageProps) {
   const [activeTab, setActiveTab] = useState<LeaveTab>("dashboard");
 
   return (
-    <div data-leave-module className="portal-leave-page min-h-full p-4 sm:p-6">
+    <div data-leave-module className="portal-leave-page portal-module-page min-h-full p-4 sm:p-6">
       <div className="mx-auto max-w-7xl space-y-5">
         <div className="portal-card rounded-2xl border border-white/60 bg-white/45 p-5 shadow-sm">
           <h1 className="text-xl font-semibold text-slate-800">Leave</h1>
