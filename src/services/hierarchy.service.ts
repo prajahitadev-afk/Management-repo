@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { isValidUUID } from "../utils/uuid";
+import { getRoleHierarchyLevel } from "./role.service";
 
 export interface HierarchyProfile {
   id: string;
@@ -14,7 +15,9 @@ export interface HierarchyProfile {
 export type Profile = HierarchyProfile;
 
 export function isHigherInHierarchy(currentUser: Profile, targetUser: Profile): boolean {
-  return Number(currentUser.hierarchy_level ?? 0) > Number(targetUser.hierarchy_level ?? 0);
+  const currentLevel = currentUser.role ? getRoleHierarchyLevel(currentUser.role) : Number(currentUser.hierarchy_level ?? 0);
+  const targetLevel = targetUser.role ? getRoleHierarchyLevel(targetUser.role) : Number(targetUser.hierarchy_level ?? 0);
+  return currentLevel > targetLevel;
 }
 
 export async function getHierarchyProfiles(): Promise<HierarchyProfile[]> {
