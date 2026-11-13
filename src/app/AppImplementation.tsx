@@ -187,7 +187,7 @@ const isExec = (r: Role) => r === "Vice Chairman" || r === "President" || r === 
 const canApproveBills = (r: Role) => ["Admin","Vice Chairman","MD-Manufacturing","MD-Marketing","MD-Transport","MD-RD","General Manager"].includes(r);
 const canSubmitBills  = (r: Role) => ROLE_LEVEL[r] >= ROLE_LEVEL["Supervisor"];
 const canViewReports  = (r: Role) => ["Admin","Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"].includes(r);
-const canViewAdmin    = (r: Role) => isExec(r) || r === "Admin";
+const canViewAdmin    = (r: Role) => isExec(r);
 
 const MD_DEPT: Partial<Record<Role, string>> = {
   "MD-Manufacturing": "Manufacturing",
