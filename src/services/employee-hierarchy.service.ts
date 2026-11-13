@@ -7,6 +7,7 @@ import type {
 } from "../types/employee-hierarchy.types";
 import { normalizeDepartmentName } from "../constants/departments";
 import { isValidUUID } from "../utils/uuid";
+import { getRoleHierarchyLevel } from "./role.service";
 
 interface EmployeeHierarchyRow {
   id: string;
@@ -34,9 +35,6 @@ export function validateEmployeeHierarchyInput(input: EmployeeHierarchyInput): v
   if (input.employeeId === input.supervisorId) {
     throw new Error("An employee cannot report to themselves");
   }
-  if (!Number.isInteger(input.hierarchyLevel) || input.hierarchyLevel < 1) {
-    throw new Error("Hierarchy level must be a positive whole number");
-  }
   if (!input.departmentId.trim()) throw new Error("Department is required");
 }
 
@@ -47,7 +45,7 @@ export async function getEmployeeHierarchy(): Promise<EmployeeHierarchyRecord[]>
     id: String(profile.id),
     employeeId: String(profile.id),
     supervisorId: String(profile.reports_to),
-    hierarchyLevel: Number(profile.hierarchy_level ?? 1),
+    hierarchyLevel: getRoleHierarchyLevel(String(profile.role ?? "Worker")) || 1,
     departmentId: String(profile.department ?? ""),
     createdAt: String(profile.created_at ?? ""),
   }));
@@ -109,7 +107,7 @@ export async function getHierarchyEmployees(): Promise<HierarchyEmployee[]> {
     name: String(profile.name ?? "Unnamed Employee"),
     role: String(profile.role ?? "Worker"),
     department: normalizeDepartmentName(String(profile.department ?? "")),
-    hierarchyLevel: Number(profile.hierarchy_level ?? 1),
+    hierarchyLevel: getRoleHierarchyLevel(String(profile.role ?? "Worker")) || 1,
     status: String(profile.status ?? "Active"),
   }));
 }
@@ -121,7 +119,7 @@ export async function getEmployeeHierarchyForEmployee(employeeId: string): Promi
 
   if (error) throw error;
   if (!data || !data.reports_to) return null;
-  return { id: String(data.id), employeeId: String(data.id), supervisorId: String(data.reports_to), hierarchyLevel: Number(data.hierarchy_level ?? 1), departmentId: String(data.department ?? ""), createdAt: String(data.created_at ?? "") };
+  return { id: String(data.id), employeeId: String(data.id), supervisorId: String(data.reports_to), hierarchyLevel: getRoleHierarchyLevel(String(data.role ?? "Worker")) || 1, departmentId: String(data.department ?? ""), createdAt: String(data.created_at ?? "") };
 }
 
 export async function upsertEmployeeHierarchy(input: EmployeeHierarchyInput): Promise<EmployeeHierarchyRecord> {
@@ -130,12 +128,11 @@ export async function upsertEmployeeHierarchy(input: EmployeeHierarchyInput): Pr
 
   const { data, error } = await supabase.from("profiles").update({
     reports_to: input.supervisorId,
-    hierarchy_level: input.hierarchyLevel,
     department: input.departmentId.trim(),
   }).eq("id", input.employeeId).select("*").single();
 
   if (error) throw error;
-  return { id: String(data.id), employeeId: String(data.id), supervisorId: String(data.reports_to), hierarchyLevel: Number(data.hierarchy_level ?? 1), departmentId: String(data.department ?? ""), createdAt: String(data.created_at ?? "") };
+  return { id: String(data.id), employeeId: String(data.id), supervisorId: String(data.reports_to), hierarchyLevel: getRoleHierarchyLevel(String(data.role ?? "Worker")) || 1, departmentId: String(data.department ?? ""), createdAt: String(data.created_at ?? "") };
 }
 
 export async function assignSupervisor(employeeId: string, supervisorId: string): Promise<EmployeeHierarchyRecord> {
