@@ -1517,12 +1517,12 @@ function DashboardPage({ user }: { user: AppUser }) {
   else if (user.role === "Manager") dashboard = <ManagerDashboard user={user} stats={stats} />;
   else if (user.role === "Supervisor") dashboard = <SupervisorDashboard user={user} stats={stats} />;
 
-  return <>
-    {dashboard}
-    <div className="px-6 pb-6">
+  return <div className="portal-dashboard">
+    <div className="portal-dashboard-content">{dashboard}</div>
+    <div className="portal-dashboard-kpis px-6 pb-6">
       <EmployeeKpiWidget userId={user.id} role={user.role} department={user.department} />
     </div>
-  </>;
+  </div>;
 }
 
 // ─── Attendance Page ──────────────────────────────────────────────────────────
@@ -1581,7 +1581,7 @@ function AttendancePage({ user }: { user: AppUser }) {
     }
   }
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-module-page portal-attendance-page p-6 space-y-5">
       <SectionHeader
         title="Attendance"
         subtitle={new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-IN", {
@@ -2280,7 +2280,7 @@ function BillsPage({ user }: { user: AppUser }) {
   if (tab === "submit") return <div className="p-6">{SubmitForm()}</div>;
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-module-page portal-bills-page p-6 space-y-5">
       <SectionHeader title="Bill Management" subtitle="Digital bill submission, tracking and approval workflow"
         actions={
           <>
@@ -2446,7 +2446,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
 
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-module-page portal-marketing-page p-6 space-y-5">
       <SectionHeader title="Marketing & Orders" subtitle="Customer orders, sales analytics and performance"
         actions={
           <>
@@ -2842,7 +2842,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
   };
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-module-page portal-transport-page p-6 space-y-5">
       <SectionHeader title="Transport & Delivery" subtitle="Fleet tracking, dispatch, driver assignment and delivery confirmation"
         actions={
           <>
@@ -3067,7 +3067,7 @@ function AdminPage({ user }: { user: AppUser }) {
 
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-module-page portal-admin-page p-6 space-y-5">
       <SectionHeader title="Admin & RBAC" subtitle="Roles & permissions and audit logs" />
 
       {/* VC-only notice */}
@@ -3187,7 +3187,7 @@ function ReportsPage({ user }: { user: AppUser }) {
   }, []);
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-module-page portal-reports-page p-6 space-y-5">
       <SectionHeader title="Reports & Analytics"
         subtitle="Generate, filter and export reports across all departments"
         actions={
@@ -3333,7 +3333,7 @@ function NotificationsPage({
   };
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="portal-module-page portal-notifications-page p-6 space-y-5">
       <SectionHeader title="Notifications"
         subtitle={`${notifications.filter((n) => !n.read).length} unread — organisational updates and approvals`}
         actions={<SecondaryButton icon={CheckSquare} onClick={() => void onMarkAllRead()}>Mark All Read</SecondaryButton>} />
