@@ -6,6 +6,7 @@ import {
   ReactNode,
 } from "react";
 import { supabase } from "../lib/supabase";
+import { getRoleHierarchyLevel } from "../services/role.service";
 
 interface AuthContextType {
   user: any;
@@ -46,7 +47,7 @@ function deriveRoleAndDepartment(email?: string | null, meta?: Record<string, an
     return {
       role: meta.role,
       department: meta.department || "Administration",
-      hierarchyLevel: meta.hierarchyLevel || 6,
+      hierarchyLevel: getRoleHierarchyLevel(meta.role) || 1,
     };
   }
 
