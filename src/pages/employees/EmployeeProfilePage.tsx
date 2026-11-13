@@ -4,7 +4,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
 import { updateEmployee } from "../../services/employee.service";
 import { getEmployeeDepartmentHistory } from "../../services/department.service";
-import { getRoleHierarchyLevel } from "../../services/role.service";
 import type { EmployeeDepartmentHistory } from "../../types/department.types";
 
 interface EmployeeProfilePageProps {
@@ -159,10 +158,6 @@ export function EmployeeProfilePage({ employeeId, editable = false, currentUserI
                         <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Designation</div>
               <div className="mt-2 font-medium text-slate-800">{profile.designation || "—"}</div>
-            </label>
-            <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hierarchy Level</div>
-              <div className="mt-2 font-medium text-slate-800">{getRoleHierarchyLevel(profile.role) || 1}</div>
             </label>
             <label className="rounded-xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</div>
