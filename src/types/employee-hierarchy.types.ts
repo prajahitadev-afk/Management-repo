@@ -10,7 +10,7 @@ export interface EmployeeHierarchyRecord {
 export interface EmployeeHierarchyInput {
   employeeId: string;
   supervisorId: string;
-  hierarchyLevel: number;
+  hierarchyLevel?: number;
   departmentId: string;
 }
 
