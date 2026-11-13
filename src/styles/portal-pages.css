@@ -1,0 +1,89 @@
+/* Whole-portal page system: consistent module layouts, data views and forms.
+   Deliberately styles existing page structure; it does not replace feature logic. */
+.portal-main {
+  --page-gap: clamp(16px, 1.7vw, 24px);
+  --page-pad: clamp(18px, 2.2vw, 34px);
+  --surface: #fff; --surface-muted: #f7faf8; --line: #e4ebe6;
+  --ink: #172b23; --muted: #718078; --brand: #176b52;
+  color: var(--ink);
+}
+.portal-main > div.p-6, .portal-main > div[class~="p-6"], .portal-main > div.space-y-5 {
+  padding: var(--page-pad) !important; gap: var(--page-gap) !important;
+}
+.portal-main .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: var(--page-gap) !important; }
+.portal-main .portal-section-header,
+.portal-main > div > .flex.items-center.justify-between:first-child {
+  display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:14px 20px; padding-bottom:4px;
+}
+.portal-main .portal-section-header h1, .portal-main h1 { color:var(--ink) !important; font-weight:750 !important; }
+.portal-main .portal-section-header p, .portal-main h1 + p { color:var(--muted) !important; }
+.portal-main h2 { color:#20372c !important; font-weight:700; }
+.portal-main h3 { color:#294337 !important; font-weight:700; }
+.portal-main .portal-card, .portal-main .rounded-2xl.border, .portal-main .rounded-xl.border,
+.portal-main .rounded-2xl[class*="bg-white"], .portal-main .rounded-xl[class*="bg-white"] {
+  background:var(--surface) !important; border:1px solid var(--line) !important;
+  box-shadow:0 2px 5px rgba(20,47,34,.025),0 12px 28px rgba(20,47,34,.035) !important;
+}
+.portal-main .portal-card { overflow:hidden; }
+.portal-main .portal-kpi-card { min-width:0; background:linear-gradient(180deg,#fff 0%,#fcfefd 100%) !important; }
+.portal-main .portal-kpi-card .font-bold { font-variant-numeric:tabular-nums; }
+.portal-main .grid, .portal-main .grid > * { min-width:0; }
+.portal-main .flex.flex-wrap.gap-2 > button, .portal-main .flex.gap-2.flex-wrap > button {
+  min-height:38px; border-radius:10px !important;
+}
+.portal-main button:not(:disabled):active { transform:translateY(1px); }
+.portal-main button:disabled { cursor:not-allowed; }
+.portal-main .overflow-x-auto { border-radius:13px; scrollbar-width:thin; scrollbar-color:#c7d5cc transparent; }
+.portal-main table { color:#34483d; font-size:.875rem; font-variant-numeric:tabular-nums; }
+.portal-main table thead th { background:#f5f8f6 !important; color:#65776d !important; border-bottom:1px solid var(--line) !important; white-space:nowrap; }
+.portal-main table tbody td { border-bottom:1px solid #edf2ee; vertical-align:middle; }
+.portal-main table tbody tr:last-child td { border-bottom:0; }
+.portal-main table tbody tr:hover { background:#f7faf8 !important; }
+.portal-main label { display:inline-block; margin-bottom:5px; color:#52645a !important; font-size:.75rem; font-weight:700; letter-spacing:.015em; }
+.portal-main input:not([type="checkbox"]):not([type="radio"]), .portal-main select, .portal-main textarea {
+  width:100%; min-width:0; min-height:43px; border:1px solid #dce7df !important; border-radius:10px !important;
+  background:#fff !important; color:#24372e !important; box-shadow:inset 0 1px 1px rgba(20,47,34,.02);
+}
+.portal-main textarea { min-height:104px; }
+.portal-main input::placeholder, .portal-main textarea::placeholder { color:#98a69d !important; }
+.portal-main input:focus-visible, .portal-main select:focus-visible, .portal-main textarea:focus-visible {
+  outline:0 !important; border-color:#6fa88a !important; box-shadow:0 0 0 3px rgba(23,107,82,.12) !important;
+}
+.portal-main input[type="checkbox"], .portal-main input[type="radio"] { accent-color:var(--brand); }
+.portal-main [role="alert"] { border:1px solid #f0d4d3; background:#fff8f7; color:#a43d42; }
+.portal-main .portal-button-primary { background:var(--brand) !important; color:#fff !important; box-shadow:0 3px 10px rgba(23,107,82,.14) !important; }
+.portal-main .portal-button-secondary { background:#fff !important; color:#40554a !important; border:1px solid #dfe8e2 !important; box-shadow:none !important; }
+.portal-main .portal-form-page { padding:var(--page-pad) !important; background:transparent !important; }
+.portal-main .portal-form-page > div {
+  width:min(100%,920px); border:1px solid var(--line) !important; border-radius:18px !important;
+  background:#fff !important; box-shadow:var(--portal-shadow);
+}
+.portal-main .portal-form-page .grid { row-gap:18px; }
+.portal-main .portal-form-page .border-dashed { border-color:#cbd9d0 !important; }
+.portal-main .divide-y > :not([hidden]) ~ :not([hidden]) { border-color:#edf2ee !important; }
+.portal-main .sticky { z-index:2; }
+.portal-main a { color:var(--brand); text-underline-offset:3px; }
+.portal-main a:hover { color:#104b39; }
+.portal-login-screen { min-height:100vh; background:#f4f7f5 !important; }
+.portal-login-screen .portal-login-card { border:1px solid #e2ebe5 !important; box-shadow:0 24px 70px rgba(17,49,34,.10) !important; }
+.portal-login-screen button[type="submit"] { min-height:46px; border-radius:11px !important; font-weight:700 !important; }
+.portal-loading { min-height:100vh; }
+@media (max-width:900px) {
+  .portal-main .grid[class*="lg:grid-cols-"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .portal-main .portal-section-header { align-items:flex-start !important; }
+}
+@media (max-width:640px) {
+  .portal-main { --page-pad:15px; --page-gap:15px; }
+  .portal-main .grid, .portal-main .grid[class*="sm:grid-cols-"], .portal-main .grid[class*="md:grid-cols-"],
+  .portal-main .grid[class*="lg:grid-cols-"] { grid-template-columns:minmax(0,1fr) !important; }
+  .portal-main .portal-section-header { align-items:stretch !important; }
+  .portal-main .portal-section-header > div:last-child { width:100%; }
+  .portal-main .portal-section-header > div:last-child > div { flex-wrap:wrap; }
+  .portal-main .portal-section-header button { flex:1 1 auto; justify-content:center; }
+  .portal-main .overflow-x-auto { max-width:calc(100vw - 30px); }
+  .portal-main table { min-width:680px; }
+  .portal-main .portal-form-page > div { padding:18px !important; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .portal-main *, .portal-main *::before, .portal-main *::after { transition-duration:.01ms !important; animation-duration:.01ms !important; }
+}
