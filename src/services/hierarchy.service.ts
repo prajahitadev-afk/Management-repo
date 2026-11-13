@@ -54,7 +54,18 @@ export async function getSubordinates(employeeId: string): Promise<string[]> {
 }
 
 export function canAccessDepartmentModule(userDepartment: string | null | undefined, requiredDepartment: string): boolean {
-  return String(userDepartment ?? "").trim().toLowerCase() === requiredDepartment.trim().toLowerCase();
+  const normalize = (department: string | null | undefined) => {
+    const normalized = String(department ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    return normalized === "transport" ? "transportation" : normalized;
+  };
+  const normalizedUserDepartment = normalize(userDepartment);
+  const normalizedRequiredDepartment = normalize(requiredDepartment);
+  return normalizedUserDepartment !== "" && normalizedUserDepartment === normalizedRequiredDepartment;
 }
 
 export async function getDirectSuperior(employeeId: string): Promise<HierarchyProfile | null> {

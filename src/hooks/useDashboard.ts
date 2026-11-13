@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getDashboardStats, type DashboardStats, type DashboardUser } from "../services/dashboard.service";
 
 export function useDashboard(user?: DashboardUser) {
@@ -32,14 +32,15 @@ export function useDashboard(user?: DashboardUser) {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     async function loadStats() {
       try {
         setLoading(true);
+        setError(null);
         const nextStats = await getDashboardStats(user);
         setStats(nextStats);
-        setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard stats");
       } finally {
@@ -51,7 +52,9 @@ export function useDashboard(user?: DashboardUser) {
     const handleWorkflowChange = () => void loadStats();
     window.addEventListener("order-workflow-changed", handleWorkflowChange);
     return () => window.removeEventListener("order-workflow-changed", handleWorkflowChange);
-  }, [user]);
+  }, [user?.id, user?.role, user?.department, reloadVersion]);
 
-  return { stats, loading, error };
+  const reload = useCallback(() => setReloadVersion((version) => version + 1), []);
+
+  return { stats, loading, error, reload };
 }
