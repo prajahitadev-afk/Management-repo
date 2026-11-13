@@ -309,7 +309,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             setMetrics([{ label: "Total leads", value: String(worker.data?.total_leads ?? 0) }, { label: "Qualified leads", value: String(worker.data?.qualified_leads ?? 0) }, { label: "Converted leads", value: String(worker.data?.converted_leads ?? 0) }, { label: "Conversion rate", value: `${(worker.data?.conversion_rate ?? 0).toFixed(1)}%` }]);
             setRecentActivity([
               ...(leads.data ?? []).slice(0, 3).map((lead) => `Lead ${lead.name} Â· ${lead.status}`),
-              ...(conversions.data ?? []).slice(0, 3).map((conversion) => `Conversion ${conversion.lead_id} Â· â‚¹${Number(conversion.revenue || 0).toLocaleString("en-IN")}`),
+              ...(conversions.data ?? []).slice(0, 3).map((conversion) => `Conversion ${conversion.lead_id} - INR ${Number(conversion.revenue || 0).toLocaleString("en-IN")}`),
             ].slice(0, 5));
           } else if (role === "Supervisor") {
             const result = await getMarketingSupervisorDashboard(profile.id);
@@ -324,7 +324,7 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             if (!active) return;
             setMarketingData({ campaigns: campaigns.data, manager: manager.data, targetActual: targetActual.data });
             setTableData({ campaigns: asRecords(campaigns.data) });
-            setMetrics([{ label: "Campaign count", value: String(manager.data?.campaign_count ?? 0) }, { label: "Revenue", value: `â‚¹${(manager.data?.revenue ?? 0).toLocaleString("en-IN")}` }, { label: "Target quantity", value: String(targetActual.data?.target_quantity ?? 0) }, { label: "Actual quantity", value: String(targetActual.data?.actual_quantity ?? 0) }, { label: "Achievement", value: `${(targetActual.data?.achievement_percentage ?? 0).toFixed(1)}%` }]);
+            setMetrics([{ label: "Campaign count", value: String(manager.data?.campaign_count ?? 0) }, { label: "Revenue", value: `INR ${(manager.data?.revenue ?? 0).toLocaleString("en-IN")}` }, { label: "Target quantity", value: String(targetActual.data?.target_quantity ?? 0) }, { label: "Actual quantity", value: String(targetActual.data?.actual_quantity ?? 0) }, { label: "Achievement", value: `${(targetActual.data?.achievement_percentage ?? 0).toFixed(1)}%` }]);
             setRecentActivity((campaigns.data ?? []).slice(0, 5).map((campaign) => `${campaign.name} Â· ${campaign.status}`));
           } else if (role === "Chief Manager") {
             const result = await getMarketingCMDashboard(profile.department);
@@ -338,13 +338,13 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             if (!active) return;
             setMarketingData({ gm: result.data });
             setMetrics([{ label: "Department analytics", value: String(result.data?.department_analytics ?? 0) }, { label: "Revenue trend points", value: String(result.data?.revenue_trends.length ?? 0) }, { label: "Conversion trend points", value: String(result.data?.conversion_trends.length ?? 0) }]);
-            setRecentActivity((result.data?.revenue_trends ?? []).slice(-5).map((trend) => `${trend.period} Â· â‚¹${trend.revenue.toLocaleString("en-IN")}`));
+            setRecentActivity((result.data?.revenue_trends ?? []).slice(-5).map((trend) => `${trend.period} - INR ${trend.revenue.toLocaleString("en-IN")}`));
           } else {
             const result = await getMDMarketingDashboard();
             if (result.error) throw result.error;
             if (!active) return;
             setMarketingData({ md: result.data });
-            setMetrics([{ label: "Revenue growth", value: `â‚¹${(result.data?.revenue_growth ?? 0).toLocaleString("en-IN")}` }, { label: "Strategic campaign metrics", value: String(result.data?.strategic_campaign_metrics ?? 0) }, { label: "Annual target achievement", value: `${(result.data?.annual_target_achievement ?? 0).toFixed(1)}%` }]);
+            setMetrics([{ label: "Revenue growth", value: result.data?.revenue_growth == null ? "N/A" : `${result.data.revenue_growth.toFixed(1)}%` }, { label: "Strategic campaign metrics", value: `${(result.data?.strategic_campaign_metrics ?? 0).toFixed(1)}%` }, { label: "Annual target achievement", value: `${(result.data?.annual_target_achievement ?? 0).toFixed(1)}%` }]);
           }
         } else if (metadata.key === "research") {
           const role = profile.role;
@@ -465,8 +465,8 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
               { label: "Team trips", value: String(supervisor.data?.team_trips ?? 0) },
               { label: "Fleet operations", value: String(manager.data?.fleet_operations ?? 0) },
               { label: "Route efficiency", value: `${(cm.data?.route_efficiency ?? 0).toFixed(1)}%` },
-              { label: "Fleet utilization", value: String(gm.data?.fleet_utilization ?? 0) },
-              { label: "Transportation performance", value: `${(md.data?.transportation_performance ?? 0).toFixed(1)}%` },
+              { label: "Active trip rate", value: `${(gm.data?.active_trip_rate ?? 0).toFixed(1)}%` },
+              { label: "Delay-free trip rate", value: `${(md.data?.delay_free_trip_rate ?? 0).toFixed(1)}%` },
             ]);
             setTableData({ trips: asRecords(trips.data), fuel: asRecords(fuel.data), distance: asRecords(distance.data), delays: asRecords(delays.data) });
             setRecentActivity((trips.data ?? []).slice(0, 5).map((trip) => `${trip.route_name ?? trip.route_id ?? "Trip"} Â· ${trip.status} Â· ${trip.trip_date}`));
@@ -524,17 +524,17 @@ export default function DepartmentPage({ profile, routeDepartment, routeTab }: D
             if (!active) return;
             setMetrics([
               { label: "Logistics analytics", value: String(result.data?.logistics_analytics ?? 0) },
-              { label: "Fleet utilization", value: String(result.data?.fleet_utilization ?? 0) },
-              { label: "Department comparison", value: String(result.data?.department_comparison ?? 0) },
+              { label: "Active trip rate", value: `${(result.data?.active_trip_rate ?? 0).toFixed(1)}%` },
+              { label: "Average distance per trip", value: String(result.data?.average_distance_per_trip ?? 0) },
             ]);
           } else {
             const result = await getMDTransportationDashboard();
             if (result.error) throw result.error;
             if (!active) return;
             setMetrics([
-              { label: "Strategic fleet metrics", value: String(result.data?.strategic_fleet_metrics ?? 0) },
+              { label: "Annual active drivers", value: String(result.data?.annual_active_drivers ?? 0) },
               { label: "Annual delivery achievement", value: `${(result.data?.annual_delivery_achievement ?? 0).toFixed(1)}%` },
-              { label: "Transportation performance", value: `${(result.data?.transportation_performance ?? 0).toFixed(1)}%` },
+              { label: "Delay-free trip rate", value: `${(result.data?.delay_free_trip_rate ?? 0).toFixed(1)}%` },
             ]);
           }
           const tripsForForms = await getTrips();

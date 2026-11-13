@@ -1,0 +1,22 @@
+* [32mdesigne                                                           [m 51eb8ac [[34morigin/desigine[m: behind 5] Polish collaboration and leave pages
+  main                                                              [m 70250b5 [[34morigin/main[m: behind 46] feat(auth): grant prajahitadev@gmail.com full Vice Chairman authority, configure hierarchy permissions, and add resilient role assignments
+  premain                                                           [m 62e0aca [[34morigin/premain[m: behind 26] fix(transportation): type RPC trip rows
+  prethreemain                                                      [m a268610 [[34morigin/prethreemain[m] fix: comprehensive portal audit fixes for department dashboards, hierarchy approvals, resilient service fallbacks, and executive access
+  pretwomain                                                        [m adbdb6c [[34morigin/pretwomain[m: behind 4] fix(audit): remove unsupported change details column
+  [31mremotes/origin/HEAD                                               [m -> origin/main
+  [31mremotes/origin/admin-delete-users-from-directory                  [m 42b42ce Show hierarchy position by role instead of numeric level
+  [31mremotes/origin/collabrative                                       [m 1efea54 Revoke anonymous collaboration table privileges
+  [31mremotes/origin/desigin                                            [m a3e788c Replace placeholder collaboration bill downloads
+  [31mremotes/origin/desigine                                           [m 59544bc Merge pull request #29 from prajahitadev-afk/main
+  [31mremotes/origin/designe                                            [m 42e8e50 feat(ui): load Lovable portal visual system
+  [31mremotes/origin/designee                                           [m 8cb22f4 Add polished responsive portal design system
+  [31mremotes/origin/fix/admin-role-ci-typecheck                        [m baf33bf fix(ci): resolve Admin role typecheck errors
+  [31mremotes/origin/fix/administrator-role-assignment                  [m 0c1450b Merge main into fix/administrator-role-assignment
+  [31mremotes/origin/fix/auth-session-and-kpi-audit                     [m 7be9360 Fix auth state listener lock and session race
+  [31mremotes/origin/fix/employee-audit-400                             [m 112127a Fix employee update type after hierarchy removal
+  [31mremotes/origin/fix/employees-directory-cleanup                    [m 5e77031 Clear employee ownership links from customer and order records
+  [31mremotes/origin/fix/remove-system-admin-and-derived-hierarchy-field[m 47df25c Remove unused hierarchy display import
+  [31mremotes/origin/main                                               [m 1fbf50d Merge pull request #35 from prajahitadev-afk/fix/remove-system-admin-and-derived-hierarchy-field
+  [31mremotes/origin/premain                                            [m 3b60bb1 chore(db): remove invalidly named duplicate profile address migration
+  [31mremotes/origin/prethreemain                                       [m a268610 fix: comprehensive portal audit fixes for department dashboards, hierarchy approvals, resilient service fallbacks, and executive access
+  [31mremotes/origin/pretwomain                                         [m 37e6fd6 Merge pull request #17 from prajahitadev-afk/prethreemain

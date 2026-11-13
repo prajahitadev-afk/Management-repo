@@ -542,7 +542,7 @@ export interface MarketingGMDashboard {
 }
 
 export interface MarketingMDashboard {
-  revenue_growth: number;
+  revenue_growth: number | null;
   strategic_campaign_metrics: number;
   annual_target_achievement: number;
 }
@@ -808,8 +808,11 @@ export async function getMDMarketingDashboard(): Promise<MarketingResult<Marketi
   const previousPeriod = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
   const currentRevenue = monthRevenue(conversions.data!, currentPeriod);
   const previousRevenue = monthRevenue(conversions.data!, previousPeriod);
-  const target = targets.data!.reduce((sum, row) => sum + marketingNumber(row.target_quantity), 0);
-  const actualQuantity = targets.data!.reduce((sum, row) => sum + marketingNumber(row.actual_quantity), 0);
-  const revenueGrowth = previousRevenue ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : currentRevenue ? 100 : 0;
+  const yearStart = `${current.getFullYear()}-01-01`;
+  const yearEnd = `${current.getFullYear()}-12-31`;
+  const annualTargets = targets.data!.filter((row) => row.start_date <= yearEnd && row.end_date >= yearStart);
+  const target = annualTargets.reduce((sum, row) => sum + marketingNumber(row.target_quantity), 0);
+  const actualQuantity = annualTargets.reduce((sum, row) => sum + marketingNumber(row.actual_quantity), 0);
+  const revenueGrowth = previousRevenue ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : null;
   return { data: { revenue_growth: revenueGrowth, strategic_campaign_metrics: campaigns.data!.length ? (campaigns.data!.filter((campaign) => campaign.status.toLowerCase() === "active").length / campaigns.data!.length) * 100 : 0, annual_target_achievement: target ? (actualQuantity / target) * 100 : 0 }, error: null };
 }

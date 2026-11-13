@@ -15,7 +15,7 @@ export interface DashboardStats {
   monthlyRevenue: number;
   weeklyAttendance: Array<{ day: string; present: number; absent: number }>;
   communityImpact: Array<{ month: string; beneficiaries: number; volunteers: number }>;
-  revenueTrend: Array<{ month: string; orders: number; delivered: number; revenue: number }>;
+  revenueTrend: Array<{ month: string; bills: number; approvedBills: number; revenue: number }>;
   managerCount: number;
   supervisorCount: number;
   teamResponsibilities: Array<{ id: string; name: string; role: string; department: string; status: string }>;
@@ -67,6 +67,13 @@ const PENDING_STATUSES = ["Pending Approval"];
 const APPROVED_STATUSES = ["Approved"];
 const REJECTED_STATUSES = ["Rejected", "Returned for Correction"];
 
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function buildWeekDays() {
   const today = new Date();
   const result: Array<{ label: string; date: string }> = [];
@@ -74,7 +81,7 @@ function buildWeekDays() {
     const date = new Date(today);
     date.setDate(today.getDate() - offset);
     const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
-    result.push({ label: weekday, date: date.toISOString().split("T")[0] });
+    result.push({ label: weekday, date: formatLocalDate(date) });
   }
   return result;
 }
@@ -180,7 +187,7 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
       return Boolean(departmentMatch || ownerMatch);
     });
 
-  const todayDate = new Date().toISOString().split("T")[0];
+  const todayDate = formatLocalDate(new Date());
   const activeEmployees = scopedAttendance.filter((row: any) => row.attendance_date === todayDate && row.status === "Present").length;
   const totalEmployees = scopedProfiles.length;
   const totalRoles = new Set(scopedProfiles.map((profile: any) => profile.role)).size;
@@ -188,7 +195,12 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
   const pendingBills = scopedBills.filter((bill) => PENDING_STATUSES.includes(bill.status)).length;
   const approvedBills = scopedBills.filter((bill) => APPROVED_STATUSES.includes(bill.status)).length;
   const rejectedBills = scopedBills.filter((bill) => REJECTED_STATUSES.includes(bill.status)).length;
-  const monthlyRevenue = scopedBills.reduce((sum, bill) => sum + Number(bill.amount || 0) + Number(bill.gst || 0), 0);
+  const now = new Date();
+  const monthlyRevenue = scopedBills.reduce((sum, bill) => {
+    const createdAt = bill.created_at ? new Date(bill.created_at) : null;
+    if (!createdAt || createdAt.getFullYear() !== now.getFullYear() || createdAt.getMonth() !== now.getMonth()) return sum;
+    return sum + Number(bill.amount || 0) + Number(bill.gst || 0);
+  }, 0);
 
   const weekDates = buildWeekDays();
   const weeklyAttendance = weekDates.map((day) => ({
@@ -247,17 +259,20 @@ export async function getDashboardStats(user?: DashboardUser): Promise<Dashboard
     return hour > 9 || (hour === 9 && minute > 0);
   }).length;
 
-  const revenueTrend = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"].map((month, index) => {
+  const trendMonths = Array.from({ length: 7 }, (_, index) => new Date(now.getFullYear(), now.getMonth() - 6 + index, 1));
+  const revenueTrend = trendMonths.map((monthStart) => {
     const monthBills = scopedBills.filter((bill: any) => {
       const createdAt = bill.created_at ? new Date(bill.created_at) : null;
-      return createdAt && createdAt.getMonth() === index;
+      return createdAt
+        && createdAt.getFullYear() === monthStart.getFullYear()
+        && createdAt.getMonth() === monthStart.getMonth();
     });
 
     return {
-      month,
-      orders: monthBills.length,
-      delivered: monthBills.filter((bill: any) => APPROVED_STATUSES.includes(bill.status)).length,
-      revenue: monthBills.reduce((sum: number, bill: any) => sum + Number(bill.amount || 0), 0),
+      month: monthStart.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+      bills: monthBills.length,
+      approvedBills: monthBills.filter((bill: any) => APPROVED_STATUSES.includes(bill.status)).length,
+      revenue: monthBills.reduce((sum: number, bill: any) => sum + Number(bill.amount || 0) + Number(bill.gst || 0), 0),
     };
   });
 
@@ -414,8 +429,9 @@ export async function getWeeklyAttendanceData(): Promise<AttendanceDay[]> {
     const result: AttendanceDay[] = [];
 
     for (let i = 0; i < 5; i++) {
-      const dayDate = new Date(today.getTime() + (i - (today.getDay() - 1)) * 24 * 60 * 60 * 1000);
-      const dateStr = dayDate.toISOString().split("T")[0];
+      const mondayOffset = (today.getDay() + 6) % 7;
+      const dayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset + i);
+      const dateStr = formatLocalDate(dayDate);
 
       const query = supabase.from("attendance").select("status, attendance_date").eq("attendance_date", dateStr);
       const filteredQuery = employeeIds.length > 0 ? query.in("employee_id", employeeIds) : query.eq("employee_id", "__none__");
@@ -441,7 +457,7 @@ export async function getWeeklyAttendanceData(): Promise<AttendanceDay[]> {
  */
 export async function getAttendanceBreakdownData(green: string, red: string, gold: string, blue: string): Promise<AttendanceBreakdown[]> {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = formatLocalDate(new Date());
     const profileRes = await supabase.from("profiles").select("id").not("role", "is", null).neq("role", "Customer");
     if (profileRes.error) throw profileRes.error;
     const employeeIds = (profileRes.data || []).map((profile: any) => profile.id);
