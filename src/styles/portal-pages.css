@@ -62,7 +62,7 @@ html{scroll-behavior:smooth}body{background:var(--portal-canvas);color:var(--por
 .portal-administration-dashboard>div>div:first-child{margin-bottom:4px}
 .portal-administration-dashboard h1{font-size:clamp(1.55rem,2vw,2rem);font-weight:720;letter-spacing:-.04em}
 .portal-leave-page .bg-blue-700{background:var(--portal-brand)!important}
-.portal-leave-page .hover\\:bg-blue-800:hover{background:var(--portal-brand-hover)!important}
+.portal-leave-page button.bg-blue-700:hover{background:var(--portal-brand-hover)!important}
 .portal-leave-page .bg-blue-50{background:#edf5ef!important}
 .portal-leave-page .text-blue-800{color:#245d46!important}
 .portal-leave-page .border-blue-200{border-color:#cfe0d4!important}
