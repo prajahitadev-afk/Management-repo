@@ -32,31 +32,18 @@ export async function assignEmployeeRole(employeeId: string, role: string, assig
   const normalizedRole = validateRoleAssignment(employeeId, role);
   if (!assignedBy.trim()) throw new Error("Authenticated user is required");
 
-  const hierarchyLevel = getRoleHierarchyLevel(normalizedRole);
-
   const { data, error } = await supabase.rpc("assign_employee_role", {
     p_employee_id: employeeId,
     p_role: normalizedRole,
     p_assigned_by: assignedBy,
   });
 
-  if (!error && data) {
-    return data as EmployeeRole;
+  // Role changes must go through the database authorization function. Never
+  // fall back to a direct profiles update when the RPC rejects or is missing.
+  if (error) throw error;
+  if (typeof data !== "string" || data !== normalizedRole) {
+    throw new Error("The database did not confirm the employee role change");
   }
 
-  // Resilient fallback to direct update on profiles
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({
-      role: normalizedRole,
-      designation: normalizedRole,
-      hierarchy_level: hierarchyLevel,
-    })
-    .eq("id", employeeId);
-
-  if (updateError) {
-    throw error || updateError;
-  }
-
-  return normalizedRole;
+  return data as EmployeeRole;
 }
