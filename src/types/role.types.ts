@@ -1,4 +1,5 @@
 export const EMPLOYEE_ROLES = [
+  "Admin",
   "Vice Chairman",
   "President",
   "Vice President",
