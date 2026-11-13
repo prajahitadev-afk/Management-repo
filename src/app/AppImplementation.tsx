@@ -1272,7 +1272,7 @@ function CMDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) 
 // ─── Manager Dashboard ────────────────────────────────────────────────────────
 function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) {
   return (
-    <div className="p-6 space-y-6">
+    <div className="portal-role-dashboard portal-manager-dashboard p-6 space-y-6">
       <div>
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>
           Good morning, {user.name.split(" ")[0]} 👋
@@ -1285,7 +1285,7 @@ function ManagerDashboard({ user, stats }: { user: AppUser; stats: DashboardStat
       */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard icon={Users}       label="Supervisors Under You" value={String(stats.supervisorCount)}  sub="Reports to you"         accentColor={CG}  />
-        <KPICard icon={Calendar}    label="Team Attendance"       value={`${Math.round((stats.activeEmployees / Math.max(stats.totalEmployees, 1)) * 100)}%`} sub="Based on profiles" accentColor={CB}  />
+        <KPICard icon={Users}       label="Active Team Members"  value={String(stats.activeEmployees)} sub="Active employee profiles" accentColor={CB}  />
         <KPICard icon={FileText}    label="Bills Submitted"       value={String(stats.pendingBills)}  sub="Current pending"         accentColor={CGo} />
         {/* Future task KPI card disabled for now.
         <KPICard icon={Activity}    label="Daily Tasks"           value={String(stats.approvedBills)} sub="Approved bills"           accentColor={CT}  />
@@ -1328,7 +1328,7 @@ function SupervisorDashboard({ user, stats }: { user: AppUser; stats: DashboardS
   const attendanceRows = stats.supervisorAttendanceRows ?? [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="portal-role-dashboard portal-supervisor-dashboard p-6 space-y-6">
       <div>
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>
           Good morning, {user.name.split(" ")[0]} 👋
@@ -1373,7 +1373,7 @@ function SupervisorDashboard({ user, stats }: { user: AppUser; stats: DashboardS
 // ─── Worker Dashboard ─────────────────────────────────────────────────────────
 function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats }) {
   return (
-    <div className="p-6 space-y-6">
+    <div className="portal-role-dashboard portal-worker-dashboard p-6 space-y-6">
       <div>
         <h1 className="font-bold" style={{ fontSize: 36, fontFamily: "Inter, sans-serif", color: B.text, lineHeight: 1.15 }}>
           Good morning, {user.name.split(" ")[0]} 👋
