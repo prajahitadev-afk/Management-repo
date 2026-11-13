@@ -52,3 +52,24 @@ html{scroll-behavior:smooth}body{background:var(--portal-canvas);color:var(--por
 @media(max-width:960px){.portal-sidebar{width:248px}.portal-module-page .grid[class*="lg:grid-cols-"]{grid-template-columns:repeat(2,minmax(0,1fr))}.portal-section-header{align-items:flex-start!important}}
 @media(max-width:640px){.portal-main{--portal-page-gutter:15px;--portal-section-gap:16px}.portal-module-page{padding:15px!important}.portal-section-header{align-items:stretch!important;gap:12px}.portal-section-header>div:last-child{width:100%}.portal-section-header>div:last-child>div{flex-wrap:wrap}.portal-section-header button{flex:1 1 auto;justify-content:center}.portal-module-page .grid,.portal-module-page .grid[class*="sm:grid-cols-"],.portal-module-page .grid[class*="md:grid-cols-"],.portal-module-page .grid[class*="lg:grid-cols-"]{grid-template-columns:minmax(0,1fr)!important}.portal-main table{min-width:680px}.portal-main .overflow-x-auto{max-width:calc(100vw - 30px)}.portal-employee-page>div:first-child,.portal-leave-page>div:first-child{padding:16px!important}.portal-dashboard-kpis{padding-inline:15px!important}.portal-topbar{height:60px!important;padding-inline:12px!important}}
 @media(prefers-reduced-motion:reduce){.portal-main *,.portal-main *:before,.portal-main *:after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+/* Detail views and nested workspaces */
+.portal-executive-dashboard>div:first-child h1{font-size:clamp(1.55rem,2vw,2rem);font-weight:720;letter-spacing:-.04em;color:var(--portal-ink)}
+.portal-executive-dashboard .grid>div,.portal-administration-dashboard .grid>div{background:#fff!important;border:1px solid var(--portal-line)!important;border-radius:var(--portal-radius-md)!important;box-shadow:var(--portal-shadow-card)!important}
+.portal-executive-dashboard .recharts-cartesian-grid line{stroke:#e8eee9}
+.portal-executive-dashboard .recharts-text{fill:#718078;font-size:11px}
+.portal-administration-dashboard{background:transparent}
+.portal-administration-dashboard>div>div:first-child{margin-bottom:4px}
+.portal-administration-dashboard h1{font-size:clamp(1.55rem,2vw,2rem);font-weight:720;letter-spacing:-.04em}
+.portal-leave-page .bg-blue-700{background:var(--portal-brand)!important}
+.portal-leave-page .hover\\:bg-blue-800:hover{background:var(--portal-brand-hover)!important}
+.portal-leave-page .bg-blue-50{background:#edf5ef!important}
+.portal-leave-page .text-blue-800{color:#245d46!important}
+.portal-leave-page .border-blue-200{border-color:#cfe0d4!important}
+.portal-leave-subpage form{border-color:var(--portal-line)!important;border-radius:var(--portal-radius-lg)!important;box-shadow:var(--portal-shadow-card)!important}
+.portal-employee-profile-page>div:first-child{background:#fff;border:1px solid var(--portal-line);border-radius:var(--portal-radius-lg);box-shadow:var(--portal-shadow-card)}
+.portal-employee-profile-page h1{color:var(--portal-ink);font-size:clamp(1.5rem,2vw,1.9rem);font-weight:720;letter-spacing:-.04em}
+.portal-department-tabs{padding:4px!important;background:#f0f5f1;border:1px solid var(--portal-line);border-radius:12px}
+.portal-department-tabs button{min-height:38px;border-radius:9px!important}
+.portal-department-table table{background:#fff}
+@media(max-width:640px){.portal-executive-dashboard,.portal-administration-dashboard,.portal-employee-profile-page{padding:15px!important}.portal-department-tabs{gap:4px}.portal-department-tabs button{white-space:nowrap}}
