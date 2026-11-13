@@ -15,6 +15,7 @@ import {
 import type { Employee } from "../../types/employee.types";
 import { supabase } from "../../lib/supabase";
 import { ASSIGNABLE_DEPARTMENTS } from "../../types/department.types";
+import { PortalModuleState } from "../../components/PortalModuleState";
 
 const EMPLOYEE_ROLES = [
   "Vice Chairman",
@@ -68,14 +69,6 @@ function canManageEmployee(currentUser: CurrentUser, employee: Employee): boolea
   if (currentUser.role === "Vice President" && employee.role === "Vice President") return false;
   if (currentUser.role === "Vice Chairman" || currentUser.role === "Vice President") return true;
   return (ROLE_LEVEL[employee.role] ?? 1) < (ROLE_LEVEL[currentUser.role] ?? 1);
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-white/50 bg-white/40 p-10 text-center text-sm text-slate-600">
-      {message}
-    </div>
-  );
 }
 
 export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCreate }: EmployeeDirectoryPageProps) {
@@ -357,9 +350,9 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/50 bg-white/40 p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">
-          <label className="rounded-xl border border-white/60 bg-white/70 px-3 py-2 text-sm text-slate-700">
+      <div className="portal-employee-filters rounded-2xl border border-white/50 bg-white/40 p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-5">
+          <label className="rounded-xl border border-white/60 bg-white/70 px-3 py-2 text-sm text-slate-700 md:col-span-2">
             <span className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <Search size={14} /> Search
             </span>
@@ -429,13 +422,13 @@ export function EmployeeDirectoryPage({ currentUser, onSelectEmployee, onOpenCre
       </div>
 
       {loading ? (
-        <EmptyState message="Loading employees..." />
+        <PortalModuleState kind="loading" title="Loading employees" description="Getting the people visible in your workspace." />
       ) : error ? (
-        <EmptyState message={error} />
+        <PortalModuleState kind="error" title="Employees couldn't be loaded" description={error} onRetry={() => void refresh()} />
       ) : filteredEmployees.length === 0 ? (
-        <EmptyState message="No employees found for the current criteria." />
+        <PortalModuleState kind="empty" title="No employees found" description="Try adjusting the search or filters to see more results." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="portal-employee-table overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 text-xs text-slate-500">
             <span><strong className="text-slate-800">{filteredEmployees.length}</strong> employees found</span>
             <span>Showing {Math.min(filteredEmployees.length, (page - 1) * PAGE_SIZE + 1)}–{Math.min(filteredEmployees.length, page * PAGE_SIZE)} of {filteredEmployees.length}</span>

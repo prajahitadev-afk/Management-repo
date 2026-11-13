@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { usePortalTheme } from "../hooks/usePortalTheme";
 import { useNotifications } from "../hooks/useNotifications";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { CreateOrderPage } from "./CreateOrderPage";
 import { CreateDispatchPage } from "./CreateDispatchPage";
 import { EmployeeDirectoryPage } from "../pages/employees/EmployeeDirectoryPage";
@@ -11,6 +13,7 @@ import { OrganizationChartPage } from "../pages/employees/OrganizationChartPage"
 import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import AuditLogPage from "../pages/AuditLogPage";
 import { LeavePage } from "../pages/leave/LeavePage";
+import { PaymentsPage } from "../pages/PaymentsPage";
 import DepartmentPage from "../pages/department/DepartmentPage";
 import {
   AdminPage,
@@ -59,17 +62,36 @@ function NotFoundPage() {
 }
 
 export default function App() {
+  const { theme, toggleTheme } = usePortalTheme();
   const { profile, loading } = useAuth();
-  const { notifications, markRead: markNotificationRead, markAllRead: markAllNotificationsRead } = useNotifications(profile?.id);
+  const {
+    notifications,
+    loading: notificationsLoading,
+    error: notificationsError,
+    reload: reloadNotifications,
+    markRead: markNotificationRead,
+    markAllRead: markAllNotificationsRead,
+  } = useNotifications(profile?.id);
 
   const [page, setPage] = useState<Page>("dashboard");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("portal.sidebar-collapsed") === "true";
+    } catch (error) {
+      console.error("Unable to read sidebar preference", error);
+      return false;
+    }
+  });
+  const [recentPages, setRecentPages] = useState<Page[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1440,
   );
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showCreateDispatch, setShowCreateDispatch] = useState(false);
+  const [openBillSubmit, setOpenBillSubmit] = useState(false);
+  const [pageSearch, setPageSearch] = useState<{ page: Page; term: string } | null>(null);
   const [employeeRoute, setEmployeeRoute] = useState<EmployeeRoute>("directory");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
@@ -78,6 +100,23 @@ export default function App() {
     window.addEventListener("resize", handle);
     return () => window.removeEventListener("resize", handle);
   }, []);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    try {
+      const saved = window.localStorage.getItem(`portal.recent-pages.${profile.id}`);
+      if (!saved) {
+        setRecentPages([]);
+        return;
+      }
+      const parsed: unknown = JSON.parse(saved);
+      const validPages: Page[] = ["dashboard", "attendance", "employees", "department", "leave", "reports", "notifications", "profile", "bills", "orders", "customers", "payments", "collaboration", "transport", "admin", "audit"];
+      setRecentPages(Array.isArray(parsed) ? parsed.filter((value): value is Page => typeof value === "string" && validPages.includes(value as Page)).slice(0, 5) : []);
+    } catch (error) {
+      console.error("Unable to read recent workspace pages", error);
+      setRecentPages([]);
+    }
+  }, [profile?.id]);
 
   useEffect(() => {
     const syncEmployeeRoute = () => {
@@ -124,6 +163,9 @@ export default function App() {
         bills: "bills",
         marketing: "marketing",
         orders: "orders",
+        customers: "customers",
+        payments: "payments",
+        collaboration: "collaboration",
         transport: "transport",
         admin: "admin",
         reports: "reports",
@@ -186,26 +228,36 @@ export default function App() {
   })();
 
   if (isResetPasswordPath || isRecoveryUrl) {
-    return <ResetPasswordPage />;
+    return (
+      <>
+        <div className="portal-standalone-theme-toggle"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
+        <ResetPasswordPage />
+      </>
+    );
   }
 
   if (loading) return <div className="portal-loading" role="status" aria-live="polite"><span className="portal-spinner" aria-hidden="true" /><span>Loading your workspace…</span></div>;
 
   if (page === "login" && !profile) {
-    return <LoginPage onLogin={() => {
+    return <LoginPage theme={theme} onToggleTheme={toggleTheme} onLogin={() => {
       setPage("dashboard");
       if (typeof window !== "undefined") window.history.replaceState({}, "", "/");
     }} />;
   }
 
   if (!profile) {
-    return <LoginPage />;
+    return <LoginPage theme={theme} onToggleTheme={toggleTheme} />;
   }
 
   const isMobile = windowWidth < 768;
   const notifCount = notifications.filter((notification) => !notification.read).length;
   const handleMarkAllNotificationsRead = async () => {
-    await markAllNotificationsRead();
+    try {
+      await markAllNotificationsRead();
+    } catch (error) {
+      console.error("Unable to mark all notifications as read", error);
+      alert(error instanceof Error ? error.message : "Unable to update notifications.");
+    }
   };
   const safeNavAccess = (currentPage: Page) => {
     const accessPage = currentPage === "organization" ? "employees" : currentPage;
@@ -213,9 +265,22 @@ export default function App() {
     return item ? navAccess(item, profile) : false;
   };
 
-  function handleNav(nextPage: Page) {
+  function rememberPage(nextPage: Page) {
+    if (!profile) return;
+    const nextRecentPages = [nextPage, ...recentPages.filter((recentPage) => recentPage !== nextPage)].slice(0, 5);
+    setRecentPages(nextRecentPages);
+    try {
+      window.localStorage.setItem(`portal.recent-pages.${profile.id}`, JSON.stringify(nextRecentPages));
+    } catch (error) {
+      console.error("Unable to save recent workspace pages", error);
+    }
+  }
+
+  function handleNav(nextPage: Page, searchTerm?: string) {
     if (!safeNavAccess(nextPage)) return;
     setPage(nextPage);
+    setPageSearch(searchTerm ? { page: nextPage, term: searchTerm } : null);
+    rememberPage(nextPage);
     if (typeof window === "undefined") return;
 
     if (nextPage === "employees") {
@@ -230,6 +295,9 @@ export default function App() {
       bills: "/bills",
       marketing: "/marketing",
       orders: "/orders",
+      customers: "/customers",
+      payments: "/payments",
+      collaboration: "/collaboration",
       transport: "/transport",
       admin: "/admin",
       reports: "/reports",
@@ -245,6 +313,20 @@ export default function App() {
 
     window.history.pushState({}, "", routeMap[nextPage] ?? "/");
     window.location.hash = "";
+  }
+
+  function handleSearchResult(target: Page, searchTerm?: string, employeeId?: string) {
+    if (target === "employees" && employeeId) {
+      if (!safeNavAccess("employees")) return;
+      setPageSearch(null);
+      setEmployeeRoute("profile");
+      setSelectedEmployeeId(employeeId);
+      setPage("employees");
+      rememberPage("employees");
+      window.location.hash = `#/employees/${encodeURIComponent(employeeId)}`;
+      return;
+    }
+    handleNav(target, searchTerm);
   }
 
   function renderPage() {
@@ -292,15 +374,18 @@ export default function App() {
     }
 
     switch (page) {
-      case "dashboard": return <DashboardPage user={profile} />;
+      case "dashboard": return <DashboardPage user={profile} notifications={notifications} notificationsLoading={notificationsLoading} notificationsError={notificationsError} onRetryNotifications={reloadNotifications} onNav={handleNav} />;
       case "attendance": return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.department }} />;
-      case "bills": return <BillsPage user={profile} />;
+      case "bills": return <BillsPage user={profile} initialTab={openBillSubmit ? "submit" : "list"} onInitialTabHandled={() => setOpenBillSubmit(false)} initialSearch={pageSearch?.page === "bills" ? pageSearch.term : undefined} />;
       case "marketing": return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
-      case "orders": return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
+      case "orders": return <MarketingPage initialTab="orders" initialSearch={pageSearch?.page === "orders" ? pageSearch.term : undefined} showSectionTabs={profile.role !== "Vice Chairman"} setShowCreateOrder={setShowCreateOrder} />;
+      case "customers": return <MarketingPage initialTab="customers" showSectionTabs={false} setShowCreateOrder={setShowCreateOrder} />;
+      case "payments": return <PaymentsPage />;
+      case "collaboration": return <MarketingPage initialTab="collaboration" showSectionTabs={false} setShowCreateOrder={setShowCreateOrder} />;
       case "transport": return <TransportPage setShowCreateDispatch={setShowCreateDispatch} />;
       case "admin": return <AdminPage user={profile} />;
       case "reports": return <ReportsPage user={profile} />;
-      case "notifications": return <NotificationsPage notifications={notifications} onMarkAllRead={handleMarkAllNotificationsRead} onMarkRead={markNotificationRead} />;
+      case "notifications": return <NotificationsPage notifications={notifications} loading={notificationsLoading} error={notificationsError} onRetry={reloadNotifications} onMarkAllRead={handleMarkAllNotificationsRead} onMarkRead={markNotificationRead} />;
       case "audit": return <AuditLogPage />;
       case "organization": return <OrganizationChartPage currentUser={profile} onSelectEmployee={(employeeId) => {
         setSelectedEmployeeId(employeeId);
@@ -316,7 +401,15 @@ export default function App() {
     <div className="portal-shell flex h-screen overflow-hidden" style={{ background: B.bgSolid, fontFamily: "Inter, sans-serif" }}>
       <Sidebar
         user={profile} page={page} onNav={handleNav}
-        collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((collapsed) => {
+          const next = !collapsed;
+          try {
+            window.localStorage.setItem("portal.sidebar-collapsed", String(next));
+          } catch (error) {
+            console.error("Unable to save sidebar preference", error);
+          }
+          return next;
+        })}
         mobile={isMobile} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)}
         onViewProfile={() => handleNav("profile")}
       />
@@ -328,9 +421,15 @@ export default function App() {
           notifCount={notifCount}
           onNotifClick={() => handleNav("notifications")}
           onViewProfile={() => handleNav("profile")}
+          currentPage={page}
+          recentPages={recentPages}
+          onSearchResult={handleSearchResult}
+          onCreateOrder={() => setShowCreateOrder(true)}
+          onSubmitBill={() => { setOpenBillSubmit(true); handleNav("bills"); }}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
-        <main className="portal-main flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-          <style>{`main::-webkit-scrollbar{display:none}`}</style>
+        <main className="portal-main flex-1 overflow-y-auto">
           {renderPage()}
         </main>
       </div>

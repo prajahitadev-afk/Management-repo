@@ -31,10 +31,12 @@ export function useNotifications(userId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const subscriptionRef = useRef<any>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     if (!isValidUUID(userId)) {
       setNotifications([]);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -90,7 +92,7 @@ export function useNotifications(userId?: string) {
         subscriptionRef.current = null;
       }
     };
-  }, [userId]);
+  }, [userId, reloadVersion]);
 
   async function markRead(notificationId: string) {
     await markNotificationAsRead(notificationId);
@@ -103,10 +105,15 @@ export function useNotifications(userId?: string) {
     setNotifications((current) => current.map((item) => ({ ...item, read: true })));
   }
 
+  function reload() {
+    setReloadVersion((version) => version + 1);
+  }
+
   return {
     notifications,
     loading,
     error,
+    reload,
     markRead,
     markAllRead,
   };

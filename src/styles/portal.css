@@ -252,12 +252,16 @@ body { background: #f4f7f5; color: var(--portal-ink); }
   min-width: 0;
   color: #17231f;
 }
-.portal-feature-page > :first-child,
-.portal-leave-page > :first-child {
+.portal-feature-page > :first-child {
   border-color: #e3ebe6 !important;
   background: #fff !important;
 }
-.portal-leave-page { background: #f4f7f5 !important; }
+.portal-leave-subpage > .mx-auto {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.portal-leave-page { background: transparent !important; }
 .portal-leave-page nav { border-color: #e3ebe6 !important; }
 .portal-leave-page nav button[aria-current="page"] {
   background: #176b52 !important;

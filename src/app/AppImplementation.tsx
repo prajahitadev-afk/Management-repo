@@ -10,7 +10,6 @@ import {
   FileCheck, FileX, Send, Printer, CheckSquare, Archive, Zap,
   Handshake, Globe2, Sparkles, Trash2, Key, UserCheck, UserX,
   ClipboardList, Layers, Building2, FlaskConical, ArrowUpRight,
-  Moon, Sun,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie,
@@ -26,10 +25,14 @@ import { useNotifications } from "../hooks/useNotifications";
 import { markAllAsRead } from "../services/notification.service";
 import type { NotificationEventType, NotificationRecord } from "../services/notification.service";
 import type { MarketingCustomer, MarketingOrder } from "../services/marketing.service";
-import { getBillAttachments, getBillHistory, viewBillAttachment, downloadBillAttachment, type BillAttachment, type BillHistory, type BillRecord, exportBillToPDF, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
+import { getBillAttachments, getBillHistory, getBills, viewBillAttachment, downloadBillAttachment, type BillAttachment, type BillHistory, type BillRecord, exportBillToPDF, exportBillsToXLSX, uploadBillAttachments } from "../services/bills.service";
 import logoSrc from "../assets/images/Prajahita.jpeg";
 import { getMonthlyRevenueData, getCommunityImpactData, getWeeklyAttendanceData, getAttendanceBreakdownData, type MonthData, type CommunityData, type AttendanceDay, type AttendanceBreakdown } from "../services/dashboard.service";
-import { exportMarketingWorkbook } from "../services/marketing.service";
+import { exportMarketingWorkbook, getMarketingOrders } from "../services/marketing.service";
+import { getEmployeesForUser } from "../services/employee.service";
+import { PortalModuleState } from "../components/PortalModuleState";
+import { ThemeToggle } from "../components/ThemeToggle";
+import type { AppTheme } from "../lib/theme";
 import { approveOrder, rejectOrder, getOrderDetails, type OrderDetails } from "../services/orders.service";
 import { ORDER_STATUS } from "../services/order-statuses";
 import { exportShipmentsToCSV, getDeliveryDetails, getDeliveryEditableOptions, updateDeliveryDetails, type TransportShipment, type DeliveryOption } from "../services/transport.service";
@@ -60,7 +63,7 @@ type Role =
   | "General Manager" | "Chief Manager" | "Manager" | "Supervisor" | "Worker"
   | "Admin";
 
-type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
+type Page = "login" | "dashboard" | "attendance" | "bills" | "marketing" | "orders" | "customers" | "payments" | "collaboration" | "transport" | "admin" | "reports" | "notifications" | "employees" | "organization" | "audit" | "profile" | "leave" | "department" | "not-found";
 type EmployeeRoute = "directory" | "profile" | "attendance" | "organization";
 
 interface AppUser { id: string; name: string; role: Role; department: string; avatar: string; email: string; employeeId?: string; }
@@ -194,25 +197,25 @@ const MD_DEPT: Partial<Record<Role, string>> = {
 
 const EMPLOYEE_NAV_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
 const MANAGEMENT_NAV_ROLES: Role[] = ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice President", "Vice Chairman"];
-const DEPARTMENT_MODULE_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD"];
+const DEPARTMENT_MODULE_ROLES: Role[] = ["Worker", "Supervisor", "Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"];
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const B = {
   nav: "#153A32", navDark: "#102D27", navLight: "#23624F",
   navAct: "rgba(255,255,255,0.12)", navBorder: "rgba(255,255,255,0.10)", navTxt: "rgba(238,247,242,0.72)",
-  bg: "linear-gradient(180deg, #F7F9F7 0%, #F1F5F2 100%)", bgSolid: "#F4F7F5",
-  glass: "#FFFFFF", glassDark: "#F7FAF8",
-  glassBorder: "#E3EBE6", glassBlur: "none",
-  glassShadow: "0 2px 8px rgba(22,45,35,0.04), 0 12px 28px rgba(22,45,35,0.035)",
-  glassShadowHov: "0 8px 20px rgba(22,45,35,0.08), 0 18px 38px rgba(22,45,35,0.06)",
-  green: "#176B52", greenLight: "rgba(23,107,82,0.10)",
-  blue: "#356FC0", blueLight: "rgba(53,111,192,0.10)",
-  gold: "#C58A2A", goldLight: "rgba(197,138,42,0.12)",
-  red: "#D64F57", redLight: "rgba(214,79,87,0.10)",
-  teal: "#218296", tealLight: "rgba(33,130,150,0.10)",
-  purple: "#7657B8", purpleLight: "rgba(118,87,184,0.10)",
-  text: "#17231F", textSub: "#43534B", textMuted: "#718078", textFaint: "#9AA69F",
-  border: "#E3EBE6",
+  bg: "linear-gradient(180deg, var(--portal-canvas) 0%, var(--portal-canvas-alt) 100%)", bgSolid: "var(--portal-canvas)",
+  glass: "var(--portal-surface)", glassDark: "var(--portal-surface-soft)",
+  glassBorder: "var(--portal-line)", glassBlur: "none",
+  glassShadow: "var(--portal-shadow-card)",
+  glassShadowHov: "var(--portal-shadow-hover)",
+  green: "#176B52", greenLight: "var(--portal-brand-soft)",
+  blue: "#356FC0", blueLight: "var(--portal-blue-soft)",
+  gold: "#C58A2A", goldLight: "var(--portal-gold-soft)",
+  red: "#D64F57", redLight: "var(--portal-red-soft)",
+  teal: "#218296", tealLight: "var(--portal-teal-soft)",
+  purple: "#7657B8", purpleLight: "var(--portal-purple-soft)",
+  text: "var(--portal-ink)", textSub: "var(--portal-ink-soft)", textMuted: "var(--portal-muted)", textFaint: "var(--portal-faint)",
+  border: "var(--portal-line)",
 };
 const CG = B.green; const CB = B.blue; const CGo = B.gold; const CR = B.red; const CT = B.teal;
 const ATTEND_WEEK = [
@@ -390,7 +393,15 @@ const TT = {
 };
 
 // ─── Login ────────────────────────────────────────────────────────────────────
-function LoginPage({ onLogin }: { onLogin?: () => void }) {
+function LoginPage({
+  onLogin,
+  theme = "light",
+  onToggleTheme = () => undefined,
+}: {
+  onLogin?: () => void;
+  theme?: AppTheme;
+  onToggleTheme?: () => void;
+}) {
   const { login, logout, profileError } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
@@ -475,6 +486,7 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
 
   return (
     <div className="portal-login-screen min-h-screen flex" style={{ background: B.bg }}>
+      <div className="portal-standalone-theme-toggle"><ThemeToggle theme={theme} onToggle={onToggleTheme} /></div>
       {/* Left panel */}
       <div className="hidden lg:flex flex-col justify-between p-10 w-96 flex-shrink-0 relative overflow-hidden"
         style={{ background: B.nav }}>
@@ -538,14 +550,14 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                   <button
                     type="button"
                     onClick={() => { setMode("signin"); setLoginError(null); setSignupSuccess(null); }}
-                    className={`text-base font-bold pb-1 transition-colors ${mode === "signin" ? "border-b-2 text-[#4e8050] border-[#4e8050]" : "text-slate-400 hover:text-slate-600"}`}
+                    className={`portal-login-tab text-base font-bold pb-1 transition-colors ${mode === "signin" ? "portal-login-tab-active border-b-2 text-[#4e8050] border-[#4e8050]" : "text-slate-400 hover:text-slate-600"}`}
                   >
                     Sign In
                   </button>
                   <button
                     type="button"
                     onClick={() => { setMode("signup"); setLoginError(null); setSignupSuccess(null); }}
-                    className={`text-base font-bold pb-1 transition-colors ${mode === "signup" ? "border-b-2 text-[#4e8050] border-[#4e8050]" : "text-slate-400 hover:text-slate-600"}`}
+                    className={`portal-login-tab text-base font-bold pb-1 transition-colors ${mode === "signup" ? "portal-login-tab-active border-b-2 text-[#4e8050] border-[#4e8050]" : "text-slate-400 hover:text-slate-600"}`}
                   >
                     Create Account
                   </button>
@@ -590,14 +602,14 @@ function LoginPage({ onLogin }: { onLogin?: () => void }) {
                 </PrimaryButton>
 
                 {mode === "signin" && (
-                  <button type="button" onClick={() => { setLoginError(null); setMode("forgot"); }} className="block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
+                  <button type="button" onClick={() => { setLoginError(null); setMode("forgot"); }} className="portal-login-forgot block mt-3 text-sm text-center w-full hover:underline" style={{ color: B.green }}>
                     Forgot password?
                   </button>
                 )}
               </form>
             )}
           </div>
-          <p className="text-center mt-4 text-xs" style={{ color: "rgba(0,0,0,0.30)" }}>© {new Date().getFullYear()} Prajahita Charitable Trust</p>
+          <p className="portal-login-footer text-center mt-4 text-xs" style={{ color: "rgba(0,0,0,0.30)" }}>© {new Date().getFullYear()} Prajahita Charitable Trust</p>
         </div>
       </div>
     </div>
@@ -611,14 +623,26 @@ const NAV_ITEMS = [
   { id: "employees",     label: "Employees",        icon: Users,           minLevel: 1, allowedRoles: EMPLOYEE_NAV_ROLES },
   { id: "department",    label: "Department",       icon: Building2,       minLevel: 1 },
   { id: "leave",         label: "Leave Dashboard",  icon: Calendar,        minLevel: 1 },
-  { id: "reports",       label: "Reports",          icon: BarChart2,       minLevel: 3, allowedRoles: ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD"] as Role[] },
+  { id: "reports",       label: "Reports",          icon: BarChart2,       minLevel: 3, allowedRoles: ["Manager", "Chief Manager", "General Manager", "Managing Director", "MD-Manufacturing", "MD-Marketing", "MD-Transport", "MD-RD", "Vice Chairman"] as Role[] },
   { id: "notifications", label: "Notifications",    icon: Bell,            minLevel: 1 },
   { id: "profile",       label: "My Profile",        icon: User,            minLevel: 1 },
   { id: "bills",         label: "Bill Management",  icon: FileText,        minLevel: 3, allowedRoles: MANAGEMENT_NAV_ROLES },
   { id: "orders",        label: "Orders",            icon: ShoppingCart,    minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Marketing" },
+  { id: "customers",     label: "Customer Database", icon: Globe2,          minLevel: 8, allowedRoles: ["Vice Chairman"] as Role[] },
+  { id: "payments",      label: "Payments",          icon: DollarSign,      minLevel: 8, allowedRoles: ["Vice Chairman"] as Role[] },
+  { id: "collaboration", label: "Collaboration",     icon: Handshake,       minLevel: 8, allowedRoles: ["Vice Chairman"] as Role[] },
   { id: "transport",     label: "Transport",        icon: Truck,           minLevel: 1, allowedRoles: DEPARTMENT_MODULE_ROLES, requiredDepartment: "Transport" },
   { id: "admin",         label: "Admin / RBAC",     icon: Shield,          adminOnly: true },
   { id: "audit",          label: "Audit Log",         icon: ClipboardList,   adminOnly: true },
+];
+
+const NAV_GROUPS: { label: string; ids: string[] }[] = [
+  { label: "Workspace", ids: ["dashboard"] },
+  { label: "People", ids: ["attendance", "employees", "department", "leave"] },
+  { label: "Operations", ids: ["orders", "transport", "bills", "customers", "payments", "collaboration"] },
+  { label: "Insights", ids: ["reports"] },
+  { label: "Account", ids: ["notifications", "profile"] },
+  { label: "Administration", ids: ["admin", "audit"] },
 ];
 
 function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
@@ -626,7 +650,7 @@ function navAccess(item: typeof NAV_ITEMS[0], user: AppUser): boolean {
   if (item.allowedRoles && !item.allowedRoles.includes(user.role)) return false;
   if (item.id === "reports" && !canViewReports(user.role)) return false;
   const requiredDepartment = (item as { requiredDepartment?: string }).requiredDepartment;
-  if (requiredDepartment && !canAccessDepartmentModule(user.department, requiredDepartment)) return false;
+  if (requiredDepartment && user.role !== "Vice Chairman" && !canAccessDepartmentModule(user.department, requiredDepartment)) return false;
   const lvl = ROLE_LEVEL[user.role];
   return lvl >= (item.minLevel ?? 1);
 }
@@ -658,7 +682,7 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
             </div>
           )}
           {!mobile && (
-            <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={onToggle} className="ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}
+            <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={onToggle} className="ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "white"}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"}>
               {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -676,11 +700,12 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
       </div>
 
       {/* User chip */}
-      <div className="relative z-10 px-3 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${B.navBorder}` }}>
+      <div className="portal-sidebar-user relative z-10 px-3 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${B.navBorder}` }}>
         <button
           type="button"
+          aria-label={`View profile for ${user.name}`}
           onClick={() => { onViewProfile?.(); if (mobile) onMobileClose(); }}
-          className="flex w-full items-center gap-2.5 px-2.5 py-2 rounded-xl text-left"
+          className="portal-sidebar-user-button flex w-full items-center gap-2.5 px-2.5 py-2 rounded-xl text-left"
           style={{ background: "rgba(255,255,255,0.10)", backdropFilter: "blur(8px)" }}>
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
             style={{ background: "rgba(255,255,255,0.22)", border: "1px solid rgba(255,255,255,0.30)" }}>
@@ -696,34 +721,52 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
       </div>
 
       {/* Nav */}
-      <nav className="relative z-10 flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
-        {visibleNavItems.map(item => {
-          const active = page === item.id || (item.id === "employees" && page === "organization");
+      <nav aria-label="Main navigation" className="relative z-10 flex-1 px-2.5 py-3 space-y-3 overflow-y-auto">
+        {NAV_GROUPS.map((group) => {
+          const groupItems = group.ids
+            .map((id) => visibleNavItems.find((item) => item.id === id))
+            .filter((item): item is typeof NAV_ITEMS[number] => Boolean(item));
+          if (!groupItems.length) return null;
+
           return (
-            <button type="button" key={item.id} aria-current={active ? "page" : undefined}
-              onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150"
-              style={{
-                background: active ? B.navAct : "transparent",
-                boxShadow: active ? "0 2px 12px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.18)" : "none",
-                backdropFilter: active ? "blur(8px)" : "none",
-              }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <item.icon size={17} style={{ color: active ? "white" : B.navTxt, flexShrink: 0 }} />
+            <div key={group.label} className="portal-sidebar-nav-group">
               {(!collapsed || mobile) && (
-                <>
-                  <span className="text-sm flex-1 font-medium" style={{ color: active ? "white" : B.navTxt }}>{item.label}</span>
-                  {active && <div className="w-1.5 h-4 rounded-full" style={{ background: CGo, boxShadow: `0 0 8px ${CGo}` }} />}
-                </>
+                <h2 className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+                  {group.label}
+                </h2>
               )}
-            </button>
+              <div className="space-y-0.5">
+                {groupItems.map((item) => {
+                  const active = page === item.id || (item.id === "employees" && page === "organization");
+                  return (
+                    <button type="button" key={item.id} aria-label={collapsed && !mobile ? item.label : undefined} title={collapsed && !mobile ? item.label : undefined} aria-current={active ? "page" : undefined}
+                      onClick={() => { onNav(item.id as Page); if (mobile) onMobileClose(); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150"
+                      style={{
+                        background: active ? B.navAct : "transparent",
+                        boxShadow: active ? "0 2px 12px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.18)" : "none",
+                        backdropFilter: active ? "blur(8px)" : "none",
+                      }}
+                      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+                      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                      <item.icon size={17} style={{ color: active ? "white" : B.navTxt, flexShrink: 0 }} />
+                      {(!collapsed || mobile) && (
+                        <>
+                          <span className="text-sm flex-1 font-medium" style={{ color: active ? "white" : B.navTxt }}>{item.label}</span>
+                          {active && <div className="w-1.5 h-4 rounded-full" style={{ background: CGo, boxShadow: `0 0 8px ${CGo}` }} />}
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
 
-      <div className="relative z-10 px-2.5 py-3 flex-shrink-0" style={{ borderTop: `1px solid ${B.navBorder}` }}>
-        <button type="button" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+      <div className="portal-sidebar-footer relative z-10 px-2.5 py-3 flex-shrink-0" style={{ borderTop: `1px solid ${B.navBorder}` }}>
+        <button type="button" aria-label="Sign out" className="portal-sidebar-logout w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
           style={{ color: "rgba(255,255,255,0.38)" }}
           onClick={() => { void logout().catch((err) => alert(err instanceof Error ? err.message : "Unable to sign out")); }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "white"; }}
@@ -744,31 +787,239 @@ function Sidebar({ user, page, onNav, collapsed, onToggle, mobile, mobileOpen, o
   );
 
   return (
-    <aside className={`portal-sidebar hidden md:flex flex-col flex-shrink-0 h-full transition-all duration-300 ${collapsed ? "w-[60px]" : "w-64"}`}
+    <aside data-collapsed={collapsed} className={`portal-sidebar hidden md:flex flex-col flex-shrink-0 h-full transition-all duration-300 ${collapsed ? "w-[60px]" : "w-64"}`}
       style={{ background: B.nav }}>{content}</aside>
   );
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
-function TopBar({ user, onMenuClick, onNav, notifCount, onNotifClick, onViewProfile }: {
-  user: AppUser; onMenuClick: () => void; onNav: (page: Page) => void; notifCount: number; onNotifClick: () => void; onViewProfile: () => void;
+interface GlobalSearchResult {
+  key: string;
+  label: string;
+  detail: string;
+  page: Page;
+  icon: ComponentType<{ size?: number; className?: string }>;
+  searchTerm?: string;
+  employeeId?: string;
+}
+
+function TopBar({
+  user,
+  onMenuClick,
+  onNav,
+  notifCount,
+  onNotifClick,
+  onViewProfile,
+  currentPage,
+  recentPages = [],
+  onSearchResult,
+  onCreateOrder,
+  onSubmitBill,
+  theme = "light",
+  onToggleTheme = () => undefined,
+}: {
+  user: AppUser;
+  onMenuClick: () => void;
+  onNav: (page: Page) => void;
+  notifCount: number;
+  onNotifClick: () => void;
+  onViewProfile: () => void;
+  currentPage?: Page;
+  recentPages?: Page[];
+  onSearchResult?: (page: Page, searchTerm?: string, employeeId?: string) => void;
+  onCreateOrder?: () => void;
+  onSubmitBill?: () => void;
+  theme?: AppTheme;
+  onToggleTheme?: () => void;
 }) {
   const { logout } = useAuth();
   const roleLabel = user.role.startsWith("MD-") ? `MD – ${MD_DEPT[user.role]}` : user.role;
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const searchResults = NAV_ITEMS
+  const [entityResults, setEntityResults] = useState<GlobalSearchResult[]>([]);
+  const [entitySearching, setEntitySearching] = useState(false);
+  const [entitySearchError, setEntitySearchError] = useState<string | null>(null);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const quickActionsRef = useRef<HTMLDivElement | null>(null);
+  const quickActionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const moduleResults = NAV_ITEMS
     .filter((item) => navAccess(item, user) && item.label.toLowerCase().includes(searchQuery.trim().toLowerCase()))
     .slice(0, 6);
-  const runModuleSearch = (target?: Page) => {
-    if (!target) return;
-    onNav(target);
+  const recentItems = recentPages
+    .map((page) => NAV_ITEMS.find((item) => item.id === page))
+    .filter((item): item is typeof NAV_ITEMS[number] => item !== undefined && navAccess(item, user))
+    .slice(0, 5);
+  const currentNavItem = NAV_ITEMS.find((item) => item.id === (currentPage === "organization" ? "employees" : currentPage));
+  const currentGroup = NAV_GROUPS.find((group) => currentNavItem && group.ids.includes(currentNavItem.id));
+  const hasPageAccess = (page: Page) => {
+    const item = NAV_ITEMS.find((navItem) => navItem.id === page);
+    return item ? navAccess(item, user) : false;
+  };
+  const quickActions = [
+    ...(hasPageAccess("orders") ? [{
+      key: "create-order",
+      label: "Create an order",
+      detail: "Start a new marketing order",
+      icon: ShoppingCart,
+      run: () => onCreateOrder ? onCreateOrder() : onNav("orders"),
+    }] : []),
+    ...(hasPageAccess("bills") && canSubmitBills(user.role) ? [{
+      key: "submit-bill",
+      label: "Submit a bill",
+      detail: "Open the bill submission form",
+      icon: FileText,
+      run: () => onSubmitBill ? onSubmitBill() : onNav("bills"),
+    }] : []),
+    ...(hasPageAccess("attendance") ? [{
+      key: "open-attendance",
+      label: "Open attendance",
+      detail: "View your attendance workspace",
+      icon: Calendar,
+      run: () => onNav("attendance"),
+    }] : []),
+    {
+      key: "open-notifications",
+      label: "View notifications",
+      detail: "Review recent updates",
+      icon: Bell,
+      run: onNotifClick,
+    },
+  ];
+
+  useEffect(() => {
+    let active = true;
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setEntityResults([]);
+      setEntitySearchError(null);
+      setEntitySearching(false);
+      return () => { active = false; };
+    }
+
+    setEntityResults([]);
+    setEntitySearching(true);
+    setEntitySearchError(null);
+    const timeout = window.setTimeout(() => {
+      const employeeRequest: Promise<GlobalSearchResult[]> = hasPageAccess("employees")
+        ? getEmployeesForUser(user.id, { search: query }).then((employees) => employees.slice(0, 4).map((employee) => ({
+          key: `employee-${employee.id}`,
+          label: employee.name,
+          detail: `${employee.employeeCode || employee.employeeId} · ${employee.department} · ${employee.role}`,
+          page: "employees",
+          icon: Users,
+          employeeId: employee.id,
+        })))
+        : Promise.resolve([]);
+      const orderRequest: Promise<GlobalSearchResult[]> = hasPageAccess("orders")
+        ? getMarketingOrders().then((orders) => orders
+          .filter((order) => [order.ref, order.customer, order.location, order.soap, order.status]
+            .some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))
+          .slice(0, 4)
+          .map((order) => ({
+            key: `order-${order.id}`,
+            label: order.ref,
+            detail: `${order.customer} · ${order.status}`,
+            page: "orders",
+            icon: ShoppingCart,
+            searchTerm: order.ref,
+          })))
+        : Promise.resolve([]);
+      const billRequest: Promise<GlobalSearchResult[]> = hasPageAccess("bills")
+        ? getBills().then((bills) => bills
+          .filter((bill) => [bill.ref, bill.title, bill.vendor, bill.department, bill.status]
+            .some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())))
+          .slice(0, 4)
+          .map((bill) => ({
+            key: `bill-${bill.id}`,
+            label: bill.ref,
+            detail: `${bill.vendor} · ${bill.status}`,
+            page: "bills",
+            icon: FileText,
+            searchTerm: bill.ref,
+          })))
+        : Promise.resolve([]);
+
+      void Promise.all([employeeRequest, orderRequest, billRequest])
+        .then((results) => {
+          if (active) setEntityResults(results.flat().slice(0, 8));
+        })
+        .catch((err) => {
+          console.error("Global search failed", err);
+          if (active) setEntitySearchError(err instanceof Error ? err.message : "Unable to search workspace records.");
+        })
+        .finally(() => {
+          if (active) setEntitySearching(false);
+        });
+    }, 180);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [searchQuery, user.id, user.role, user.department]);
+
+  const chooseSearchResult = (result: GlobalSearchResult) => {
+    if (onSearchResult) onSearchResult(result.page, result.searchTerm, result.employeeId);
+    else onNav(result.page);
     setSearchQuery("");
     setSearchOpen(false);
+  };
+  const chooseModule = (target: Page) => {
+    if (onSearchResult) onSearchResult(target);
+    else onNav(target);
+    setSearchQuery("");
+    setSearchOpen(false);
+  };
+  const focusSearchOption = (direction: 1 | -1, current?: Element | null) => {
+    const options = Array.from(document.querySelectorAll<HTMLButtonElement>("#portal-module-search-results button"));
+    const currentIndex = current instanceof HTMLButtonElement ? options.indexOf(current) : -1;
+    const nextIndex = currentIndex < 0 ? (direction > 0 ? 0 : options.length - 1) : currentIndex + direction;
+    if (nextIndex < 0) {
+      document.getElementById("portal-global-search-input")?.focus();
+      return;
+    }
+    options[nextIndex]?.focus();
+  };
+  const handleSearchOptionKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      focusSearchOption(event.key === "ArrowDown" ? 1 : -1, event.currentTarget);
+    } else if (event.key === "Escape") {
+      setSearchOpen(false);
+      document.getElementById("portal-global-search-input")?.focus();
+    }
   };
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+        requestAnimationFrame(() => document.getElementById("portal-global-search-input")?.focus());
+      }
+      if (event.key === "Escape") {
+        setSearchOpen(false);
+        if (quickActionsOpen) {
+          setQuickActionsOpen(false);
+          quickActionsTriggerRef.current?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleShortcut);
+    return () => document.removeEventListener("keydown", handleShortcut);
+  }, [quickActionsOpen]);
+
+  useEffect(() => {
+    if (!quickActionsOpen) return;
+    const handleClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !quickActionsRef.current?.contains(event.target)) setQuickActionsOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [quickActionsOpen]);
 
   const updateMenuPosition = () => {
     const trigger = triggerRef.current;
@@ -809,42 +1060,137 @@ function TopBar({ user, onMenuClick, onNav, notifCount, onNotifClick, onViewProf
       <button type="button" aria-label="Open navigation" onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-white/20" style={{ color: B.text }}>
         <Menu size={20} />
       </button>
-      <div className="portal-global-search relative flex-1 max-w-md" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSearchOpen(false); }}>
+      <nav aria-label="Breadcrumb" className="portal-breadcrumb hidden lg:flex min-w-0 items-center gap-2 text-xs">
+        <span className="truncate" style={{ color: B.textMuted }}>{currentGroup?.label ?? "Workspace"}</span>
+        <ChevronRight size={13} aria-hidden="true" style={{ color: B.textFaint }} />
+        <span className="max-w-36 truncate font-semibold" aria-current="page" style={{ color: B.text }}>
+          {currentNavItem?.label ?? (currentPage === "not-found" ? "Not found" : "Workspace")}
+        </span>
+      </nav>
+      <div className="portal-global-search relative flex-1 max-w-xl" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSearchOpen(false); }}>
         <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl"
           style={{ background: "#F7FAF8", border: "1px solid #E3EBE6", boxShadow: "inset 0 1px 2px rgba(22,45,35,0.025)" }}>
-          <Search size={15} style={{ color: B.textFaint }} />
+          <Search size={15} aria-hidden="true" style={{ color: B.textFaint }} />
           <input
-            aria-label="Find a portal module"
+            id="portal-global-search-input"
+            aria-label="Search modules, employees, orders, and bills"
             aria-controls="portal-module-search-results"
-            aria-expanded={searchOpen && Boolean(searchQuery.trim())}
-            placeholder="Find a module…"
+            aria-expanded={searchOpen}
+            placeholder="Search anything in your workspace"
             value={searchQuery}
             onFocus={() => setSearchOpen(true)}
             onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true); }}
             onKeyDown={(event) => {
-              if (event.key === "Enter") { event.preventDefault(); runModuleSearch(searchResults[0]?.id as Page | undefined); }
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                focusSearchOption(event.key === "ArrowDown" ? 1 : -1, event.currentTarget);
+              }
+              if (event.key === "Enter") {
+                event.preventDefault();
+                if (moduleResults[0]) chooseModule(moduleResults[0].id as Page);
+                else if (entityResults[0]) chooseSearchResult(entityResults[0]);
+              }
               if (event.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
             }}
             className="flex-1 bg-transparent text-sm outline-none"
             style={{ color: B.text }}
           />
-          {searchQuery && <button type="button" aria-label="Clear module search" onClick={() => setSearchQuery("")} className="rounded-md p-1 text-slate-400 hover:bg-slate-100"><X size={13} /></button>}
+          {!searchQuery && <kbd className="hidden sm:inline-flex rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-400">Ctrl K</kbd>}
+          {searchQuery && <button type="button" aria-label="Clear search" onClick={() => setSearchQuery("")} className="rounded-md p-1 text-slate-400 hover:bg-slate-100"><X size={13} /></button>}
         </div>
-        {searchOpen && searchQuery.trim() && (
-          <div id="portal-module-search-results" role="listbox" aria-label="Matching modules" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-            {searchResults.length ? searchResults.map((item) => (
-              <button type="button" key={item.id} role="option" aria-selected="false"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => runModuleSearch(item.id as Page)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900">
-                <item.icon size={15} className="text-emerald-700" />
-                <span>{item.label}</span>
-              </button>
-            )) : <p className="px-3 py-3 text-xs text-slate-500">No matching modules available for your role.</p>}
+        {searchOpen && (
+          <div id="portal-module-search-results" role="region" aria-label="Workspace search results" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+            {!searchQuery.trim() && (
+              recentItems.length ? (
+                <>
+                  <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Recently visited</p>
+                  {recentItems.map((item) => (
+                    <button type="button" key={`recent-${item.id}`}
+                      onKeyDown={handleSearchOptionKeyDown}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => chooseModule(item.id as Page)}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900">
+                      <item.icon size={15} className="text-emerald-700" />
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </>
+              ) : <p className="px-3 py-3 text-xs text-slate-500">Type to search permitted modules and workspace records.</p>
+            )}
+            {searchQuery.trim() && (
+              <>
+                {moduleResults.length > 0 && (
+                  <>
+                    <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Modules</p>
+                    {moduleResults.map((item) => (
+                      <button type="button" key={`module-${item.id}`}
+                        onKeyDown={handleSearchOptionKeyDown}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => chooseModule(item.id as Page)}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900">
+                        <item.icon size={15} className="text-emerald-700" />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+                {entityResults.length > 0 && (
+                  <>
+                    <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Workspace records</p>
+                    {entityResults.map((result) => (
+                      <button type="button" key={result.key}
+                        onKeyDown={handleSearchOptionKeyDown}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => chooseSearchResult(result)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-emerald-50">
+                        <result.icon size={15} className="flex-shrink-0 text-emerald-700" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-slate-700">{result.label}</span>
+                          <span className="block truncate text-xs text-slate-400">{result.detail}</span>
+                        </span>
+                        <ArrowUpRight size={13} className="flex-shrink-0 text-slate-400" />
+                      </button>
+                    ))}
+                  </>
+                )}
+                {entitySearching && <p role="status" className="px-3 py-2 text-xs text-slate-500">Searching workspace records…</p>}
+                {entitySearchError && <p role="alert" className="px-3 py-2 text-xs text-rose-600">{entitySearchError}</p>}
+                {searchQuery.trim().length < 2 && !moduleResults.length && (
+                  <p className="px-3 py-3 text-xs text-slate-500">Type at least 2 characters to search workspace records.</p>
+                )}
+                {searchQuery.trim().length >= 2 && !moduleResults.length && !entityResults.length && !entitySearching && !entitySearchError && (
+                  <p className="px-3 py-3 text-xs text-slate-500">No matching modules or records found.</p>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
       <div className="flex items-center gap-2 ml-auto">
+        <div ref={quickActionsRef} className="portal-quick-actions relative">
+          <button type="button" ref={quickActionsTriggerRef} aria-label="Open quick actions" aria-controls="portal-quick-actions" aria-expanded={quickActionsOpen}
+            onClick={() => setQuickActionsOpen((open) => !open)}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-900/10 bg-emerald-900 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            <Zap size={14} aria-hidden="true" />
+            <span className="hidden xl:inline">Quick actions</span>
+          </button>
+          {quickActionsOpen && (
+            <div id="portal-quick-actions" role="group" aria-label="Quick actions" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+              {quickActions.map((action) => (
+                <button type="button" key={action.key}
+                  onClick={() => { setQuickActionsOpen(false); action.run(); quickActionsTriggerRef.current?.focus(); }}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-emerald-50">
+                  <action.icon size={15} className="text-emerald-700" aria-hidden="true" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-slate-700">{action.label}</span>
+                    <span className="block text-xs text-slate-400">{action.detail}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <button type="button" aria-label={`Open notifications${notifCount ? `, ${notifCount} unread` : ""}`} onClick={onNotifClick} className="relative p-2 rounded-xl transition-colors hover:bg-white/20"
           style={{ border: "1px solid rgba(255,255,255,0.40)", background: "rgba(255,255,255,0.25)", backdropFilter: "blur(10px)" }}>
           <Bell size={17} style={{ color: B.textSub }} />
@@ -1498,15 +1844,153 @@ function WorkerDashboard({ user, stats }: { user: AppUser; stats: DashboardStats
   );
 }
 
-function DashboardPage({ user }: { user: AppUser }) {
-  const { stats, loading, error } = useDashboard(user);
+function DashboardActionCenter({
+  user,
+  stats,
+  notifications = [],
+  notificationsLoading = false,
+  notificationsError,
+  onRetryNotifications,
+  onNav,
+}: {
+  user: AppUser;
+  stats: DashboardStats;
+  notifications?: NotificationRecord[];
+  notificationsLoading?: boolean;
+  notificationsError?: string | null;
+  onRetryNotifications?: () => void;
+  onNav: (page: Page) => void;
+}) {
+  const canOpen = (page: Page) => {
+    const item = NAV_ITEMS.find((navItem) => navItem.id === page);
+    return item ? navAccess(item, user) : false;
+  };
+  const actions = [
+    ...(canOpen("bills") && stats.pendingBills > 0 ? [{
+      label: "Review pending bills",
+      detail: `${stats.pendingBills} awaiting approval`,
+      icon: FileText,
+      page: "bills" as Page,
+      tone: "text-amber-700 bg-amber-50",
+    }] : []),
+    ...(canOpen("orders") && stats.pendingApprovals > 0 ? [{
+      label: "Review order approvals",
+      detail: `${stats.pendingApprovals} need attention`,
+      icon: ShoppingCart,
+      page: "orders" as Page,
+      tone: "text-emerald-700 bg-emerald-50",
+    }] : []),
+    ...(canOpen("attendance") && stats.todayAttendanceStatus !== "Present" ? [{
+      label: "Check attendance",
+      detail: stats.todayAttendanceStatus || "Today's status",
+      icon: Calendar,
+      page: "attendance" as Page,
+      tone: "text-blue-700 bg-blue-50",
+    }] : []),
+    ...(canOpen("employees") ? [{
+      label: "Open employee directory",
+      detail: "Browse your visible team",
+      icon: Users,
+      page: "employees" as Page,
+      tone: "text-violet-700 bg-violet-50",
+    }] : []),
+  ].slice(0, 4);
+  const recentNotifications = notifications.slice(0, 4);
+
+  return (
+    <div className="grid gap-4 px-6 pb-6 lg:grid-cols-[1.15fr_0.85fr]">
+      <GlassCard className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold" style={{ color: B.text }}>Your action center</h2>
+            <p className="mt-1 text-xs" style={{ color: B.textMuted }}>{user.department} workspace · role-aware shortcuts</p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
+            {user.role.startsWith("MD-") ? "Managing Director" : user.role}
+          </span>
+        </div>
+        {actions.length ? (
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {actions.map((action) => (
+              <button type="button" key={action.label} onClick={() => onNav(action.page)}
+                className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-100 bg-white/70 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+                <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${action.tone}`}>
+                  <action.icon size={16} aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-slate-800">{action.label}</span>
+                  <span className="block truncate text-xs text-slate-500">{action.detail}</span>
+                </span>
+                <ArrowUpRight size={14} className="flex-shrink-0 text-slate-400" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">You're up to date. Your permitted workspace shortcuts will appear here when action is needed.</p>
+        )}
+      </GlassCard>
+
+      <GlassCard className="overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold" style={{ color: B.text }}>Recent activity</h2>
+            <p className="mt-1 text-xs" style={{ color: B.textMuted }}>Latest updates visible to you</p>
+          </div>
+          <button type="button" onClick={() => onNav("notifications")} className="text-xs font-semibold text-emerald-800 hover:underline">
+            View all
+          </button>
+        </div>
+        <div className="p-2">
+          {notificationsError ? (
+            <div className="p-2">
+              <PortalModuleState kind="error" title="Activity couldn't be loaded" description={notificationsError} onRetry={onRetryNotifications} />
+            </div>
+          ) : notificationsLoading ? (
+            <PortalModuleState kind="loading" title="Loading activity" description="Getting your latest notifications." />
+          ) : recentNotifications.length ? recentNotifications.map((notification) => (
+            <button type="button" key={notification.id} onClick={() => onNav("notifications")}
+              className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-emerald-50/70">
+              <span className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${notification.read ? "bg-slate-300" : "bg-emerald-600"}`} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-slate-800">{notification.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-500">{notification.message}</span>
+              </span>
+              <span className="flex-shrink-0 text-[10px] text-slate-400">
+                {notification.created_at ? new Date(notification.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+              </span>
+            </button>
+          )) : (
+            <p className="px-3 py-5 text-sm text-slate-500">You're all caught up. New workspace updates will appear here.</p>
+          )}
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
+
+function DashboardPage({
+  user,
+  notifications,
+  notificationsLoading,
+  notificationsError,
+  onRetryNotifications,
+  onNav = () => undefined,
+}: {
+  user: AppUser;
+  notifications?: NotificationRecord[];
+  notificationsLoading?: boolean;
+  notificationsError?: string | null;
+  onRetryNotifications?: () => void;
+  onNav?: (page: Page) => void;
+}) {
+  const { stats, loading, error, reload } = useDashboard(user);
 
   if (loading) {
-    return <div className="p-6">Loading dashboard…</div>;
+    return <div className="p-6"><PortalModuleState kind="loading" title="Preparing your dashboard" description="Loading role-specific workspace metrics." /></div>;
   }
 
   if (error) {
-    return <div className="p-6" style={{ color: CR }}>Failed to load dashboard data.</div>;
+    return <div className="p-6"><PortalModuleState kind="error" title="Dashboard data couldn't be loaded" description={error} onRetry={reload} /></div>;
   }
 
   let dashboard = <WorkerDashboard user={user} stats={stats} />;
@@ -1519,6 +2003,15 @@ function DashboardPage({ user }: { user: AppUser }) {
 
   return <div className="portal-dashboard">
     <div className="portal-dashboard-content">{dashboard}</div>
+    <DashboardActionCenter
+      user={user}
+      stats={stats}
+      notifications={notifications}
+      notificationsLoading={notificationsLoading}
+      notificationsError={notificationsError}
+      onRetryNotifications={onRetryNotifications}
+      onNav={onNav}
+    />
     <div className="portal-dashboard-kpis px-6 pb-6">
       <EmployeeKpiWidget userId={user.id} role={user.role} department={user.department} />
     </div>
@@ -1604,8 +2097,8 @@ function AttendancePage({ user }: { user: AppUser }) {
         }
       />
 
-      {loading && <div className="p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.25)" }}>Loading attendance…</div>}
-      {error && <div className="p-3 rounded-xl" style={{ background: "rgba(239,68,68,0.08)", color: CR }}>Failed to load attendance data.</div>}
+      {loading && <PortalModuleState kind="loading" title="Loading attendance" description="Getting attendance records for your permitted scope." />}
+      {error && <PortalModuleState kind="error" title="Attendance couldn't be loaded" description={error} onRetry={() => void reloadAttendance(selectedDate)} />}
 
       {!isOrgWide && (
         <div className="p-3 rounded-xl flex items-center gap-2"
@@ -1766,13 +2259,34 @@ function AttendancePage({ user }: { user: AppUser }) {
 }
 
 // ─── Bills Page ───────────────────────────────────────────────────────────────
-function BillsPage({ user }: { user: AppUser }) {
-  const [tab, setTab] = useState<"list"|"submit"|"detail">("list");
+function BillsPage({
+  user,
+  initialTab = "list",
+  initialSearch,
+  onInitialTabHandled,
+}: {
+  user: AppUser;
+  initialTab?: "list" | "submit";
+  initialSearch?: string;
+  onInitialTabHandled?: () => void;
+}) {
+  const [tab, setTab] = useState<"list"|"submit"|"detail">(initialTab);
   const [selectedBill, setSelectedBill] = useState<BillRecord | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch ?? "");
   const [statusFilter, setStatusFilter] = useState("All");
   const { bills, pendingBills, loading, error, refreshBills, createBill, approveBill, reviewBill, rejectBill, returnBill, cancelApproval } = useBills();
   const canSubmit  = canSubmitBills(user.role);
+
+  useEffect(() => {
+    if (initialTab === "submit") {
+      setTab("submit");
+      onInitialTabHandled?.();
+    }
+  }, [initialTab, onInitialTabHandled]);
+
+  useEffect(() => {
+    setSearch(initialSearch ?? "");
+  }, [initialSearch]);
 
   const normalizeDepartment = (department: string) => String(department || "").replace(/\s+/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   const isMDOfDepartment = (role: Role, department: string) => {
@@ -2295,8 +2809,8 @@ function BillsPage({ user }: { user: AppUser }) {
           </>
         } />
 
-      {loading && <div className="p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.25)" }}>Loading bills…</div>}
-      {error && <div className="p-3 rounded-xl" style={{ background: "rgba(239,68,68,0.08)", color: CR }}>Failed to load bills.</div>}
+      {loading && <PortalModuleState kind="loading" title="Loading bills" description="Getting your permitted bill records." />}
+      {error && <PortalModuleState kind="error" title="Bills couldn't be loaded" description={error} onRetry={() => void refreshBills()} />}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard icon={Clock}      label="Pending Approval" value={String(pendingBills.filter((bill) => bill.status === "Pending Approval").length)}  sub="Awaiting Vice Chairman review" accentColor={B.purple} />
         <KPICard icon={FileCheck}  label="Reviewed"             value={String(pendingBills.filter((bill) => bill.status === "Reviewed").length)}       sub="Reviewed by Vice Chairman" accentColor={CGo} />
@@ -2359,6 +2873,15 @@ function BillsPage({ user }: { user: AppUser }) {
               ))}
             </tbody>
           </table>
+          {!loading && !error && filteredBills.length === 0 && (
+            <div className="p-4">
+              <PortalModuleState
+                kind="empty"
+                title={bills.length === 0 ? "No bills yet" : "No bills match your filters"}
+                description={bills.length === 0 ? "Submitted bills and their approval status will appear here." : "Try a different search term or status filter."}
+              />
+            </div>
+          )}
         </div>
       </GlassCard>
     </div>
@@ -2366,11 +2889,23 @@ function BillsPage({ user }: { user: AppUser }) {
 }
 
 // ─── Marketing Page ───────────────────────────────────────────────────────────
-function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boolean) => void }) {
+type MarketingSection = "orders" | "customers" | "payments" | "collaboration";
+
+function MarketingPage({
+  setShowCreateOrder,
+  initialTab = "orders",
+  initialSearch,
+  showSectionTabs = true,
+}: {
+  setShowCreateOrder?: (show: boolean) => void;
+  initialTab?: MarketingSection;
+  initialSearch?: string;
+  showSectionTabs?: boolean;
+}) {
   const { profile } = useAuth();
   const userRole = profile?.role as Role | undefined;
   const { metrics, orders, customers, revenue, performance, loading, error, refreshData } = useMarketing();
-  const [activeTab, setActiveTab] = useState<"orders"|"customers"|"payments"|"collaboration">("orders");
+  const [activeTab, setActiveTab] = useState<MarketingSection>(initialTab);
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [actionLoadingOrderId, setActionLoadingOrderId] = useState<string | null>(null);
@@ -2378,6 +2913,14 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
   const [selectedCustomer, setSelectedCustomer] = useState<MarketingCustomer | null>(null);
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    setOrderSearch(initialSearch ?? "");
+  }, [initialSearch]);
 
   const normalizedOrderSearch = orderSearch.trim().toLowerCase();
   const filteredOrders = orders.filter((order) => {
@@ -2447,16 +2990,18 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
 
   return (
     <div className="portal-module-page portal-marketing-page p-6 space-y-5">
-      <SectionHeader title="Marketing & Orders" subtitle="Customer orders, sales analytics and performance"
+      <SectionHeader
+        title={showSectionTabs ? "Marketing & Orders" : activeTab === "orders" ? "Marketing Orders" : activeTab === "customers" ? "Customer Database" : activeTab === "payments" ? "Payments" : "Collaboration"}
+        subtitle={showSectionTabs ? "Customer orders, sales analytics and performance" : activeTab === "orders" ? "Review and manage customer orders" : activeTab === "customers" ? "Browse customers and their order history" : activeTab === "payments" ? "Review payment records linked to orders" : "Manage collaborators, applications, approvals, and generated bills"}
         actions={
           <>
-            <SecondaryButton icon={Download} onClick={handleExport}>Export</SecondaryButton>
-            <PrimaryButton icon={Plus} onClick={() => setShowCreateOrder?.(true)}>New Order</PrimaryButton>
+            {(showSectionTabs || activeTab !== "collaboration") && <SecondaryButton icon={Download} onClick={handleExport}>Export</SecondaryButton>}
+            {(showSectionTabs || activeTab === "orders") && <PrimaryButton icon={Plus} onClick={() => setShowCreateOrder?.(true)}>New Order</PrimaryButton>}
           </>
         } />
 
       {/* ─── COLLABORATION MODULE BANNER SECTION ─── */}
-      <div className="rounded-2xl p-5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
+      {showSectionTabs && <div className="rounded-2xl p-5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 font-bold flex-shrink-0">
             <Handshake size={24} />
@@ -2479,20 +3024,17 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
         >
           <Handshake size={16} /> Open Collaboration Section <ArrowRight size={14} />
         </button>
-      </div>
+      </div>}
 
-      {loading && (
-        <div className="p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.25)" }}>
-          Loading marketing data…
-        </div>
+      {(showSectionTabs || activeTab === "orders" || activeTab === "customers") && loading && (
+        <PortalModuleState kind="loading" title="Loading marketing workspace" description="Getting orders, customers, and current performance." />
       )}
 
-      {error && (
-        <div className="p-3 rounded-xl" style={{ background: "rgba(239,68,68,0.08)", color: CR }}>
-          {error}
-        </div>
+      {(showSectionTabs || activeTab === "orders" || activeTab === "customers") && error && (
+        <PortalModuleState kind="error" title="Marketing data couldn't be loaded" description={error} onRetry={() => void refreshData()} />
       )}
 
+      {showSectionTabs && <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard icon={ShoppingCart} label="Total Orders"      value={String(metrics.totalOrders)} sub={`${metrics.pendingOrders} pending`}          accentColor={CB}  />
         <KPICard icon={Clock}        label="Pending / Approved" value={String(metrics.pendingOrders)}  sub={`₹${(metrics.monthlySales / 100000).toFixed(1)}L this month`}    accentColor={CGo} />
@@ -2541,9 +3083,10 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
           )}
         </GlassCard>
       </div>
+      </>}
 
       {/* Tabs */}
-      <div className="flex rounded-2xl overflow-hidden w-fit"
+      {showSectionTabs && <div className="flex rounded-2xl overflow-hidden w-fit"
         style={{ border: "1px solid rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.20)" }}>
         {(["orders","customers","payments","collaboration"] as const).map(t => (
           <button type="button" key={t} onClick={() => setActiveTab(t)}
@@ -2556,7 +3099,7 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
             {t === "orders" ? "Orders" : t === "customers" ? "Customer Database" : t === "payments" ? "Payments" : "Collaboration"}
           </button>
         ))}
-      </div>
+      </div>}
 
       {activeTab === "collaboration" && (
         <CollaborationModule currentUser={profile} />
@@ -2636,8 +3179,14 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                 ))}
               </tbody>
             </table>
-            {filteredOrders.length === 0 && (
-              <div className="p-4 text-center" style={{ color: B.textMuted }}>No orders found</div>
+            {!loading && !error && filteredOrders.length === 0 && (
+              <div className="p-4">
+                <PortalModuleState
+                  kind="empty"
+                  title={orders.length === 0 ? "No orders yet" : "No orders match your search"}
+                  description={orders.length === 0 ? "New marketing orders will appear here." : "Try searching by order reference, customer, or location."}
+                />
+              </div>
             )}
           </div>
         </GlassCard>
@@ -2685,8 +3234,14 @@ function MarketingPage({ setShowCreateOrder }: { setShowCreateOrder?: (show: boo
                 ))}
               </tbody>
             </table>
-            {filteredCustomers.length === 0 && (
-              <div className="p-4 text-center" style={{ color: B.textMuted }}>No customers found</div>
+            {!loading && !error && filteredCustomers.length === 0 && (
+              <div className="p-4">
+                <PortalModuleState
+                  kind="empty"
+                  title={customers.length === 0 ? "No customers yet" : "No customers match your search"}
+                  description={customers.length === 0 ? "Customer profiles will appear here as orders are placed." : "Try searching by customer name or location."}
+                />
+              </div>
             )}
           </div>
         </GlassCard>
@@ -2851,17 +3406,8 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
           </>
         } />
 
-      {loading && (
-        <div className="p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.25)" }}>
-          Loading transport data…
-        </div>
-      )}
-
-      {error && (
-        <div className="p-3 rounded-xl" style={{ background: "rgba(239,68,68,0.08)", color: CR }}>
-          {error}
-        </div>
-      )}
+      {loading && <PortalModuleState kind="loading" title="Loading transport workspace" description="Getting shipments, fleet, and delivery status." />}
+      {error && <PortalModuleState kind="error" title="Transport data couldn't be loaded" description={error} onRetry={() => void refreshData()} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard icon={CheckCircle}   label="Delivered"         value={String(metrics.delivered)} sub="+6% this month"    accentColor={CG}  />
@@ -2895,11 +3441,15 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
           </div>
         </div>
         <div className="overflow-x-auto">
-          {filteredShipments.length === 0 ? (
-            <div className="p-6 text-center text-sm" style={{ color: B.textMuted }}>
-              No shipments match the current search or status filter.
+          {!loading && !error && filteredShipments.length === 0 ? (
+            <div className="p-4">
+              <PortalModuleState
+                kind="empty"
+                title={shipments.length === 0 ? "No shipments yet" : "No shipments match your filters"}
+                description={shipments.length === 0 ? "New dispatches and delivery progress will appear here." : "Try a different search term or delivery status."}
+              />
             </div>
-          ) : (
+          ) : !loading && !error ? (
           <table className="w-full min-w-[800px]">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.15)" }}>
@@ -2931,7 +3481,7 @@ function TransportPage({ setShowCreateDispatch }: { setShowCreateDispatch?: (sho
               ))}
             </tbody>
           </table>
-          )}
+          ) : null}
         </div>
       </GlassCard>
 
@@ -3192,9 +3742,9 @@ function ReportsPage({ user }: { user: AppUser }) {
         subtitle="Generate, filter and export reports across all departments"
         actions={
           <div className="flex gap-2">
-            <SecondaryButton icon={Download} onClick={() => handleExport("pdf")}>Export PDF</SecondaryButton>
-            <SecondaryButton icon={Download} onClick={() => handleExport("excel")}>Export Excel</SecondaryButton>
-            <SecondaryButton icon={Download} onClick={() => handleExport("csv")}>Export CSV</SecondaryButton>
+            <SecondaryButton icon={Download} disabled={!generatedReport || loading} onClick={() => handleExport("pdf")}>Export PDF</SecondaryButton>
+            <SecondaryButton icon={Download} disabled={!generatedReport || loading} onClick={() => handleExport("excel")}>Export Excel</SecondaryButton>
+            <SecondaryButton icon={Download} disabled={!generatedReport || loading} onClick={() => handleExport("csv")}>Export CSV</SecondaryButton>
           </div>
         } />
 
@@ -3236,7 +3786,7 @@ function ReportsPage({ user }: { user: AppUser }) {
         </div>
 
         <div className="flex gap-2 flex-wrap mb-6">
-          <PrimaryButton icon={BarChart2} onClick={() => void handleGenerate()}>Generate Report</PrimaryButton>
+          <PrimaryButton icon={BarChart2} disabled={loading} onClick={() => void handleGenerate()}>Generate Report</PrimaryButton>
         </div>
 
         <div className="p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.40)" }}>
@@ -3245,9 +3795,9 @@ function ReportsPage({ user }: { user: AppUser }) {
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: B.greenLight, color: CG }}>{generatedReport?.subtitle ?? "Live data"}</span>
           </div>
 
-          {loading && <div className="text-sm" style={{ color: B.textMuted }}>Generating report…</div>}
-          {error && <div className="text-sm" style={{ color: CR }}>{error}</div>}
-          {!loading && !error && !generatedReport && <div className="text-sm" style={{ color: B.textMuted }}>Generate a report to preview live data.</div>}
+          {loading && <PortalModuleState kind="loading" title="Generating report" description="Applying your report filters to the current workspace data." />}
+          {error && <PortalModuleState kind="error" title="Report couldn't be generated" description={error} onRetry={() => void handleGenerate()} />}
+          {!loading && !error && !generatedReport && <PortalModuleState kind="empty" title="No report preview" description="Generate a report to preview live data." />}
 
           {generatedReport && (
             <div className="space-y-4">
@@ -3307,11 +3857,17 @@ function ReportsPage({ user }: { user: AppUser }) {
 
 function NotificationsPage({
   notifications,
+  loading,
+  error,
+  onRetry,
   onMarkAllRead,
   onMarkRead,
 }: {
   notifications: NotificationRecord[];
-  onMarkAllRead: () => void;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  onMarkAllRead: () => void | Promise<void>;
   onMarkRead?: (notificationId: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState("all");
@@ -3336,11 +3892,12 @@ function NotificationsPage({
     <div className="portal-module-page portal-notifications-page p-6 space-y-5">
       <SectionHeader title="Notifications"
         subtitle={`${notifications.filter((n) => !n.read).length} unread — organisational updates and approvals`}
-        actions={<SecondaryButton icon={CheckSquare} onClick={() => void onMarkAllRead()}>Mark All Read</SecondaryButton>} />
+        actions={<SecondaryButton icon={CheckSquare} disabled={loading || notifications.every((notification) => notification.read)} onClick={() => void onMarkAllRead()}>Mark All Read</SecondaryButton>} />
 
       <div className="flex gap-2 flex-wrap">
         {["all","unread","approval","order","attendance","recruit","suspension","delivery","bill"].map(f => (
           <button type="button" key={f} onClick={() => setFilter(f)}
+            aria-pressed={filter === f}
             className="px-4 py-2 text-sm font-medium rounded-xl capitalize transition-all"
             style={{ background: filter === f ? B.nav : "rgba(255,255,255,0.30)", border: filter === f ? `1px solid ${B.navLight}` : "1px solid rgba(255,255,255,0.50)",
               color: filter === f ? "white" : B.textMuted, fontWeight: filter === f ? 600 : 400,
@@ -3349,10 +3906,13 @@ function NotificationsPage({
       </div>
 
       <GlassCard className="overflow-hidden">
-        {filtered.length === 0 && (
-          <div className="py-12 text-center" style={{ color: B.textFaint }}>No notifications in this category.</div>
-        )}
-        {filtered.map((n, i) => {
+        {loading ? (
+          <div className="p-4"><PortalModuleState kind="loading" title="Loading notifications" description="Getting recent updates for your workspace." /></div>
+        ) : error ? (
+          <div className="p-4"><PortalModuleState kind="error" title="Notifications couldn't be loaded" description={error} onRetry={onRetry} /></div>
+        ) : filtered.length === 0 ? (
+          <div className="p-4"><PortalModuleState kind="empty" title={filter === "unread" ? "You're all caught up" : "No notifications here"} description={filter === "unread" ? "There are no unread updates right now." : "Updates in this category will appear here."} /></div>
+        ) : filtered.map((n, i) => {
           const category = getNotificationCategory(n.type);
           const Icon = icons[category] || Bell;
           const color = colors[category] || CB;
@@ -3375,7 +3935,7 @@ function NotificationsPage({
                 <span className="text-xs" style={{ color: B.textFaint }}>
                   {n.created_at ? new Date(n.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Just now"}
                 </span>
-                {!n.read && <button type="button" title="Mark as read" aria-label="Mark notification as read" disabled={!onMarkRead} onClick={() => { void onMarkRead?.(n.id).catch((err) => alert(err instanceof Error ? err.message : "Unable to mark notification as read")); }} className="p-1 rounded-md hover:bg-white/20 disabled:opacity-40" style={{ color: B.textFaint }}><CheckCircle size={15} /></button>}
+                {!n.read && <button type="button" title="Mark as read" aria-label={`Mark ${n.title} as read`} disabled={!onMarkRead} onClick={() => { void onMarkRead?.(n.id).catch((err) => alert(err instanceof Error ? err.message : "Unable to mark notification as read")); }} className="p-1 rounded-md hover:bg-white/20 disabled:opacity-40" style={{ color: B.textFaint }}><CheckCircle size={15} /></button>}
               </div>
             </div>
           );
@@ -3531,6 +4091,10 @@ export default function App() {
       case "attendance":    return <EmployeeAttendancePage currentUser={{ id: profile.id, role: profile.role, department: profile.department }} />;
       case "bills":         return <BillsPage user={profile} />;
       case "marketing":     return <MarketingPage setShowCreateOrder={setShowCreateOrder} />;
+      case "orders":        return <MarketingPage initialTab="orders" showSectionTabs={profile.role !== "Vice Chairman"} setShowCreateOrder={setShowCreateOrder} />;
+      case "customers":     return <MarketingPage initialTab="customers" showSectionTabs={false} setShowCreateOrder={setShowCreateOrder} />;
+      case "payments":      return <PaymentsPage />;
+      case "collaboration": return <MarketingPage initialTab="collaboration" showSectionTabs={false} setShowCreateOrder={setShowCreateOrder} />;
       case "transport":     return <TransportPage setShowCreateDispatch={setShowCreateDispatch} />;
       case "admin":         return <AdminPage user={profile} />;
       case "reports":       return <ReportsPage user={profile} />;

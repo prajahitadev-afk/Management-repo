@@ -6,6 +6,7 @@ import {
   type PaymentRow,
   type PaymentStatus,
 } from "../services/payments.service";
+import { PortalModuleState } from "../components/PortalModuleState";
 
 export function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
@@ -13,6 +14,7 @@ export function PaymentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [canManage, setCanManage] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadPayments = useCallback(async () => {
     setLoading(true);
@@ -39,27 +41,31 @@ export function PaymentsPage() {
     const confirmed = window.confirm(`Mark payment for order ${payment.order_number ?? payment.order_id ?? payment.id} as ${status.toLowerCase()}?`);
     if (!confirmed) return;
     setUpdatingId(payment.id);
-    setError(null);
+    setActionError(null);
     try {
       await setPaymentStatus(payment.id, status);
       window.dispatchEvent(new Event("order-workflow-changed"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update payment status");
+      setActionError(err instanceof Error ? err.message : "Unable to update payment status");
     } finally {
       setUpdatingId(null);
     }
   };
 
   return (
-    <main className="min-h-full p-6">
+    <section className="min-h-full p-6" aria-label="Payments">
       <div className="mx-auto max-w-7xl space-y-5">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Payments</h1>
           <p className="mt-1 text-sm text-slate-600">Payment records linked to orders</p>
         </div>
-        {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
+        {actionError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{actionError}</div>}
         {loading ? (
-          <div className="rounded-2xl border border-white/50 bg-white/40 p-8 text-sm text-slate-600">Loading payments...</div>
+          <PortalModuleState kind="loading" title="Loading payments" description="Getting payment records linked to your orders." />
+        ) : error ? (
+          <PortalModuleState kind="error" title="Payments couldn't be loaded" description={error} onRetry={() => void loadPayments()} />
+        ) : payments.length === 0 ? (
+          <PortalModuleState kind="empty" title="No payment records yet" description="New orders create a pending payment record." />
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-white/50 bg-white/40 shadow-sm">
             <table className="min-w-full text-left text-sm">
@@ -76,9 +82,7 @@ export function PaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {payments.length === 0 ? (
-                  <tr><td colSpan={canManage ? 8 : 7} className="px-4 py-8 text-center text-slate-500">No payment records yet. New orders create a pending payment record.</td></tr>
-                ) : payments.map((payment) => (
+                {payments.map((payment) => (
                   <tr key={payment.id} className="border-t border-white/40">
                     <td className="px-4 py-3 font-mono text-xs">{payment.id}</td>
                     <td className="px-4 py-3">{payment.order_number}</td>
@@ -108,6 +112,6 @@ export function PaymentsPage() {
           </div>
         )}
       </div>
-    </main>
+    </section>
   );
 }

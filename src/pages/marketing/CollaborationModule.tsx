@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Handshake, Building2, ShieldAlert, CheckCircle2, XCircle, Clock, FileText,
-  Plus, Search, Filter, ShieldCheck, ArrowRight, UserCheck, ChevronRight,
+  Plus, Search, Filter, ShieldCheck, ArrowRight, UserCheck,
   Download, Eye, Lock, RefreshCw, AlertCircle, Building, Layers,
   Send, FileCheck, DollarSign, Tag, Calendar, MapPin, Truck, Check, X
 } from "lucide-react";
@@ -277,7 +277,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
   // Section 4 & 12 requirement: Access Control Authorization Denial Page for non-marketing sectors
   if (!hasAccess) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
+      <div data-collaboration-module className="portal-collaboration-module portal-collaboration-denied mx-auto max-w-4xl">
         <div className="rounded-3xl p-10 text-center shadow-xl border border-red-200 bg-gradient-to-b from-red-50 to-white">
           <div className="w-20 h-20 rounded-full bg-red-100 border border-red-300 flex items-center justify-center mx-auto mb-6 text-red-600 shadow-inner">
             <ShieldAlert size={40} />
@@ -309,7 +309,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto text-slate-800">
+    <div data-collaboration-module className="portal-collaboration-module space-y-5 text-slate-800">
       
       {formNotice && (
         <div className={`rounded-2xl border px-4 py-3 text-sm font-medium ${formNotice.type === "success"
@@ -326,10 +326,10 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           </button>
         </div>
       )}
-      {loading && <div className="text-sm text-slate-500">Loading collaboration data...</div>}
+      {loading && <div className="text-sm text-slate-500" role="status">Loading collaboration data...</div>}
 
       {/* ─── HEADER BAR (SECTION 5: EXTERNAL COLLABORATOR WORKSPACE HEADER `# THEIR COMPANY NAME`) ─── */}
-      {isExternalCollaborator ? (
+      {isExternalCollaborator && (
         <div className="rounded-3xl bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 p-8 text-white shadow-2xl relative overflow-hidden border border-emerald-500/30">
           <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -352,24 +352,6 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 VERIFIED ACCREDITED
               </span>
             </div>
-          </div>
-        </div>
-      ) : (
-        /* Internal Prajahita EMS Header */
-        <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-900 to-teal-900 p-8 text-white shadow-2xl relative overflow-hidden border border-emerald-500/25">
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">
-                <span>EMS</span> <ChevronRight size={14} /> <span>Marketing</span> <ChevronRight size={14} /> <span className="text-white bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30">Collaboration Module</span>
-              </div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">
-                Marketing Collaboration & Approval Engine
-              </h1>
-              <p className="mt-2 text-emerald-100/80 text-sm max-w-2xl">
-                Integrated sector collaboration hub for Prajahita Charitable Trust. Enforces strict 3-tier internal approval hierarchy and external collaborator handshake.
-              </p>
-            </div>
-
           </div>
         </div>
       )}
@@ -519,7 +501,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           {/* Applications Table */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700">
+              <table className="portal-collaboration-table w-full text-left text-sm text-slate-700">
                 <thead className="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                   <tr>
                     <th className="py-3.5 px-4">Application ID</th>
@@ -669,7 +651,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <table className="portal-collaboration-table w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 border-b">
                 <tr>
                   <th className="py-3 px-4">Bill Number</th>
@@ -867,7 +849,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Quantity</label>
                   <input
@@ -900,7 +882,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Shipping / Transport</label>
                   <input
@@ -925,7 +907,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Payment Terms</label>
                   <input
@@ -1004,7 +986,7 @@ export function CollaborationModule({ currentUser }: { currentUser: AppUser }) {
               <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block">
                 Approval Hierarchy Workflow Progress
               </span>
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                 {/* Step 1: Vice Chairman */}
                 <div
                   className={`p-3 rounded-xl border ${
