@@ -4,7 +4,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
 import { updateEmployee } from "../../services/employee.service";
 import { getEmployeeDepartmentHistory } from "../../services/department.service";
-import { getRoleHierarchyLevel } from "../../services/role.service";
 import type { EmployeeDepartmentHistory } from "../../types/department.types";
 
 interface EmployeeProfilePageProps {
